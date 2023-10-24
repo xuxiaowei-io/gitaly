@@ -43,44 +43,44 @@ type databaseAdapter struct{ *badger.DB }
 
 // newDatabaseAdapter adapts a *badger.DB to conform to the internal database interface used for
 // hooking into during testing.
-func newDatabaseAdapter(db *badger.DB) database {
+func newDatabaseAdapter(db *badger.DB) Database {
 	return databaseAdapter{DB: db}
 }
 
 // NewWriteBatch calls badger.*DB.NewWriteBatch. Refer to Badger's documentation for details.
-func (db databaseAdapter) NewWriteBatch() writeBatch {
+func (db databaseAdapter) NewWriteBatch() WriteBatch {
 	return db.DB.NewWriteBatch()
 }
 
 // View calls badger.*DB.View. Refer to Badger's documentation for details.
-func (db databaseAdapter) View(handler func(databaseTransaction) error) error {
+func (db databaseAdapter) View(handler func(DatabaseTransaction) error) error {
 	return db.DB.View(func(txn *badger.Txn) error { return handler(txn) })
 }
 
 // Update calls badger.*DB.View. Refer to Badger's documentation for details.
-func (db databaseAdapter) Update(handler func(databaseTransaction) error) error {
+func (db databaseAdapter) Update(handler func(DatabaseTransaction) error) error {
 	return db.DB.Update(func(txn *badger.Txn) error { return handler(txn) })
 }
 
-// database is the Badger.DB interface used by TransactionManager. Refer to Badger's documentation
+// Database is the Badger.DB interface used by TransactionManager. Refer to Badger's documentation
 // for details.
-type database interface {
-	NewWriteBatch() writeBatch
-	View(func(databaseTransaction) error) error
-	Update(func(databaseTransaction) error) error
+type Database interface {
+	NewWriteBatch() WriteBatch
+	View(func(DatabaseTransaction) error) error
+	Update(func(DatabaseTransaction) error) error
 }
 
-// writeBatch is the interface of Badger.WriteBatch used by TransactionManager. Refer to Badger's
+// WriteBatch is the interface of Badger.WriteBatch used by TransactionManager. Refer to Badger's
 // documentation for details.
-type writeBatch interface {
+type WriteBatch interface {
 	Set([]byte, []byte) error
 	Flush() error
 	Cancel()
 }
 
-// databaseTransaction is the interface of *Badger.Txn used by TransactionManager. Refer to Badger's
+// DatabaseTransaction is the interface of *Badger.Txn used by TransactionManager. Refer to Badger's
 // documentation for details
-type databaseTransaction interface {
+type DatabaseTransaction interface {
 	Get([]byte) (*badger.Item, error)
 	Delete([]byte) error
 	NewIterator(badger.IteratorOptions) *badger.Iterator

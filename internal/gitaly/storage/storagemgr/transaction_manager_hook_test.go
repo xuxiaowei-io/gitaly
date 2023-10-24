@@ -62,20 +62,20 @@ func installHooks(tb testing.TB, transactionManager *TransactionManager, databas
 	}
 
 	transactionManager.db = databaseHook{
-		database:    newDatabaseAdapter(database),
+		Database:    newDatabaseAdapter(database),
 		hooks:       hooks,
 		hookContext: hookContext,
 	}
 }
 
 type databaseHook struct {
-	database
+	Database
 	hookContext
 	hooks
 }
 
-func (hook databaseHook) View(handler func(databaseTransaction) error) error {
-	return hook.database.View(func(transaction databaseTransaction) error {
+func (hook databaseHook) View(handler func(DatabaseTransaction) error) error {
+	return hook.Database.View(func(transaction DatabaseTransaction) error {
 		return handler(databaseTransactionHook{
 			databaseTransaction: transaction,
 			hookContext:         hook.hookContext,
@@ -84,8 +84,8 @@ func (hook databaseHook) View(handler func(databaseTransaction) error) error {
 	})
 }
 
-func (hook databaseHook) Update(handler func(databaseTransaction) error) error {
-	return hook.database.Update(func(transaction databaseTransaction) error {
+func (hook databaseHook) Update(handler func(DatabaseTransaction) error) error {
+	return hook.Database.Update(func(transaction DatabaseTransaction) error {
 		return handler(databaseTransactionHook{
 			databaseTransaction: transaction,
 			hookContext:         hook.hookContext,
@@ -94,7 +94,7 @@ func (hook databaseHook) Update(handler func(databaseTransaction) error) error {
 	})
 }
 
-func (hook databaseHook) NewWriteBatch() writeBatch {
+func (hook databaseHook) NewWriteBatch() WriteBatch {
 	return writeBatchHook{
 		writeBatch:  hook.database.NewWriteBatch(),
 		hookContext: hook.hookContext,
@@ -103,7 +103,7 @@ func (hook databaseHook) NewWriteBatch() writeBatch {
 }
 
 type databaseTransactionHook struct {
-	databaseTransaction
+	databaseTransaction DatabaseTransaction
 	hookContext
 	hooks
 }
@@ -140,7 +140,7 @@ func (hook databaseTransactionHook) Delete(key []byte) error {
 }
 
 type writeBatchHook struct {
-	writeBatch
+	writeBatch WriteBatch
 	hookContext
 	hooks
 }
