@@ -56,6 +56,20 @@ type PartitionManager struct {
 	transactionManagerFactory transactionManagerFactory
 }
 
+// DatabaseOpener is responsible for opening a database handle.
+type DatabaseOpener interface {
+	// OpenDatabase opens a database at the given path.
+	OpenDatabase(log.Logger, string) (Database, error)
+}
+
+// DatabaseOpenerFunc is a function that implements DatabaseOpener.
+type DatabaseOpenerFunc func(log.Logger, string) (Database, error)
+
+// OpenDatabase opens a handle to the database at the given path.
+func (fn DatabaseOpenerFunc) OpenDatabase(logger log.Logger, path string) (Database, error) {
+	return fn(logger, path)
+}
+
 // storageManager represents a single storage.
 type storageManager struct {
 	// mu synchronizes access to the fields of storageManager.
@@ -192,12 +206,6 @@ func (ptn *partition) isClosing() bool {
 	}
 }
 
-// DatabaseOpener abstracts out the database opening for testing.
-type DatabaseOpener interface {
-	// OpenDatabase opens a database at a given path.
-	OpenDatabase(logger log.Logger, path string) (Database, error)
-}
-
 // NewPartitionManager returns a new PartitionManager.
 func NewPartitionManager(
 	configuredStorages []config.Storage,
@@ -205,6 +213,7 @@ func NewPartitionManager(
 	housekeepingManager housekeeping.Manager,
 	localRepoFactory localrepo.Factory,
 	logger log.Logger,
+	dbOpener DatabaseOpener,
 ) (*PartitionManager, error) {
 	storages := make(map[string]*storageManager, len(configuredStorages))
 	for _, storage := range configuredStorages {
@@ -234,7 +243,7 @@ func NewPartitionManager(
 		}
 
 		storageLogger := logger.WithField("storage", storage.Name)
-		db, err := OpenDatabase(storageLogger.WithField("component", "database"), databaseDir)
+		db, err := dbOpener.OpenDatabase(storageLogger.WithField("component", "database"), databaseDir)
 		if err != nil {
 			return nil, fmt.Errorf("create storage's database directory: %w", err)
 		}

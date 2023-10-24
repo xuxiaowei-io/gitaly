@@ -376,6 +376,7 @@ func (gsd *gitalyServerDeps) createDependencies(tb testing.TB, cfg config.Cfg) *
 			gsd.housekeepingManager,
 			localrepo.NewFactory(gsd.logger, gsd.locator, gsd.gitCmdFactory, gsd.catfileCache),
 			gsd.logger,
+			storagemgr.DatabaseOpenerFunc(storagemgr.OpenDatabase),
 		)
 		require.NoError(tb, err)
 		tb.Cleanup(partitionManager.Close)

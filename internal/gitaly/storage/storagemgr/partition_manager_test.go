@@ -678,7 +678,7 @@ func TestPartitionManager(t *testing.T) {
 			txManager := transaction.NewManager(cfg, logger, backchannel.NewRegistry())
 			housekeepingManager := housekeeping.NewManager(cfg.Prometheus, logger, txManager)
 
-			partitionManager, err := NewPartitionManager(cfg.Storages, cmdFactory, housekeepingManager, localRepoFactory, logger)
+			partitionManager, err := NewPartitionManager(cfg.Storages, cmdFactory, housekeepingManager, localRepoFactory, logger, DatabaseOpenerFunc(OpenDatabase))
 			require.NoError(t, err)
 
 			if setup.transactionManagerFactory != nil {
@@ -807,7 +807,7 @@ func TestPartitionManager_concurrentClose(t *testing.T) {
 	txManager := transaction.NewManager(cfg, logger, backchannel.NewRegistry())
 	housekeepingManager := housekeeping.NewManager(cfg.Prometheus, logger, txManager)
 
-	partitionManager, err := NewPartitionManager(cfg.Storages, cmdFactory, housekeepingManager, localRepoFactory, logger)
+	partitionManager, err := NewPartitionManager(cfg.Storages, cmdFactory, housekeepingManager, localRepoFactory, logger, DatabaseOpenerFunc(OpenDatabase))
 	require.NoError(t, err)
 	defer partitionManager.Close()
 
