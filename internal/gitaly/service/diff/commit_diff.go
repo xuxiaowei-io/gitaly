@@ -85,7 +85,7 @@ func (s *server) CommitDiff(in *gitalypb.CommitDiffRequest, stream gitalypb.Diff
 	limits.SafeMaxLines = int(in.SafeMaxLines)
 	limits.SafeMaxBytes = int(in.SafeMaxBytes)
 
-	linguistInstance, checkAttrFinish, err := linguist.NewWithGitAttributes(s.logger, s.catfileCache, repo, ctx, git.Revision(leftSha))
+	linguistInstance, checkAttrFinish, err := linguist.NewWithGitAttributes(ctx, s.logger, s.catfileCache, repo, git.Revision(leftSha))
 	if err != nil {
 		return structerr.NewAborted("send: %w", err)
 	}

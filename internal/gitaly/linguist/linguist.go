@@ -39,7 +39,7 @@ func New(logger log.Logger, catfileCache catfile.Cache, repo *localrepo.Repo) *I
 }
 
 // NewWithGitAttributes creates a new instance with CheckAttrCmd
-func NewWithGitAttributes(logger log.Logger, catfileCache catfile.Cache, repo *localrepo.Repo, ctx context.Context, revision git.Revision) (*Instance, func(), error) {
+func NewWithGitAttributes(ctx context.Context, logger log.Logger, catfileCache catfile.Cache, repo *localrepo.Repo, revision git.Revision) (*Instance, func(), error) {
 	attrs := []string{linguistGenerated}
 
 	checkAttr, finishAttr, err := gitattributes.CheckAttr(ctx, repo, revision, attrs)
