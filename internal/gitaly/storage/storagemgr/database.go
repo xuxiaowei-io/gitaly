@@ -62,12 +62,19 @@ func (db databaseAdapter) Update(handler func(DatabaseTransaction) error) error 
 	return db.DB.Update(func(txn *badger.Txn) error { return handler(txn) })
 }
 
+// GetSequence calls badger.*DB.GetSequence. Refer to Badger's documentation for details.
+func (db databaseAdapter) GetSequence(key []byte, bandwidth uint64) (Sequence, error) {
+	return db.DB.GetSequence(key, bandwidth)
+}
+
 // Database is the Badger.DB interface used by TransactionManager. Refer to Badger's documentation
 // for details.
 type Database interface {
 	NewWriteBatch() WriteBatch
 	View(func(DatabaseTransaction) error) error
 	Update(func(DatabaseTransaction) error) error
+	GetSequence([]byte, uint64) (Sequence, error)
+	Close() error
 }
 
 // WriteBatch is the interface of Badger.WriteBatch used by TransactionManager. Refer to Badger's
@@ -76,6 +83,12 @@ type WriteBatch interface {
 	Set([]byte, []byte) error
 	Flush() error
 	Cancel()
+}
+
+// Sequence is the interface of Badger.Sequence. Refer to Badger's documentation for details.
+type Sequence interface {
+	Next() (uint64, error)
+	Release() error
 }
 
 // DatabaseTransaction is the interface of *Badger.Txn used by TransactionManager. Refer to Badger's
