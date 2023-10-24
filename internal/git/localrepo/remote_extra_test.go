@@ -113,6 +113,7 @@ func TestRepo_FetchInternal(t *testing.T) {
 	})
 
 	t.Run("nonexistent revision", func(t *testing.T) {
+		testhelper.SkipQuarantinedTest(t, "https://gitlab.com/gitlab-org/gitaly/-/issues/5623")
 		ctx := testhelper.MergeIncomingMetadata(ctx, testcfg.GitalyServersMetadataFromCfg(t, cfg))
 
 		repoProto, _ := gittest.CreateRepository(t, ctx, cfg)
