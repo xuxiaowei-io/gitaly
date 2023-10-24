@@ -110,21 +110,22 @@ func (x *ListConflictFilesRequest) GetSkipContent() bool {
 	return false
 }
 
-// ConflictFileHeader ...
+// ConflictFileHeader contains parsed conflicted file information from the `git-merge-tree(1)`
+// output for an individual file.
 type ConflictFileHeader struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// commit_oid ...
+	// commit_oid is the tree-ish revision being merged into.
 	CommitOid string `protobuf:"bytes,2,opt,name=commit_oid,json=commitOid,proto3" json:"commit_oid,omitempty"`
-	// their_path ...
+	// their_path is the path of the conflicted file being merged from.
 	TheirPath []byte `protobuf:"bytes,3,opt,name=their_path,json=theirPath,proto3" json:"their_path,omitempty"`
-	// our_path ...
+	// our_path is the path of the conflicted file being merged into.
 	OurPath []byte `protobuf:"bytes,4,opt,name=our_path,json=ourPath,proto3" json:"our_path,omitempty"`
-	// our_mode ...
+	// our_mode is the mode of the conflicted file being merged into.
 	OurMode int32 `protobuf:"varint,5,opt,name=our_mode,json=ourMode,proto3" json:"our_mode,omitempty"`
-	// ancestor_path ...
+	// ancestor_path is path of the conflicted file for the merge base.
 	AncestorPath []byte `protobuf:"bytes,6,opt,name=ancestor_path,json=ancestorPath,proto3" json:"ancestor_path,omitempty"`
 }
 
@@ -195,7 +196,7 @@ func (x *ConflictFileHeader) GetAncestorPath() []byte {
 	return nil
 }
 
-// ConflictFile ...
+// ConflictFile contains conflicted file information.
 type ConflictFile struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -266,12 +267,14 @@ type isConflictFile_ConflictFilePayload interface {
 }
 
 type ConflictFile_Header struct {
-	// header ...
+	// header contains the header information about a conflicted file.
 	Header *ConflictFileHeader `protobuf:"bytes,1,opt,name=header,proto3,oneof"`
 }
 
 type ConflictFile_Content struct {
-	// content ...
+	// content is the content data from the conflicted file. The file data may be broken into chunks
+	// and sent in the stream following a file header. if skip_content is set in the request,
+	// conflicted file content is not streamed.
 	Content []byte `protobuf:"bytes,2,opt,name=content,proto3,oneof"`
 }
 
@@ -279,13 +282,14 @@ func (*ConflictFile_Header) isConflictFile_ConflictFilePayload() {}
 
 func (*ConflictFile_Content) isConflictFile_ConflictFilePayload() {}
 
-// ListConflictFilesResponse ...
+// ListConflictFilesResponse is the response for the ListConflicts RPC.
 type ListConflictFilesResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// files ...
+	// files is a list of conflicted file information being sent in the stream. This information
+	// contains conflicted file headers and optionally the conflicted file content.
 	Files []*ConflictFile `protobuf:"bytes,1,rep,name=files,proto3" json:"files,omitempty"`
 }
 
