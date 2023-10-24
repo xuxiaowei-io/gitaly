@@ -38,6 +38,7 @@ func New(logger log.Logger, catfileCache catfile.Cache, repo *localrepo.Repo) *I
 	}
 }
 
+// NewWithGitAttributes creates a new instance with CheckAttrCmd
 func NewWithGitAttributes(logger log.Logger, catfileCache catfile.Cache, repo *localrepo.Repo, ctx context.Context, revision git.Revision) (*Instance, func(), error) {
 	attrs := []string{linguistGenerated}
 
@@ -65,6 +66,7 @@ func Color(language string) string {
 	return fmt.Sprintf("#%x", colorSha[0:3])
 }
 
+// IsGenerated returns true if the given file is considered to be generated
 func (inst *Instance) IsGenerated(filename string, oid string) (bool, error) {
 	fileInstance, err := newFileInstance(filename, inst.checkAttrCmd)
 	if err != nil {

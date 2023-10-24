@@ -1060,6 +1060,7 @@ func TestCommitDiff_limits(t *testing.T) {
 		})
 	}
 }
+
 func TestCommitDiff_collapseGenerated(t *testing.T) {
 	t.Parallel()
 
@@ -1094,39 +1095,39 @@ func TestCommitDiff_collapseGenerated(t *testing.T) {
 		expectedResult []diffAttributes
 	}{
 		{
-			desc:    "forced by linguist-generated",
+			desc:    "with both Collapse Generated and CollapseDiffs",
 			request: &gitalypb.CommitDiffRequest{CollapseGenerated: true, CollapseDiffs: true, SafeMaxLines: 9000, SafeMaxFiles: 9000, SafeMaxBytes: 9000},
 			expectedResult: []diffAttributes{
-				{path: ".gitattributes", collapsed: false},
-				{path: "Gopkg.lock", collapsed: true},
-				{path: "abc.go", collapsed: true},
-				{path: "abc.nib", collapsed: true},
-				{path: "abc.txt", collapsed: true},
-				{path: "package-lock.json", collapsed: false},
+				{path: ".gitattributes", collapsed: false, generated: false},
+				{path: "Gopkg.lock", collapsed: true, generated: true},
+				{path: "abc.go", collapsed: true, generated: true},
+				{path: "abc.nib", collapsed: true, generated: true},
+				{path: "abc.txt", collapsed: true, generated: true},
+				{path: "package-lock.json", collapsed: false, generated: false},
 			},
 		},
 		{
 			desc:    "without CollapseDiffs options",
 			request: &gitalypb.CommitDiffRequest{CollapseGenerated: true},
 			expectedResult: []diffAttributes{
-				{path: ".gitattributes", collapsed: false},
-				{path: "Gopkg.lock", collapsed: false},
-				{path: "abc.go", collapsed: false},
-				{path: "abc.nib", collapsed: false},
-				{path: "abc.txt", collapsed: false},
-				{path: "package-lock.json", collapsed: false},
+				{path: ".gitattributes", collapsed: false, generated: false},
+				{path: "Gopkg.lock", collapsed: false, generated: false},
+				{path: "abc.go", collapsed: false, generated: false},
+				{path: "abc.nib", collapsed: false, generated: false},
+				{path: "abc.txt", collapsed: false, generated: false},
+				{path: "package-lock.json", collapsed: false, generated: false},
 			},
 		},
 		{
 			desc:    "without CollapseGenerated option",
 			request: &gitalypb.CommitDiffRequest{CollapseDiffs: true, SafeMaxLines: 9000, SafeMaxFiles: 9000, SafeMaxBytes: 9000},
 			expectedResult: []diffAttributes{
-				{path: ".gitattributes", collapsed: false},
-				{path: "Gopkg.lock", collapsed: false},
-				{path: "abc.go", collapsed: false},
-				{path: "abc.nib", collapsed: false},
-				{path: "abc.txt", collapsed: false},
-				{path: "package-lock.json", collapsed: false},
+				{path: ".gitattributes", collapsed: false, generated: false},
+				{path: "Gopkg.lock", collapsed: false, generated: false},
+				{path: "abc.go", collapsed: false, generated: false},
+				{path: "abc.nib", collapsed: false, generated: false},
+				{path: "abc.txt", collapsed: false, generated: false},
+				{path: "package-lock.json", collapsed: false, generated: false},
 			},
 		},
 	} {
@@ -1150,6 +1151,7 @@ func TestCommitDiff_collapseGenerated(t *testing.T) {
 
 				require.Equal(t, expectedDiff.path, string(diff.FromPath), "%s path", diff.FromPath)
 				require.Equal(t, expectedDiff.collapsed, diff.Collapsed, "%s collapsed", diff.FromPath)
+				require.Equal(t, expectedDiff.generated, diff.Generated, "%s generated", diff.FromPath)
 
 				if expectedDiff.collapsed {
 					require.Empty(t, diff.Patch, "%s patch", diff.FromPath)
@@ -1259,6 +1261,7 @@ func getDiffsFromCommitDiffClient(t *testing.T, client gitalypb.DiffService_Comm
 				ToPath:         fetchedDiff.ToPath,
 				Binary:         fetchedDiff.Binary,
 				Collapsed:      fetchedDiff.Collapsed,
+				Generated:      fetchedDiff.Generated,
 				OverflowMarker: fetchedDiff.OverflowMarker,
 				Patch:          fetchedDiff.RawPatchData,
 				TooLarge:       fetchedDiff.TooLarge,

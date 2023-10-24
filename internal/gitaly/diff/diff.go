@@ -18,6 +18,7 @@ type Diff struct {
 	Binary          bool
 	OverflowMarker  bool
 	Collapsed       bool
+	Generated       bool
 	TooLarge        bool
 	CollectAllPaths bool
 	Status          byte
