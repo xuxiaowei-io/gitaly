@@ -738,7 +738,7 @@ type TransactionManager struct {
 func NewTransactionManager(
 	ptnID partitionID,
 	logger log.Logger,
-	db *badger.DB,
+	db Database,
 	storagePath,
 	relativePath,
 	stateDir,
@@ -759,7 +759,7 @@ func NewTransactionManager(
 		storagePath:          storagePath,
 		relativePath:         relativePath,
 		partitionID:          ptnID,
-		db:                   newDatabaseAdapter(db),
+		db:                   db,
 		admissionQueue:       make(chan *Transaction),
 		initialized:          make(chan struct{}),
 		snapshotLocks:        make(map[LSN]*snapshotLock),

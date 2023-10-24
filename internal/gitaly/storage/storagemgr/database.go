@@ -8,14 +8,19 @@ import (
 )
 
 // OpenDatabase opens a new database handle to a database at the given path.
-func OpenDatabase(logger log.Logger, databasePath string) (*badger.DB, error) {
+func OpenDatabase(logger log.Logger, databasePath string) (Database, error) {
 	dbOptions := badger.DefaultOptions(databasePath)
 	// Enable SyncWrites to ensure all writes are persisted to disk before considering
 	// them committed.
 	dbOptions.SyncWrites = true
 	dbOptions.Logger = badgerLogger{logger}
 
-	return badger.Open(dbOptions)
+	db, err := badger.Open(dbOptions)
+	if err != nil {
+		return nil, fmt.Errorf("open: %w", err)
+	}
+
+	return newDatabaseAdapter(db), nil
 }
 
 type badgerLogger struct {
@@ -67,8 +72,7 @@ func (db databaseAdapter) GetSequence(key []byte, bandwidth uint64) (Sequence, e
 	return db.DB.GetSequence(key, bandwidth)
 }
 
-// Database is the Badger.DB interface used by TransactionManager. Refer to Badger's documentation
-// for details.
+// Database is the Badger.DB interface. Refer to Badger's documentation for details.
 type Database interface {
 	NewWriteBatch() WriteBatch
 	View(func(DatabaseTransaction) error) error
@@ -77,8 +81,7 @@ type Database interface {
 	Close() error
 }
 
-// WriteBatch is the interface of Badger.WriteBatch used by TransactionManager. Refer to Badger's
-// documentation for details.
+// WriteBatch is the interface of Badger.WriteBatch. Refer to Badger's documentation for details.
 type WriteBatch interface {
 	Set([]byte, []byte) error
 	Flush() error

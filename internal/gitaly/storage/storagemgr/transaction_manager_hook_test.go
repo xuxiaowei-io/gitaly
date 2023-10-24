@@ -19,7 +19,7 @@ type hookContext struct {
 	// closeManager calls the calls Close on the TransactionManager.
 	closeManager func()
 	// database provides access to the database for the hook handler.
-	database *badger.DB
+	database Database
 	tb       testing.TB
 }
 
@@ -42,7 +42,7 @@ type hooks struct {
 }
 
 // installHooks installs the configured hooks into the transactionManager.
-func installHooks(tb testing.TB, transactionManager *TransactionManager, database *badger.DB, hooks hooks) {
+func installHooks(tb testing.TB, transactionManager *TransactionManager, database Database, hooks hooks) {
 	hookContext := hookContext{closeManager: transactionManager.close, database: database, tb: &testingHook{TB: tb}}
 
 	transactionManager.close = func() {
@@ -62,7 +62,7 @@ func installHooks(tb testing.TB, transactionManager *TransactionManager, databas
 	}
 
 	transactionManager.db = databaseHook{
-		Database:    newDatabaseAdapter(database),
+		Database:    database,
 		hooks:       hooks,
 		hookContext: hookContext,
 	}

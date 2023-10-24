@@ -147,7 +147,7 @@ type DatabaseState map[string]proto.Message
 
 // RequireDatabase asserts the actual database state matches the expected database state. The actual values in the
 // database are unmarshaled to the same type the values have in the expected database state.
-func RequireDatabase(tb testing.TB, ctx context.Context, database *badger.DB, expectedState DatabaseState) {
+func RequireDatabase(tb testing.TB, ctx context.Context, database Database, expectedState DatabaseState) {
 	tb.Helper()
 
 	if expectedState == nil {
@@ -156,7 +156,7 @@ func RequireDatabase(tb testing.TB, ctx context.Context, database *badger.DB, ex
 
 	actualState := DatabaseState{}
 	unexpectedKeys := []string{}
-	require.NoError(tb, database.View(func(txn *badger.Txn) error {
+	require.NoError(tb, database.View(func(txn DatabaseTransaction) error {
 		iterator := txn.NewIterator(badger.DefaultIteratorOptions)
 		defer iterator.Close()
 

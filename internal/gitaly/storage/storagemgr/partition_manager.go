@@ -73,7 +73,7 @@ type storageManager struct {
 	// no new transactions are allowed to begin.
 	closed bool
 	// db is the handle to the key-value store used for storing the storage's database state.
-	database *badger.DB
+	database Database
 	// partitionAssigner manages partition assignments of repositories.
 	partitionAssigner *partitionAssigner
 	// partitions contains all the active partitions. Each repository can have up to one partition.
@@ -190,6 +190,12 @@ func (ptn *partition) isClosing() bool {
 	default:
 		return false
 	}
+}
+
+// DatabaseOpener abstracts out the database opening for testing.
+type DatabaseOpener interface {
+	// OpenDatabase opens a database at a given path.
+	OpenDatabase(logger log.Logger, path string) (Database, error)
 }
 
 // NewPartitionManager returns a new PartitionManager.
