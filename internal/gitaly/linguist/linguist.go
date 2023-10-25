@@ -92,7 +92,8 @@ func (inst *Instance) IsGenerated(filename string, oid string) (bool, error) {
 		return false, fmt.Errorf("read object: %w", err)
 	}
 
-	content, err := io.ReadAll(blob)
+	// Read arbitrary number of bytes considered enough to determine language.
+	content, err := io.ReadAll(io.LimitReader(blob, 2048))
 	if err != nil {
 		return false, fmt.Errorf("read content: %w", err)
 	}
