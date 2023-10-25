@@ -1082,6 +1082,7 @@ func TestCommitDiff_collapseGenerated(t *testing.T) {
 	rightCommit := gittest.WriteCommit(t, cfg, repoPath,
 		gittest.WithTreeEntries(
 			gittest.TreeEntry{Path: "abc.txt", Mode: "100644", Content: "new text\n"},
+			gittest.TreeEntry{Path: "new-file.md", Mode: "100644", Content: "new file\n"},
 		))
 
 	type diffAttributes struct {
@@ -1103,6 +1104,7 @@ func TestCommitDiff_collapseGenerated(t *testing.T) {
 				{path: "abc.go", collapsed: true, generated: true},
 				{path: "abc.nib", collapsed: true, generated: true},
 				{path: "abc.txt", collapsed: true, generated: true},
+				{path: "new-file.md", collapsed: false, generated: false},
 				{path: "package-lock.json", collapsed: false, generated: false},
 			},
 		},
@@ -1115,6 +1117,7 @@ func TestCommitDiff_collapseGenerated(t *testing.T) {
 				{path: "abc.go", collapsed: false, generated: false},
 				{path: "abc.nib", collapsed: false, generated: false},
 				{path: "abc.txt", collapsed: false, generated: false},
+				{path: "new-file.md", collapsed: false, generated: false},
 				{path: "package-lock.json", collapsed: false, generated: false},
 			},
 		},
@@ -1127,6 +1130,7 @@ func TestCommitDiff_collapseGenerated(t *testing.T) {
 				{path: "abc.go", collapsed: false, generated: false},
 				{path: "abc.nib", collapsed: false, generated: false},
 				{path: "abc.txt", collapsed: false, generated: false},
+				{path: "new-file.md", collapsed: false, generated: false},
 				{path: "package-lock.json", collapsed: false, generated: false},
 			},
 		},

@@ -109,7 +109,12 @@ func (s *server) CommitDiff(in *gitalypb.CommitDiffRequest, stream gitalypb.Diff
 		patch := diff.Patch
 
 		if in.CollapseGenerated && in.CollapseDiffs {
-			linguistGenerated, err := linguistInstance.IsGenerated(string(diff.FromPath), diff.FromID)
+			oid := diff.FromID
+			if diff.FromID == "0000000000000000000000000000000000000000" {
+				oid = diff.ToID
+			}
+
+			linguistGenerated, err := linguistInstance.IsGenerated(string(diff.FromPath), oid)
 			if err != nil {
 				return structerr.NewAborted("send: %w", err)
 			}
