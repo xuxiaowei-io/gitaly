@@ -67,7 +67,7 @@ func (s *server) GetPatchID(ctx context.Context, in *gitalypb.GetPatchIDRequest)
 	}
 
 	if patchIDStdout.Len() == 0 {
-		return nil, structerr.NewFailedPrecondition("no difference between old and new revision")
+		return &gitalypb.GetPatchIDResponse{PatchId: ""}, nil
 	}
 
 	// When computing patch IDs for commits directly via e.g. `git show | git patch-id` then the second

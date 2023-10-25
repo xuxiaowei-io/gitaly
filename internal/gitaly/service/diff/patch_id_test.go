@@ -262,7 +262,7 @@ func TestGetPatchID(t *testing.T) {
 						OldRevision: []byte(commit),
 						NewRevision: []byte(commit),
 					},
-					expectedErr: structerr.NewFailedPrecondition("no difference between old and new revision"),
+					expectedResponse: &gitalypb.GetPatchIDResponse{PatchId: ""},
 				}
 			},
 		},
