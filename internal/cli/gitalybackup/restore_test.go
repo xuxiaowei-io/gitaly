@@ -3,11 +3,11 @@ package gitalybackup
 import (
 	"bytes"
 	"encoding/json"
-	"flag"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -84,12 +84,14 @@ Issue: https://gitlab.com/gitlab-org/gitaly/-/issues/5269`)
 	ctx = testhelper.MergeIncomingMetadata(ctx, testcfg.GitalyServersMetadataFromCfg(t, cfg))
 	cmd := restoreSubcommand{}
 
-	fs := flag.NewFlagSet("restore", flag.ContinueOnError)
-	cmd.Flags(fs)
+	cmd.backupPath = path
+	cmd.parallel = runtime.NumCPU()
+	cmd.parallelStorage = 2
+	cmd.layout = "pointer"
+	cmd.removeAllRepositories = append(cmd.removeAllRepositories, existingRepo.StorageName)
 
 	require.DirExists(t, existRepoPath)
 
-	require.NoError(t, fs.Parse([]string{"-path", path, "-remove-all-repositories", existingRepo.StorageName}))
 	require.EqualError(t,
 		cmd.Run(ctx, testhelper.SharedLogger(t), &stdin, io.Discard),
 		"restore: pipeline: 1 failures encountered:\n - invalid: manager: could not dial source: invalid connection string: \"invalid\"\n")
@@ -176,12 +178,14 @@ Issue: https://gitlab.com/gitlab-org/gitaly/-/issues/5269`)
 	ctx = testhelper.MergeIncomingMetadata(ctx, testcfg.GitalyServersMetadataFromCfg(t, cfg))
 	cmd := restoreSubcommand{}
 
-	fs := flag.NewFlagSet("restore", flag.ContinueOnError)
-	cmd.Flags(fs)
+	cmd.parallel = runtime.NumCPU()
+	cmd.parallelStorage = 2
+	cmd.layout = "pointer"
+	cmd.removeAllRepositories = append(cmd.removeAllRepositories, existingRepo.StorageName)
+	cmd.serverSide = true
 
 	require.DirExists(t, existRepoPath)
 
-	require.NoError(t, fs.Parse([]string{"-server-side", "-remove-all-repositories", existingRepo.StorageName}))
 	require.EqualError(t,
 		cmd.Run(ctx, testhelper.SharedLogger(t), &stdin, io.Discard),
 		"restore: pipeline: 1 failures encountered:\n - invalid: server-side restore: could not dial source: invalid connection string: \"invalid\"\n")

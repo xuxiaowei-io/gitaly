@@ -3,9 +3,9 @@ package gitalybackup
 import (
 	"bytes"
 	"encoding/json"
-	"flag"
 	"io"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -56,10 +56,12 @@ func TestCreateSubcommand(t *testing.T) {
 
 	cmd := createSubcommand{backupPath: path}
 
-	fs := flag.NewFlagSet("create", flag.ContinueOnError)
-	cmd.Flags(fs)
+	cmd.backupPath = path
+	cmd.parallel = runtime.NumCPU()
+	cmd.parallelStorage = 2
+	cmd.layout = "pointer"
+	cmd.backupID = "the-new-backup"
 
-	require.NoError(t, fs.Parse([]string{"-path", path, "-id", "the-new-backup"}))
 	require.EqualError(t,
 		cmd.Run(ctx, testhelper.SharedLogger(t), &stdin, io.Discard),
 		"create: pipeline: 1 failures encountered:\n - invalid: manager: could not dial source: invalid connection string: \"invalid\"\n")
@@ -113,10 +115,12 @@ func TestCreateSubcommand_serverSide(t *testing.T) {
 	}))
 
 	cmd := createSubcommand{}
-	fs := flag.NewFlagSet("create", flag.ContinueOnError)
-	cmd.Flags(fs)
+	cmd.parallel = runtime.NumCPU()
+	cmd.parallelStorage = 2
+	cmd.layout = "pointer"
+	cmd.backupID = "the-new-backup"
+	cmd.serverSide = true
 
-	require.NoError(t, fs.Parse([]string{"-server-side", "-id", "the-new-backup"}))
 	require.EqualError(t,
 		cmd.Run(ctx, testhelper.SharedLogger(t), &stdin, io.Discard),
 		"create: pipeline: 1 failures encountered:\n - invalid: server-side create: could not dial source: invalid connection string: \"invalid\"\n")

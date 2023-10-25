@@ -1,61 +1,52 @@
 package gitalybackup
 
 import (
-	"context"
-	"flag"
 	"fmt"
-	"io"
-	"os"
 
-	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
+	"github.com/urfave/cli/v2"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/version"
 )
 
-type subcmd interface {
-	Flags(*flag.FlagSet)
-	Run(ctx context.Context, logger log.Logger, stdin io.Reader, stdout io.Writer) error
+func init() {
+	// Override the version printer so the output format matches what Praefect
+	// used before the introduction of the CLI toolkit.
+	cli.VersionPrinter = func(ctx *cli.Context) {
+		fmt.Fprintln(ctx.App.Writer, version.GetVersionString(binaryName))
+	}
 }
 
-var subcommands = map[string]subcmd{
-	"create":  &createSubcommand{},
-	"restore": &restoreSubcommand{},
-}
+const (
+	progname = "gitaly-backup"
 
-// Main is an entry point of the gitaly-backup binary.
-func Main() {
-	logger, err := log.Configure(os.Stdout, "json", "")
-	if err != nil {
-		fmt.Printf("configuring logger failed: %v", err)
-		os.Exit(1)
-	}
+	pathFlagName = "path"
+	binaryName   = "Gitaly Backup"
+)
 
-	flags := flag.NewFlagSet("gitaly-backup", flag.ExitOnError)
-	_ = flags.Parse(os.Args)
-
-	if flags.NArg() < 2 {
-		logger.Error("missing subcommand")
-		os.Exit(1)
-	}
-
-	subcmdName := flags.Arg(1)
-	subcmd, ok := subcommands[subcmdName]
-	if !ok {
-		logger.Error(fmt.Sprintf("unknown subcommand: %q", flags.Arg(1)))
-		os.Exit(1)
-	}
-
-	subcmdFlags := flag.NewFlagSet(subcmdName, flag.ExitOnError)
-	subcmd.Flags(subcmdFlags)
-	_ = subcmdFlags.Parse(flags.Args()[2:])
-
-	ctx, err := storage.InjectGitalyServersEnv(context.Background())
-	if err != nil {
-		logger.Error(err.Error())
-		os.Exit(1)
-	}
-
-	if err := subcmd.Run(ctx, logger, os.Stdin, os.Stdout); err != nil {
-		logger.Error(err.Error())
-		os.Exit(1)
+// NewApp returns a new praefect app.
+func NewApp() *cli.App {
+	return &cli.App{
+		Name:    progname,
+		Usage:   "create gitaly backups",
+		Version: version.GetVersionString(binaryName),
+		// serveAction is also here in the root to keep the CLI backwards compatible with
+		// the previous way to launch Praefect with just `praefect -config FILE`.
+		// We may want to deprecate this eventually.
+		//
+		// The 'DefaultCommand: "serve"' setting can't be used here because it won't be
+		// possible to invoke sub-command not yet registered.
+		// Action: serveAction,
+		Commands: []*cli.Command{
+			newCreateCommand(),
+			newRestoreCommand(),
+		},
+		Flags: []cli.Flag{
+			&cli.StringFlag{
+				// We can't mark it required, because it is not for all sub-commands.
+				// We need it as it is used by majority of the sub-commands and
+				// because of the existing format of commands invocation.
+				Name:  pathFlagName,
+				Usage: "Directory where the backup files will be created/restored.",
+			},
+		},
 	}
 }

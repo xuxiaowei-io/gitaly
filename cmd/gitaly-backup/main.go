@@ -1,7 +1,14 @@
 package main
 
-import "gitlab.com/gitlab-org/gitaly/v16/internal/cli/gitalybackup"
+import (
+	"log"
+	"os"
+
+	cli "gitlab.com/gitlab-org/gitaly/v16/internal/cli/gitalybackup"
+)
 
 func main() {
-	gitalybackup.Main()
+	if err := cli.NewApp().Run(os.Args); err != nil {
+		log.Fatal(err)
+	}
 }
