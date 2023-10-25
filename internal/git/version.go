@@ -14,9 +14,9 @@ import (
 // - https://docs.gitlab.com/ee/install/installation.html#software-requirements
 // - https://docs.gitlab.com/ee/update/ (see e.g. https://docs.gitlab.com/ee/update/#1440)
 var minimumVersion = Version{
-	versionString: "2.41.0",
+	versionString: "2.42.0",
 	major:         2,
-	minor:         41,
+	minor:         42,
 	patch:         0,
 	rc:            false,
 
@@ -73,21 +73,6 @@ func (v Version) String() string {
 // supported by Gitaly.
 func (v Version) IsSupported() bool {
 	return !v.LessThan(minimumVersion)
-}
-
-// CatfileSupportsNulTerminatedOutput detects whether git-cat-file(1) knows the `-Z` switch, which causes it to
-// NUL-terminate both stdin and stdout. This new switch has been introduced upstream via a9ea4c23dc (Merge branch
-// 'ps/cat-file-null-output', 2023-06-22).
-//
-// The patches will be part of Git v2.42.0 and have been backported to Git v2.41.0.gl1.
-func (v Version) CatfileSupportsNulTerminatedOutput() bool {
-	if v.major == 2 && v.minor == 41 && v.gl > 0 {
-		return true
-	}
-
-	return !v.LessThan(Version{
-		major: 2, minor: 42,
-	})
 }
 
 // LessThan determines whether the version is older than another version.

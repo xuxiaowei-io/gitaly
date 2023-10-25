@@ -180,20 +180,9 @@ func (c *ProcessCache) ObjectReader(ctx context.Context, repo git.RepositoryExec
 	var err error
 	var cancel func()
 
-	version, err := repo.GitVersion(ctx)
-	if err != nil {
-		return nil, nil, fmt.Errorf("git version: %w", err)
-	}
-
-	if version.CatfileSupportsNulTerminatedOutput() {
-		cached, cancel, err = c.getOrCreateProcess(ctx, repo, &c.objectReaders, func(ctx context.Context) (cacheable, error) {
-			return newObjectReader(ctx, repo, c.catfileLookupCounter)
-		}, "catfile.ObjectReader")
-	} else {
-		cached, cancel, err = c.getOrCreateProcess(ctx, repo, &c.objectContentReaders, func(ctx context.Context) (cacheable, error) {
-			return newObjectContentReader(ctx, repo, c.catfileLookupCounter)
-		}, "catfile.ObjectContentReader")
-	}
+	cached, cancel, err = c.getOrCreateProcess(ctx, repo, &c.objectReaders, func(ctx context.Context) (cacheable, error) {
+		return newObjectReader(ctx, repo, c.catfileLookupCounter)
+	}, "catfile.ObjectReader")
 	if err != nil {
 		return nil, nil, err
 	}
@@ -212,20 +201,9 @@ func (c *ProcessCache) ObjectInfoReader(ctx context.Context, repo git.Repository
 	var err error
 	var cancel func()
 
-	version, err := repo.GitVersion(ctx)
-	if err != nil {
-		return nil, nil, fmt.Errorf("git version: %w", err)
-	}
-
-	if version.CatfileSupportsNulTerminatedOutput() {
-		cached, cancel, err = c.getOrCreateProcess(ctx, repo, &c.objectReaders, func(ctx context.Context) (cacheable, error) {
-			return newObjectReader(ctx, repo, c.catfileLookupCounter)
-		}, "catfile.ObjectReader")
-	} else {
-		cached, cancel, err = c.getOrCreateProcess(ctx, repo, &c.objectInfoReaders, func(ctx context.Context) (cacheable, error) {
-			return newObjectInfoReader(ctx, repo, c.catfileLookupCounter)
-		}, "catfile.ObjectInfoReader")
-	}
+	cached, cancel, err = c.getOrCreateProcess(ctx, repo, &c.objectReaders, func(ctx context.Context) (cacheable, error) {
+		return newObjectReader(ctx, repo, c.catfileLookupCounter)
+	}, "catfile.ObjectReader")
 	if err != nil {
 		return nil, nil, err
 	}

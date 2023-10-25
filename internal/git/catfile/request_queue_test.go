@@ -26,7 +26,7 @@ func TestRequestQueue_ReadObject(t *testing.T) {
 	cfg := testcfg.Build(t)
 
 	oid := git.ObjectID(strings.Repeat("1", gittest.DefaultObjectHash.EncodedLen()))
-	lineEnding := detectEncodedLineEnding(t, ctx, cfg)
+	lineEnding := "\\x00"
 
 	t.Run("ReadInfo on ReadObject queue", func(t *testing.T) {
 		_, queue := newInterceptedObjectQueue(t, ctx, cfg, `#!/usr/bin/env bash
@@ -251,7 +251,7 @@ func TestRequestQueue_RequestObject(t *testing.T) {
 	cfg := testcfg.Build(t)
 
 	oid := git.ObjectID(strings.Repeat("1", gittest.DefaultObjectHash.EncodedLen()))
-	lineEnding := detectEncodedLineEnding(t, ctx, cfg)
+	lineEnding := "\\x00"
 
 	requireRevision := func(t *testing.T, queue *requestQueue, rev git.Revision) {
 		object, err := queue.ReadObject(ctx)
@@ -349,7 +349,7 @@ func TestRequestQueue_RequestInfo(t *testing.T) {
 	oid := git.ObjectID(strings.Repeat("1", gittest.DefaultObjectHash.EncodedLen()))
 	expectedInfo := &ObjectInfo{oid, "blob", 955, gittest.DefaultObjectHash.Format}
 
-	lineEnding := detectEncodedLineEnding(t, ctx, cfg)
+	lineEnding := "\\x00"
 
 	requireRevision := func(t *testing.T, queue *requestQueue) {
 		info, err := queue.ReadInfo(ctx)
@@ -442,7 +442,7 @@ func TestRequestQueue_CommandStats(t *testing.T) {
 	cfg := testcfg.Build(t)
 
 	oid := git.ObjectID(strings.Repeat("1", gittest.DefaultObjectHash.EncodedLen()))
-	lineEnding := detectEncodedLineEnding(t, ctx, cfg)
+	lineEnding := "\\x00"
 
 	_, queue := newInterceptedObjectQueue(t, ctx, cfg, fmt.Sprintf(`#!/usr/bin/env bash
 			IFS= read -r -d '' revision
@@ -516,11 +516,4 @@ func newInterceptedInfoQueue(t *testing.T, ctx context.Context, cfg config.Cfg, 
 	t.Cleanup(cleanup)
 
 	return reader, queue
-}
-
-func detectEncodedLineEnding(t *testing.T, ctx context.Context, cfg config.Cfg) string {
-	if catfileSupportsNul(t, ctx, cfg) {
-		return "\\x00"
-	}
-	return "\\n"
 }

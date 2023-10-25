@@ -29,12 +29,6 @@ func TestObjectReader_reader(t *testing.T) {
 	})
 	cmdExecutor := newRepoExecutor(t, cfg, repoProto)
 
-	version, err := cmdExecutor.GitVersion(ctx)
-	require.NoError(t, err)
-	if !version.CatfileSupportsNulTerminatedOutput() {
-		t.Skip()
-	}
-
 	commitID := gittest.WriteCommit(t, cfg, repoPath,
 		gittest.WithBranch("main"),
 		gittest.WithMessage("commit message"),
@@ -177,12 +171,6 @@ func testObjectReaderObject(t *testing.T, ctx context.Context) {
 	})
 	cmdExecutor := newRepoExecutor(t, cfg, repoProto)
 
-	version, err := cmdExecutor.GitVersion(ctx)
-	require.NoError(t, err)
-	if !version.CatfileSupportsNulTerminatedOutput() {
-		t.Skip()
-	}
-
 	commitID := gittest.WriteCommit(t, cfg, repoPath,
 		gittest.WithBranch("main"),
 		gittest.WithMessage("commit message"),
@@ -290,12 +278,6 @@ func TestObjectReader_queue(t *testing.T) {
 		SkipCreationViaService: true,
 	})
 	cmdExecutor := newRepoExecutor(t, cfg, repoProto)
-
-	version, err := cmdExecutor.GitVersion(ctx)
-	require.NoError(t, err)
-	if !version.CatfileSupportsNulTerminatedOutput() {
-		t.Skip()
-	}
 
 	foobarBlob := gittest.WriteBlob(t, cfg, repoPath, []byte("foobar"))
 	barfooBlob := gittest.WriteBlob(t, cfg, repoPath, []byte("barfoo"))

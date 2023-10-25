@@ -108,13 +108,10 @@ func TestVersion_IsSupported(t *testing.T) {
 		{"2.25.0", false},
 		{"2.32.0", false},
 		{"2.38.0-rc0", false},
-		{"2.39.0", false},
-		{"2.39.0.gl0", false},
-		{"2.39.0.gl3", false},
-		{"2.40.0", false},
-		{"2.40.0.gl1", false},
 		{"2.40.1", false},
-		{"2.41.0", true},
+		{"2.41.0", false},
+		{"2.41.0.gl1", false},
+		{"2.42.0", true},
 		{"3.0.0", true},
 		{"3.0.0.gl5", true},
 	} {
@@ -122,33 +119,6 @@ func TestVersion_IsSupported(t *testing.T) {
 			version, err := parseVersion(tc.version)
 			require.NoError(t, err)
 			require.Equal(t, tc.expect, version.IsSupported())
-		})
-	}
-}
-
-func TestVersion_CatfileSupportsNulTerminatedOutput(t *testing.T) {
-	t.Parallel()
-
-	for _, tc := range []struct {
-		version string
-		expect  bool
-	}{
-		{"1.0.0", false},
-		{"2.40.2", false},
-		{"2.41.0", false},
-		{"2.41.1", false},
-		{"2.41.0.gl1", true},
-		{"2.41.0.gl2", true},
-		{"2.41.1.gl1", true},
-		{"2.41.1.gl2", true},
-		{"2.42.0", true},
-		{"3.0.0", true},
-	} {
-		t.Run(tc.version, func(t *testing.T) {
-			version, err := parseVersion(tc.version)
-			require.NoError(t, err)
-			require.Equal(t, tc.expect,
-				version.CatfileSupportsNulTerminatedOutput())
 		})
 	}
 }
