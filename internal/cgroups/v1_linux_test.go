@@ -228,7 +228,7 @@ func TestAddCommand(t *testing.T) {
 	require.NoError(t, v1Manager1.Setup())
 	ctx := testhelper.Context(t)
 
-	cmd2 := exec.CommandContext(ctx, "ls", "-hal", ".")
+	cmd2 := exec.CommandContext(ctx, cmdArgs[0], cmdArgs[1:]...)
 	require.NoError(t, cmd2.Run())
 
 	v1Manager2 := mock.newCgroupManager(config, testhelper.SharedLogger(t), pid)
@@ -351,17 +351,17 @@ gitaly_cgroup_cpu_cfs_throttled_seconds_total{path="%s"} 0.001
 
 			ctx := testhelper.Context(t)
 
-			cmd := exec.CommandContext(ctx, "ls", "-hal", ".")
+			cmd := exec.CommandContext(ctx, cmdArgs[0], cmdArgs[1:]...)
 			require.NoError(t, cmd.Start())
 			_, err := v1Manager1.AddCommand(cmd)
 			require.NoError(t, err)
 
-			gitCmd1 := exec.CommandContext(ctx, "ls", "-hal", ".")
+			gitCmd1 := exec.CommandContext(ctx, cmdArgs[0], cmdArgs[1:]...)
 			require.NoError(t, gitCmd1.Start())
 			_, err = v1Manager1.AddCommand(gitCmd1)
 			require.NoError(t, err)
 
-			gitCmd2 := exec.CommandContext(ctx, "ls", "-hal", ".")
+			gitCmd2 := exec.CommandContext(ctx, cmdArgs[0], cmdArgs[1:]...)
 			require.NoError(t, gitCmd2.Start())
 			_, err = v1Manager1.AddCommand(gitCmd2)
 			require.NoError(t, err)
