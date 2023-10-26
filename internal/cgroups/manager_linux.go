@@ -30,7 +30,7 @@ type cgroupHandler interface {
 	setupRepository(status *cgroupStatus, reposResources *specs.LinuxResources) error
 	createCgroup(repoResources *specs.LinuxResources, cgroupPath string) error
 	addToCgroup(pid int, cgroupPath string) error
-	collect(ch chan<- prometheus.Metric)
+	collect(repoPath string, ch chan<- prometheus.Metric)
 	cleanup() error
 	currentProcessCgroup() string
 	repoPath(groupID int) string
@@ -216,7 +216,20 @@ func (cgm *CGroupManager) Describe(ch chan<- *prometheus.Desc) {
 
 // Collect is used to collect the current values of all CGroupManager prometheus metrics
 func (cgm *CGroupManager) Collect(ch chan<- prometheus.Metric) {
-	cgm.handler.collect(ch)
+	if !cgm.cfg.MetricsEnabled {
+		return
+	}
+
+	for i := 0; i < int(cgm.cfg.Repositories.Count); i++ {
+		repoPath := cgm.handler.repoPath(i)
+
+		cgLock := cgm.status.getLock(repoPath)
+		if !cgLock.isCreated() {
+			continue
+		}
+
+		cgm.handler.collect(repoPath, ch)
+	}
 }
 
 // Stats returns cgroup accounting statistics collected by reading

@@ -346,6 +346,10 @@ gitaly_cgroup_cpu_cfs_throttled_seconds_total{path="%s"} 0.001
 
 			v1Manager1 := mock.newCgroupManager(config, testhelper.SharedLogger(t), tt.pid)
 
+			groupID := calcGroupID(cmdArgs, config.Repositories.Count)
+			cgLock := v1Manager1.status.getLock(v1Manager1.handler.repoPath(int(groupID)))
+			cgLock.created.Store(true)
+
 			mock.setupMockCgroupFiles(t, v1Manager1, mockCgroupFile{"memory.failcnt", "2"})
 			require.NoError(t, v1Manager1.Setup())
 

@@ -325,6 +325,10 @@ gitaly_cgroup_procs_total{path="%s",subsystem="memory"} 1
 
 			v2Manager1 := mock.newCgroupManager(config, testhelper.SharedLogger(t), tt.pid)
 
+			groupID := calcGroupID(cmdArgs, config.Repositories.Count)
+			cgLock := v2Manager1.status.getLock(v2Manager1.handler.repoPath(int(groupID)))
+			cgLock.created.Store(true)
+
 			mock.setupMockCgroupFiles(t, v2Manager1)
 			require.NoError(t, v2Manager1.Setup())
 
