@@ -62,12 +62,9 @@ func (cvh *cgroupV1Handler) setupRepository(reposResources *specs.LinuxResources
 }
 
 func (cvh *cgroupV1Handler) addToCgroup(pid int, cgroupPath string) error {
-	control, err := cgroup1.Load(
-		cgroup1.StaticPath(cgroupPath),
-		cgroup1.WithHiearchy(cvh.hierarchy),
-	)
+	control, err := cvh.loadCgroup(cgroupPath)
 	if err != nil {
-		return fmt.Errorf("failed loading %s cgroup: %w", cgroupPath, err)
+		return err
 	}
 
 	if err := control.Add(cgroup1.Process{Pid: pid}); err != nil {
@@ -82,6 +79,17 @@ func (cvh *cgroupV1Handler) addToCgroup(pid int, cgroupPath string) error {
 	return nil
 }
 
+func (cvh *cgroupV1Handler) loadCgroup(cgroupPath string) (cgroup1.Cgroup, error) {
+	control, err := cgroup1.Load(
+		cgroup1.StaticPath(cgroupPath),
+		cgroup1.WithHiearchy(cvh.hierarchy),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed loading %s cgroup: %w", cgroupPath, err)
+	}
+	return control, nil
+}
+
 func (cvh *cgroupV1Handler) collect(ch chan<- prometheus.Metric) {
 	if !cvh.cfg.MetricsEnabled {
 		return
@@ -90,10 +98,7 @@ func (cvh *cgroupV1Handler) collect(ch chan<- prometheus.Metric) {
 	for i := 0; i < int(cvh.cfg.Repositories.Count); i++ {
 		repoPath := cvh.repoPath(i)
 		logger := cvh.logger.WithField("cgroup_path", repoPath)
-		control, err := cgroup1.Load(
-			cgroup1.StaticPath(repoPath),
-			cgroup1.WithHiearchy(cvh.hierarchy),
-		)
+		control, err := cvh.loadCgroup(repoPath)
 		if err != nil {
 			logger.WithError(err).Warn("unable to load cgroup controller")
 			return
@@ -159,12 +164,9 @@ func (cvh *cgroupV1Handler) collect(ch chan<- prometheus.Metric) {
 func (cvh *cgroupV1Handler) cleanup() error {
 	processCgroupPath := cvh.currentProcessCgroup()
 
-	control, err := cgroup1.Load(
-		cgroup1.StaticPath(processCgroupPath),
-		cgroup1.WithHiearchy(cvh.hierarchy),
-	)
+	control, err := cvh.loadCgroup(processCgroupPath)
 	if err != nil {
-		return fmt.Errorf("failed loading cgroup %s: %w", processCgroupPath, err)
+		return err
 	}
 
 	if err := control.Delete(); err != nil {
@@ -185,12 +187,9 @@ func (cvh *cgroupV1Handler) currentProcessCgroup() string {
 func (cvh *cgroupV1Handler) stats() (Stats, error) {
 	processCgroupPath := cvh.currentProcessCgroup()
 
-	control, err := cgroup1.Load(
-		cgroup1.StaticPath(processCgroupPath),
-		cgroup1.WithHiearchy(cvh.hierarchy),
-	)
+	control, err := cvh.loadCgroup(processCgroupPath)
 	if err != nil {
-		return Stats{}, fmt.Errorf("failed loading cgroup %s: %w", processCgroupPath, err)
+		return Stats{}, err
 	}
 
 	metrics, err := control.Stat()
