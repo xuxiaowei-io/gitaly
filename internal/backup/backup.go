@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strings"
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/catfile"
@@ -379,25 +380,7 @@ func (mgr *Manager) writeBundle(ctx context.Context, repo Repository, step *Step
 			}
 		}()
 
-		patternReader, patternWriter := io.Pipe()
-		defer func() {
-			if err := patternReader.Close(); err != nil && returnErr == nil {
-				returnErr = fmt.Errorf("write bundle: %w", err)
-			}
-		}()
-		go func() {
-			defer patternWriter.Close()
-
-			for _, ref := range refs {
-				_, err := fmt.Fprintln(patternWriter, ref.Name)
-				if err != nil {
-					_ = patternWriter.CloseWithError(err)
-					return
-				}
-			}
-		}()
-
-		patterns = io.MultiReader(negatedRefs, patternReader)
+		patterns = io.MultiReader(strings.NewReader("--all\n"), negatedRefs)
 	}
 
 	w := NewLazyWriter(func() (io.WriteCloser, error) {
