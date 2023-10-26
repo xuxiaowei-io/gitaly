@@ -1,6 +1,7 @@
 package cgroups
 
 import (
+	"fmt"
 	"io/fs"
 	"os"
 	"os/exec"
@@ -91,4 +92,21 @@ func TestCloneIntoCgroup(t *testing.T) {
 		require.NotEqual(t, pathWithKey, pathWithoutKey, "commands should be placed in different groups")
 		require.NotEqual(t, commandWithKey.SysProcAttr.CgroupFD, commandWithoutKey.SysProcAttr.CgroupFD)
 	})
+}
+
+func TestNewCgroupStatus(t *testing.T) {
+	cfg := cgroups.Config{Repositories: cgroups.Repositories{Count: 1000}}
+	repoPath := func(i int) string {
+		return filepath.Join("gitaly/gitaly-1", fmt.Sprintf("repos-%d", i))
+	}
+
+	status := newCgroupStatus(cfg, repoPath)
+
+	for i := 0; i < int(cfg.Repositories.Count); i++ {
+		cgroupPath := repoPath(i)
+		cgLock, ok := status.m[cgroupPath]
+		require.True(t, ok)
+		require.NotNil(t, cgLock)
+		require.False(t, cgLock.isCreated())
+	}
 }

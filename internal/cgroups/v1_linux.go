@@ -48,7 +48,7 @@ func (cvh *cgroupV1Handler) setupParent(parentResources *specs.LinuxResources) e
 	return nil
 }
 
-func (cvh *cgroupV1Handler) setupRepository(reposResources *specs.LinuxResources) error {
+func (cvh *cgroupV1Handler) setupRepository(status *cgroupStatus, reposResources *specs.LinuxResources) error {
 	for i := 0; i < int(cvh.cfg.Repositories.Count); i++ {
 		if _, err := cgroup1.New(
 			cgroup1.StaticPath(cvh.repoPath(i)),
@@ -57,8 +57,20 @@ func (cvh *cgroupV1Handler) setupRepository(reposResources *specs.LinuxResources
 		); err != nil {
 			return fmt.Errorf("failed creating repository cgroup: %w", err)
 		}
+		cgLock := status.getLock(cvh.repoPath(i))
+		cgLock.created.Store(true)
 	}
 	return nil
+}
+
+func (cvh *cgroupV1Handler) createCgroup(reposResources *specs.LinuxResources, cgroupPath string) error {
+	_, err := cgroup1.New(
+		cgroup1.StaticPath(cgroupPath),
+		reposResources,
+		cgroup1.WithHiearchy(cvh.hierarchy),
+	)
+
+	return err
 }
 
 func (cvh *cgroupV1Handler) addToCgroup(pid int, cgroupPath string) error {

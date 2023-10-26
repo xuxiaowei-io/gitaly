@@ -11,6 +11,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"syscall"
 
 	cgrps "github.com/containerd/cgroups/v3"
@@ -25,7 +27,8 @@ const cfsPeriodUs uint64 = 100000
 
 type cgroupHandler interface {
 	setupParent(parentResources *specs.LinuxResources) error
-	setupRepository(reposResources *specs.LinuxResources) error
+	setupRepository(status *cgroupStatus, reposResources *specs.LinuxResources) error
+	createCgroup(repoResources *specs.LinuxResources, cgroupPath string) error
 	addToCgroup(pid int, cgroupPath string) error
 	collect(ch chan<- prometheus.Metric)
 	cleanup() error
@@ -35,12 +38,49 @@ type cgroupHandler interface {
 	supportsCloneIntoCgroup() bool
 }
 
+type cgroupLock struct {
+	created       atomic.Bool
+	creationError error
+	once          sync.Once
+}
+
+func (l *cgroupLock) isCreated() bool {
+	return l.created.Load()
+}
+
+type cgroupStatus struct {
+	m map[string]*cgroupLock
+}
+
+func newCgroupStatus(cfg cgroupscfg.Config, repoPath func(int) string) *cgroupStatus {
+	status := &cgroupStatus{
+		m: make(map[string]*cgroupLock, cfg.Repositories.Count),
+	}
+
+	// Pre-fill the map with all possible values.
+	for i := 0; i < int(cfg.Repositories.Count); i++ {
+		cgroupPath := repoPath(i)
+		cgLock := &cgroupLock{}
+		status.m[cgroupPath] = cgLock
+	}
+
+	return status
+}
+
+func (s *cgroupStatus) getLock(cgroupPath string) *cgroupLock {
+	// We initialized all locks during construction.
+	cgLock := s.m[cgroupPath]
+
+	return cgLock
+}
+
 // CGroupManager is a manager class that implements specific methods related to cgroups
 type CGroupManager struct {
 	cfg     cgroupscfg.Config
 	pid     int
 	enabled bool
 	repoRes *specs.LinuxResources
+	status  *cgroupStatus
 
 	handler cgroupHandler
 }
@@ -67,6 +107,7 @@ func newCgroupManagerWithMode(cfg cgroupscfg.Config, logger log.Logger, pid int,
 		pid:     pid,
 		handler: handler,
 		repoRes: configRepositoryResources(cfg),
+		status:  newCgroupStatus(cfg, handler.repoPath),
 	}
 }
 
@@ -75,7 +116,7 @@ func (cgm *CGroupManager) Setup() error {
 	if err := cgm.handler.setupParent(cgm.configParentResources()); err != nil {
 		return err
 	}
-	if err := cgm.handler.setupRepository(cgm.repoRes); err != nil {
+	if err := cgm.handler.setupRepository(cgm.status, cgm.repoRes); err != nil {
 		return err
 	}
 	cgm.enabled = true
@@ -104,6 +145,22 @@ func (cgm *CGroupManager) AddCommand(cmd *exec.Cmd, opts ...AddCommandOption) (s
 // with Linux 5.7 or newer.
 func (cgm *CGroupManager) SupportsCloneIntoCgroup() bool {
 	return cgm.handler.supportsCloneIntoCgroup()
+}
+
+// maybeCreateCgroup creates a cgroup if it yet hasn't been created.
+func (cgm *CGroupManager) maybeCreateCgroup(cgroupPath string) error {
+	lock := cgm.status.getLock(cgroupPath)
+
+	lock.once.Do(func() {
+		if err := cgm.handler.createCgroup(cgm.repoRes, cgroupPath); err != nil {
+			lock.creationError = err
+			return
+		}
+
+		lock.created.Store(true)
+	})
+
+	return lock.creationError
 }
 
 // CloneIntoCgroup configures the cgroup parameters UseCgroupFD and CgroupFD in SysProcAttr
