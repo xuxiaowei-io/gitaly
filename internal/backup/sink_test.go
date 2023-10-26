@@ -115,7 +115,7 @@ func TestStorageServiceSink(t *testing.T) {
 	t.Parallel()
 	ctx := testhelper.Context(t)
 
-	sss, err := NewStorageServiceSink(ctx, "mem://test_bucket")
+	sss, err := ResolveSink(ctx, "mem://test_bucket")
 	require.NoError(t, err)
 	defer func() { require.NoError(t, sss.Close()) }()
 
