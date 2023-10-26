@@ -256,8 +256,10 @@ func (mgr *Manager) Create(ctx context.Context, req *CreateRequest) error {
 	if err := mgr.writeRefs(ctx, step.RefPath, refs); err != nil {
 		return fmt.Errorf("manager: %w", err)
 	}
-	if err := mgr.writeBundle(ctx, repo, step, refs); err != nil {
-		return fmt.Errorf("manager: %w", err)
+	if len(refs) > 0 {
+		if err := mgr.writeBundle(ctx, repo, step); err != nil {
+			return fmt.Errorf("manager: %w", err)
+		}
 	}
 	if err := mgr.writeCustomHooks(ctx, repo, step.CustomHooksPath); err != nil {
 		return fmt.Errorf("manager: %w", err)
@@ -362,14 +364,10 @@ func setContextServerInfo(ctx context.Context, server *storage.ServerInfo, stora
 	return nil
 }
 
-func (mgr *Manager) writeBundle(ctx context.Context, repo Repository, step *Step, refs []git.Reference) (returnErr error) {
-	if len(refs) == 0 {
-		return nil
-	}
-
+func (mgr *Manager) writeBundle(ctx context.Context, repo Repository, step *Step) (returnErr error) {
 	var patterns io.Reader
-	// Full backup, no need to check for known refs.
 	if len(step.PreviousRefPath) > 0 {
+		// If there is a previous ref path, then we are creating an increment
 		negatedRefs, err := mgr.negatedKnownRefs(ctx, step)
 		if err != nil {
 			return fmt.Errorf("write bundle: %w", err)
