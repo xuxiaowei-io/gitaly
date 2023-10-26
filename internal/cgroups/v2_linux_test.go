@@ -4,7 +4,6 @@ package cgroups
 
 import (
 	"fmt"
-	"hash/crc32"
 	"io/fs"
 	"os"
 	"os/exec"
@@ -223,11 +222,10 @@ func TestAddCommandV2(t *testing.T) {
 	v2Manager2 := mock.newCgroupManager(config, testhelper.SharedLogger(t), pid)
 
 	t.Run("without overridden key", func(t *testing.T) {
+		groupID := calcGroupID(cmd2.Args, config.Repositories.Count)
+
 		_, err := v2Manager2.AddCommand(cmd2)
 		require.NoError(t, err)
-
-		checksum := crc32.ChecksumIEEE([]byte(strings.Join(cmd2.Args, "/")))
-		groupID := uint(checksum) % config.Repositories.Count
 
 		path := filepath.Join(mock.root, "gitaly",
 			fmt.Sprintf("gitaly-%d", pid), fmt.Sprintf("repos-%d", groupID), "cgroup.procs")
@@ -240,14 +238,13 @@ func TestAddCommandV2(t *testing.T) {
 	})
 
 	t.Run("with overridden key", func(t *testing.T) {
+		overriddenGroupID := calcGroupID([]string{"foobar"}, config.Repositories.Count)
+
 		_, err := v2Manager2.AddCommand(cmd2, WithCgroupKey("foobar"))
 		require.NoError(t, err)
 
-		checksum := crc32.ChecksumIEEE([]byte("foobar"))
-		groupID := uint(checksum) % config.Repositories.Count
-
 		path := filepath.Join(mock.root, "gitaly",
-			fmt.Sprintf("gitaly-%d", pid), fmt.Sprintf("repos-%d", groupID), "cgroup.procs")
+			fmt.Sprintf("gitaly-%d", pid), fmt.Sprintf("repos-%d", overriddenGroupID), "cgroup.procs")
 		content := readCgroupFile(t, path)
 
 		cmdPid, err := strconv.Atoi(string(content))
