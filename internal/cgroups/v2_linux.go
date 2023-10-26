@@ -52,21 +52,6 @@ func (cvh *cgroupV2Handler) setupParent(parentResources *specs.LinuxResources) e
 	return nil
 }
 
-func (cvh *cgroupV2Handler) setupRepository(status *cgroupStatus, reposResources *specs.LinuxResources) error {
-	for i := 0; i < int(cvh.cfg.Repositories.Count); i++ {
-		if _, err := cgroup2.NewManager(
-			cvh.cfg.Mountpoint,
-			"/"+cvh.repoPath(i),
-			cgroup2.ToResources(reposResources),
-		); err != nil {
-			return fmt.Errorf("failed creating repository cgroup: %w", err)
-		}
-		cgLock := status.getLock(cvh.repoPath(i))
-		cgLock.created.Store(true)
-	}
-	return nil
-}
-
 func (cvh *cgroupV2Handler) createCgroup(reposResources *specs.LinuxResources, cgroupPath string) error {
 	_, err := cgroup2.NewManager(
 		cvh.cfg.Mountpoint,

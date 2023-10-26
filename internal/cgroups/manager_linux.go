@@ -27,7 +27,6 @@ const cfsPeriodUs uint64 = 100000
 
 type cgroupHandler interface {
 	setupParent(parentResources *specs.LinuxResources) error
-	setupRepository(status *cgroupStatus, reposResources *specs.LinuxResources) error
 	createCgroup(repoResources *specs.LinuxResources, cgroupPath string) error
 	addToCgroup(pid int, cgroupPath string) error
 	collect(repoPath string, ch chan<- prometheus.Metric)
@@ -116,9 +115,6 @@ func (cgm *CGroupManager) Setup() error {
 	if err := cgm.handler.setupParent(cgm.configParentResources()); err != nil {
 		return err
 	}
-	if err := cgm.handler.setupRepository(cgm.status, cgm.repoRes); err != nil {
-		return err
-	}
 	cgm.enabled = true
 
 	return nil
@@ -136,6 +132,10 @@ func (cgm *CGroupManager) AddCommand(cmd *exec.Cmd, opts ...AddCommandOption) (s
 	}
 
 	cgroupPath := cgm.cgroupPathForCommand(cmd, opts)
+
+	if err := cgm.maybeCreateCgroup(cgroupPath); err != nil {
+		return "", fmt.Errorf("setup cgroup: %w", err)
+	}
 
 	return cgroupPath, cgm.handler.addToCgroup(cmd.Process.Pid, cgroupPath)
 }
