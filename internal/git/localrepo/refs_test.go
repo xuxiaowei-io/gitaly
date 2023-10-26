@@ -31,6 +31,8 @@ import (
 )
 
 func TestRepo_ContainsRef(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
 
 	cfg, repo, repoPath := setupRepo(t)
@@ -59,7 +61,10 @@ func TestRepo_ContainsRef(t *testing.T) {
 	}
 
 	for _, tc := range testcases {
+		tc := tc
+
 		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
 			contained, err := repo.HasRevision(ctx, git.Revision(tc.ref))
 			require.NoError(t, err)
 			require.Equal(t, tc.contained, contained)
@@ -67,7 +72,82 @@ func TestRepo_ContainsRef(t *testing.T) {
 	}
 }
 
+func TestRepo_ResolveRevision(t *testing.T) {
+	t.Parallel()
+
+	testcases := []struct {
+		desc        string
+		setup       func(t *testing.T, cfg config.Cfg, repoPath string) git.ObjectID
+		revision    string
+		expectedErr error
+	}{
+		{
+			desc: "branch",
+			setup: func(t *testing.T, cfg config.Cfg, repoPath string) git.ObjectID {
+				return gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
+			},
+			revision: "main",
+		},
+		{
+			desc: "tag",
+			setup: func(t *testing.T, cfg config.Cfg, repoPath string) git.ObjectID {
+				return gittest.WriteCommit(t, cfg, repoPath, gittest.WithReference("refs/tags/1.0.0"))
+			},
+			revision: "1.0.0",
+		},
+		{
+			desc: "branch parent",
+			setup: func(t *testing.T, cfg config.Cfg, repoPath string) git.ObjectID {
+				parent := gittest.WriteCommit(t, cfg, repoPath)
+
+				gittest.WriteCommit(t, cfg, repoPath,
+					gittest.WithParents(parent),
+					gittest.WithBranch("main"),
+				)
+
+				return parent
+			},
+			revision: "main^",
+		},
+		{
+			desc: "peel branch to tree",
+			setup: func(t *testing.T, cfg config.Cfg, repoPath string) git.ObjectID {
+				treeID := gittest.WriteTree(t, cfg, repoPath,
+					[]gittest.TreeEntry{
+						{Path: "foo.bar", Mode: "100644", Content: "Hello world"},
+					})
+
+				gittest.WriteCommit(t, cfg, repoPath,
+					gittest.WithTree(treeID),
+					gittest.WithBranch("main"))
+
+				return treeID
+			},
+			revision: "main^{tree}",
+		},
+	}
+	for _, tc := range testcases {
+		tc := tc
+
+		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
+
+			ctx := testhelper.Context(t)
+			cfg, repo, repoPath := setupRepo(t)
+			expectedID := tc.setup(t, cfg, repoPath)
+
+			ref, err := repo.ResolveRevision(ctx, git.Revision(tc.revision))
+			require.Equal(t, tc.expectedErr, err)
+			if err == nil {
+				require.Equal(t, expectedID, ref)
+			}
+		})
+	}
+}
+
 func TestRepo_GetReference(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
 
 	cfg, repo, repoPath := setupRepo(t)
@@ -107,7 +187,11 @@ func TestRepo_GetReference(t *testing.T) {
 	}
 
 	for _, tc := range testcases {
+		tc := tc
+
 		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
+
 			ref, err := repo.GetReference(ctx, git.ReferenceName(tc.ref))
 			require.Equal(t, tc.expectedErr, err)
 			require.Equal(t, tc.expected, ref)
@@ -116,6 +200,8 @@ func TestRepo_GetReference(t *testing.T) {
 }
 
 func TestRepo_GetReferenceWithAmbiguousRefs(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
 
 	cfg, repo, repoPath := setupRepo(t, withDisabledHooks())
@@ -149,6 +235,8 @@ func TestRepo_GetReferenceWithAmbiguousRefs(t *testing.T) {
 }
 
 func TestRepo_GetReferences(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
 
 	cfg, repo, repoPath := setupRepo(t)
@@ -214,7 +302,11 @@ func TestRepo_GetReferences(t *testing.T) {
 	}
 
 	for _, tc := range testcases {
+		tc := tc
+
 		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
+
 			refs, err := repo.GetReferences(ctx, tc.patterns...)
 			require.NoError(t, err)
 			require.Equal(t, tc.expectedRefs, refs)
@@ -223,6 +315,8 @@ func TestRepo_GetReferences(t *testing.T) {
 }
 
 func TestRepo_GetRemoteReferences(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
 
 	cfg := testcfg.Build(t)
@@ -342,6 +436,8 @@ func TestRepo_GetRemoteReferences(t *testing.T) {
 }
 
 func TestRepo_GetBranches(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
 
 	cfg, repo, repoPath := setupRepo(t)
@@ -363,6 +459,8 @@ func TestRepo_GetBranches(t *testing.T) {
 }
 
 func TestRepo_UpdateRef(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
 
 	cfg, repo, repoPath := setupRepo(t, withDisabledHooks())
@@ -473,8 +571,12 @@ func TestRepo_UpdateRef(t *testing.T) {
 	}
 
 	for _, tc := range testcases {
+		tc := tc
+
 		t.Run(tc.desc, func(t *testing.T) {
-			// We need to re-seed the repository every time so that we don't carry over
+			t.Parallel()
+
+			// We need to create the repository every time so that we don't carry over
 			// the state.
 			repoProto, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
 				SkipCreationViaService: true,
@@ -489,13 +591,7 @@ func TestRepo_UpdateRef(t *testing.T) {
 }
 
 func TestRepo_SetDefaultBranch(t *testing.T) {
-	ctx := testhelper.Context(t)
-	cfg, repo, repoPath := setupRepo(t)
-
-	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"))
-	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("feature"))
-
-	txManager := transaction.NewTrackingManager()
+	t.Parallel()
 
 	testCases := []struct {
 		desc        string
@@ -514,7 +610,18 @@ func TestRepo_SetDefaultBranch(t *testing.T) {
 		},
 	}
 	for _, tc := range testCases {
+		tc := tc
+
 		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
+
+			ctx := testhelper.Context(t)
+			cfg, repo, repoPath := setupRepo(t)
+
+			gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("master"))
+			gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("feature"))
+
+			txManager := transaction.NewTrackingManager()
 			txManager.Reset()
 			ctx, err := txinfo.InjectTransaction(
 				peer.NewContext(ctx, &peer.Peer{}),
@@ -547,6 +654,8 @@ func TestRepo_SetDefaultBranch(t *testing.T) {
 }
 
 func TestRepo_HeadReference(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
 	_, repo, _ := setupRepo(t)
 
@@ -582,9 +691,13 @@ func (b *blockingManager) Stop(_ context.Context, _ txinfo.Transaction) error {
 }
 
 func TestRepo_SetDefaultBranch_errors(t *testing.T) {
+	t.Parallel()
+
 	ctx := testhelper.Context(t)
 
 	t.Run("malformed refname", func(t *testing.T) {
+		t.Parallel()
+
 		_, repo, _ := setupRepo(t)
 
 		err := repo.SetDefaultBranch(ctx, &transaction.MockManager{}, "./.lock")
@@ -592,6 +705,8 @@ func TestRepo_SetDefaultBranch_errors(t *testing.T) {
 	})
 
 	t.Run("HEAD is locked by another process", func(t *testing.T) {
+		t.Parallel()
+
 		_, repo, _ := setupRepo(t)
 
 		ref, err := repo.HeadReference(ctx)
@@ -611,6 +726,8 @@ func TestRepo_SetDefaultBranch_errors(t *testing.T) {
 	})
 
 	t.Run("HEAD is locked by SetDefaultBranch", func(t *testing.T) {
+		t.Parallel()
+
 		ctx, err := txinfo.InjectTransaction(
 			peer.NewContext(ctx, &peer.Peer{}),
 			1,
@@ -645,6 +762,8 @@ func TestRepo_SetDefaultBranch_errors(t *testing.T) {
 	})
 
 	t.Run("failing vote unlocks symref", func(t *testing.T) {
+		t.Parallel()
+
 		ctx, err := txinfo.InjectTransaction(
 			peer.NewContext(ctx, &peer.Peer{}),
 			1,
@@ -669,92 +788,110 @@ func TestRepo_SetDefaultBranch_errors(t *testing.T) {
 }
 
 func TestGuessHead(t *testing.T) {
-	cfg, repo, repoPath := setupRepo(t)
-
-	commit1 := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"), gittest.WithMessage("main"))
-	commit2 := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("feature"), gittest.WithMessage("feature"))
+	t.Parallel()
 
 	for _, tc := range []struct {
 		desc        string
-		cmds        [][]string
-		head        git.Reference
+		setup       func(*testing.T, config.Cfg, string) git.Reference
 		expected    git.ReferenceName
 		expectedErr error
 	}{
 		{
-			desc:     "symbolic",
-			head:     git.NewSymbolicReference("HEAD", "refs/heads/something"),
+			desc: "symbolic",
+			setup: func(t *testing.T, cfg config.Cfg, repoPath string) git.Reference {
+				return git.NewSymbolicReference("HEAD", "refs/heads/something")
+			},
 			expected: "refs/heads/something",
 		},
 		{
 			desc: "matching default branch",
-			cmds: [][]string{
-				{"update-ref", git.DefaultRef.String(), commit1.String()},
-				{"update-ref", git.LegacyDefaultRef.String(), commit2.String()},
-				{"update-ref", "refs/heads/apple", commit1.String()},
-				{"update-ref", "refs/heads/feature", commit1.String()},
-				{"update-ref", "refs/heads/zucchini", commit1.String()},
+			setup: func(t *testing.T, cfg config.Cfg, repoPath string) git.Reference {
+				commit1 := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"), gittest.WithMessage("main"))
+				commit2 := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("feature"), gittest.WithMessage("feature"))
+
+				gittest.Exec(t, cfg, "-C", repoPath, "update-ref", git.DefaultRef.String(), commit1.String())
+				gittest.Exec(t, cfg, "-C", repoPath, "update-ref", git.LegacyDefaultRef.String(), commit2.String())
+				gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/apple", commit1.String())
+				gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/feature", commit1.String())
+				gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/zucchini", commit1.String())
+
+				return git.NewReference("HEAD", commit1)
 			},
-			head:     git.NewReference("HEAD", commit1),
 			expected: git.DefaultRef,
 		},
 		{
 			desc: "matching default legacy branch",
-			cmds: [][]string{
-				{"update-ref", git.DefaultRef.String(), commit2.String()},
-				{"update-ref", git.LegacyDefaultRef.String(), commit1.String()},
-				{"update-ref", "refs/heads/apple", commit1.String()},
-				{"update-ref", "refs/heads/feature", commit1.String()},
-				{"update-ref", "refs/heads/zucchini", commit1.String()},
+			setup: func(t *testing.T, cfg config.Cfg, repoPath string) git.Reference {
+				commit1 := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"), gittest.WithMessage("main"))
+				commit2 := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("feature"), gittest.WithMessage("feature"))
+
+				gittest.Exec(t, cfg, "-C", repoPath, "update-ref", git.DefaultRef.String(), commit2.String())
+				gittest.Exec(t, cfg, "-C", repoPath, "update-ref", git.LegacyDefaultRef.String(), commit1.String())
+				gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/apple", commit1.String())
+				gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/feature", commit1.String())
+				gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/zucchini", commit1.String())
+
+				return git.NewReference("HEAD", commit1)
 			},
-			head:     git.NewReference("HEAD", commit1),
 			expected: git.LegacyDefaultRef,
 		},
 		{
 			desc: "matching other branch",
-			cmds: [][]string{
-				{"update-ref", git.DefaultRef.String(), commit2.String()},
-				{"update-ref", git.LegacyDefaultRef.String(), commit2.String()},
-				{"update-ref", "refs/heads/apple", commit1.String()},
-				{"update-ref", "refs/heads/feature", commit1.String()},
-				{"update-ref", "refs/heads/zucchini", commit1.String()},
+			setup: func(t *testing.T, cfg config.Cfg, repoPath string) git.Reference {
+				commit1 := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"), gittest.WithMessage("main"))
+				commit2 := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("feature"), gittest.WithMessage("feature"))
+
+				gittest.Exec(t, cfg, "-C", repoPath, "update-ref", git.DefaultRef.String(), commit2.String())
+				gittest.Exec(t, cfg, "-C", repoPath, "update-ref", git.LegacyDefaultRef.String(), commit2.String())
+				gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/apple", commit1.String())
+				gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/feature", commit1.String())
+				gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/zucchini", commit1.String())
+				return git.NewReference("HEAD", commit1)
 			},
-			head:     git.NewReference("HEAD", commit1),
 			expected: "refs/heads/apple",
 		},
 		{
 			desc: "missing default branches",
-			cmds: [][]string{
-				{"update-ref", "-d", git.DefaultRef.String()},
-				{"update-ref", "-d", git.LegacyDefaultRef.String()},
-				{"update-ref", "refs/heads/apple", commit1.String()},
-				{"update-ref", "refs/heads/feature", commit1.String()},
-				{"update-ref", "refs/heads/zucchini", commit1.String()},
+			setup: func(t *testing.T, cfg config.Cfg, repoPath string) git.Reference {
+				commit1 := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"), gittest.WithMessage("main"))
+
+				gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "-d", git.DefaultRef.String())
+				gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "-d", git.LegacyDefaultRef.String())
+				gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/apple", commit1.String())
+				gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/feature", commit1.String())
+				gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/zucchini", commit1.String())
+				return git.NewReference("HEAD", commit1)
 			},
-			head:     git.NewReference("HEAD", commit1),
 			expected: "refs/heads/apple",
 		},
 		{
 			desc: "no match",
-			cmds: [][]string{
-				{"update-ref", git.DefaultRef.String(), commit2.String()},
-				{"update-ref", git.LegacyDefaultRef.String(), commit2.String()},
-				{"update-ref", "refs/heads/apple", commit2.String()},
-				{"update-ref", "refs/heads/feature", commit2.String()},
-				{"update-ref", "refs/heads/zucchini", commit2.String()},
+			setup: func(t *testing.T, cfg config.Cfg, repoPath string) git.Reference {
+				commit1 := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"), gittest.WithMessage("main"))
+				commit2 := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("feature"), gittest.WithMessage("feature"))
+
+				gittest.Exec(t, cfg, "-C", repoPath, "update-ref", git.DefaultRef.String(), commit2.String())
+				gittest.Exec(t, cfg, "-C", repoPath, "update-ref", git.LegacyDefaultRef.String(), commit2.String())
+				gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/apple", commit2.String())
+				gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/feature", commit2.String())
+				gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/zucchini", commit2.String())
+
+				return git.NewReference("HEAD", commit1)
 			},
-			head:        git.NewReference("HEAD", commit1),
 			expectedErr: fmt.Errorf("guess head: %w", git.ErrReferenceNotFound),
 		},
 	} {
+		tc := tc
+
 		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
+
 			ctx := testhelper.Context(t)
+			cfg, repo, repoPath := setupRepo(t)
 
-			for _, cmd := range tc.cmds {
-				gittest.Exec(t, cfg, append([]string{"-C", repoPath}, cmd...)...)
-			}
+			head := tc.setup(t, cfg, repoPath)
 
-			guess, err := repo.GuessHead(ctx, tc.head)
+			guess, err := repo.GuessHead(ctx, head)
 			if tc.expectedErr == nil {
 				require.NoError(t, err)
 			} else {
