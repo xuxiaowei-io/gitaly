@@ -20,8 +20,9 @@ func TestCloneIntoCgroup(t *testing.T) {
 
 	// Create the files we expect the manager to open.
 	require.NoError(t, os.MkdirAll(filepath.Join(hierarchyRoot, "gitaly-1"), fs.ModePerm))
-	require.NoError(t, os.WriteFile(filepath.Join(hierarchyRoot, "gitaly-1", "repos-3"), nil, fs.ModePerm))
-	require.NoError(t, os.WriteFile(filepath.Join(hierarchyRoot, "gitaly-1", "repos-5"), nil, fs.ModePerm))
+	require.NoError(t, os.MkdirAll(filepath.Join(hierarchyRoot, "gitaly-1", "repos-3"), fs.ModePerm))
+	require.NoError(t, os.MkdirAll(filepath.Join(hierarchyRoot, "gitaly-1", "repos-5"), fs.ModePerm))
+	require.NoError(t, os.WriteFile(filepath.Join(hierarchyRoot, "gitaly-1", "cgroup.subtree_control"), nil, fs.ModePerm))
 
 	mgr := NewManager(cgroups.Config{
 		Mountpoint:    mountPoint,

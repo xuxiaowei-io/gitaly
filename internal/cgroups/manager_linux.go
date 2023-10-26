@@ -167,9 +167,14 @@ func (cgm *CGroupManager) maybeCreateCgroup(cgroupPath string) error {
 // to start the command directly in the correct cgroup. On success, the function returns an io.Closer
 // that must be closed after the command has been started to close the cgroup's file descriptor.
 func (cgm *CGroupManager) CloneIntoCgroup(cmd *exec.Cmd, opts ...AddCommandOption) (string, io.Closer, error) {
-	cgroupPath := filepath.Join(cgm.cfg.Mountpoint, cgm.cgroupPathForCommand(cmd, opts))
+	cgroupPath := cgm.cgroupPathForCommand(cmd, opts)
 
-	file, err := os.Open(cgroupPath)
+	if err := cgm.maybeCreateCgroup(cgroupPath); err != nil {
+		return "", nil, fmt.Errorf("setup cgroup: %w", err)
+	}
+
+	cgroupDirPath := filepath.Join(cgm.cfg.Mountpoint, cgroupPath)
+	dir, err := os.Open(cgroupDirPath)
 	if err != nil {
 		return "", nil, fmt.Errorf("open file: %w", err)
 	}
@@ -179,9 +184,9 @@ func (cgm *CGroupManager) CloneIntoCgroup(cmd *exec.Cmd, opts ...AddCommandOptio
 	}
 
 	cmd.SysProcAttr.UseCgroupFD = true
-	cmd.SysProcAttr.CgroupFD = int(file.Fd())
+	cmd.SysProcAttr.CgroupFD = int(dir.Fd())
 
-	return cgroupPath, file, nil
+	return cgroupDirPath, dir, nil
 }
 
 // cgroupPathForCommand returns the path of the cgroup a given command should go in.
