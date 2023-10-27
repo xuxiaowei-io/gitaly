@@ -68,11 +68,13 @@ service RepositoryService {
     };
   }
 
-  // ApplyGitattributes ...
+  // ApplyGitattributes writes the attributes from the given revision to info/attributes.
+  // This RPC will be removed in 17.0.
   rpc ApplyGitattributes(ApplyGitattributesRequest) returns (ApplyGitattributesResponse) {
     option (op_type) = {
       op: MUTATOR
     };
+    option deprecated = true;
   }
 
   // FetchRemote fetches references from a remote repository into the local
@@ -202,11 +204,13 @@ service RepositoryService {
     };
   }
 
-  // GetInfoAttributes ...
+  // GetInfoAttributes reads the contents from info/attributes.
+  // This RPC will be removed in 17.0.
   rpc GetInfoAttributes(GetInfoAttributesRequest) returns (stream GetInfoAttributesResponse) {
     option (op_type) = {
       op: ACCESSOR
     };
+    option deprecated = true;
   }
 
   // CalculateChecksum ...

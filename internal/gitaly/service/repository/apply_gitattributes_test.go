@@ -199,6 +199,7 @@ func TestApplyGitattributes_transactional(t *testing.T) {
 				return tc.voteFn(t, request)
 			}
 
+			//nolint:staticcheck
 			_, err = client.ApplyGitattributes(ctx, &gitalypb.ApplyGitattributesRequest{
 				Repository: repo,
 				Revision:   tc.revision,
@@ -286,6 +287,7 @@ func TestApplyGitattributes_failure(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
+			//nolint:staticcheck
 			_, err := client.ApplyGitattributes(ctx, &gitalypb.ApplyGitattributesRequest{
 				Repository: tc.repo,
 				Revision:   tc.revision,
@@ -305,6 +307,7 @@ func requireApplyGitattributes(
 ) {
 	t.Helper()
 
+	//nolint:staticcheck
 	response, err := client.ApplyGitattributes(ctx, &gitalypb.ApplyGitattributesRequest{
 		Repository: repo,
 		Revision:   revision,
