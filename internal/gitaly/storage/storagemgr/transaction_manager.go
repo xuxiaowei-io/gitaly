@@ -49,6 +49,9 @@ var (
 	errInitializationFailed = errors.New("initializing transaction processing failed")
 	// errNotDirectory is returned when the repository's path doesn't point to a directory
 	errNotDirectory = errors.New("repository's path didn't point to a directory")
+	// errRelativePathNotSet is returned when a transaction is begun without providing a relative path
+	// of the target repository.
+	errRelativePathNotSet = errors.New("relative path not set")
 )
 
 // InvalidReferenceFormatError is returned when a reference name was invalid.
@@ -225,7 +228,7 @@ func (mgr *TransactionManager) Begin(ctx context.Context, relativePath string, r
 	if relativePath == "" {
 		// For now we don't have a use case for transactions that don't target a repository.
 		// Until support is implemented, error out.
-		return nil, errors.New("relative path not set")
+		return nil, errRelativePathNotSet
 	}
 
 	mgr.mutex.Lock()

@@ -4720,6 +4720,15 @@ func TestTransactionManager(t *testing.T) {
 				},
 			},
 		},
+		{
+			desc: "start transaction with empty relative path",
+			steps: steps{
+				StartManager{},
+				Begin{
+					ExpectedError: errRelativePathNotSet,
+				},
+			},
+		},
 	}
 
 	type invalidReferenceTestCase struct {
