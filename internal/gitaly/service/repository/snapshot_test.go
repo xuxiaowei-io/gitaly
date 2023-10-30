@@ -44,10 +44,17 @@ func TestGetSnapshot(t *testing.T) {
 		return buf.Bytes(), err
 	}
 
+	equalError := func(tb testing.TB, expected error) func(error) {
+		return func(actual error) {
+			tb.Helper()
+			testhelper.RequireGrpcError(tb, expected, actual)
+		}
+	}
+
 	type setupData struct {
 		repo            *gitalypb.Repository
 		expectedEntries []string
-		expectedError   error
+		requireError    func(error)
 	}
 
 	for _, tc := range []struct {
@@ -63,11 +70,11 @@ func TestGetSnapshot(t *testing.T) {
 						StorageName:  cfg.Storages[0].Name,
 						RelativePath: "does-not-exist.git",
 					},
-					expectedError: testhelper.WithInterceptedMetadataItems(
+					requireError: equalError(t, testhelper.WithInterceptedMetadataItems(
 						structerr.NewNotFound("repository not found"),
 						structerr.MetadataItem{Key: "relative_path", Value: "does-not-exist.git"},
 						structerr.MetadataItem{Key: "storage_name", Value: cfg.Storages[0].Name},
-					),
+					)),
 				}
 			},
 		},
@@ -80,7 +87,7 @@ func TestGetSnapshot(t *testing.T) {
 						StorageName:  "",
 						RelativePath: "some-relative-path",
 					},
-					expectedError: structerr.NewInvalidArgument("%w", storage.ErrStorageNotSet),
+					requireError: equalError(t, structerr.NewInvalidArgument("%w", storage.ErrStorageNotSet)),
 				}
 			},
 		},
@@ -93,7 +100,7 @@ func TestGetSnapshot(t *testing.T) {
 						StorageName:  cfg.Storages[0].Name,
 						RelativePath: "",
 					},
-					expectedError: structerr.NewInvalidArgument("%w", storage.ErrRepositoryPathNotSet),
+					requireError: equalError(t, structerr.NewInvalidArgument("%w", storage.ErrRepositoryPathNotSet)),
 				}
 			},
 		},
@@ -113,10 +120,10 @@ doesn't seem to test a realistic scenario.`)
 
 				return setupData{
 					repo: repoProto,
-					expectedError: structerr.NewInternal(
+					requireError: equalError(t, structerr.NewInternal(
 						"building snapshot failed: open %s: too many levels of symbolic links",
 						packedRefsFile,
-					),
+					)),
 				}
 			},
 		},
@@ -398,10 +405,11 @@ doesn't seem to test a realistic scenario.`)
 			setup := tc.setup(t)
 
 			data, err := getSnapshot(t, ctx, client, &gitalypb.GetSnapshotRequest{Repository: setup.repo})
-			testhelper.RequireGrpcError(t, setup.expectedError, err)
-			if err != nil {
+			if setup.requireError != nil {
+				setup.requireError(err)
 				return
 			}
+			require.NoError(t, err)
 
 			entries, err := archive.TarEntries(bytes.NewReader(data))
 			require.NoError(t, err)
