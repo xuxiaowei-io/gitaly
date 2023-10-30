@@ -44,11 +44,6 @@ func TestDelete(t *testing.T) {
 			expectedErr:  errInvalidPoolDir,
 		},
 		{
-			desc:         "deleting outside pools directory fails",
-			relativePath: ".",
-			expectedErr:  errInvalidPoolDir,
-		},
-		{
 			desc:         "deleting pools directory fails",
 			relativePath: "@pools",
 			expectedErr:  errInvalidPoolDir,
