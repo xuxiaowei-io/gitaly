@@ -46,7 +46,6 @@ var NonTransactionalRPCs = map[string]struct{}{
 	"/gitaly.ObjectPoolService/LinkRepositoryToObjectPool": {},
 	"/gitaly.ObjectPoolService/DisconnectGitAlternates":    {},
 	"/gitaly.ObjectPoolService/FetchIntoObjectPool":        {},
-	"/gitaly.ObjectPoolService/GetObjectPool":              {},
 	// GetSnapshot is testing logic with object pools as well.
 	"/gitaly.RepositoryService/GetSnapshot": {},
 	// CreateFork relies on object pools.
