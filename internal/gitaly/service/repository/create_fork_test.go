@@ -286,16 +286,22 @@ func TestCreateFork_targetExists(t *testing.T) {
 	t.Parallel()
 
 	for _, tc := range []struct {
-		desc                          string
-		seed                          func(t *testing.T, targetPath string)
-		expectedErrWithAtomicCreation error
+		desc        string
+		seed        func(t *testing.T, targetPath string)
+		expectedErr error
 	}{
 		{
 			desc: "empty target directory",
 			seed: func(t *testing.T, targetPath string) {
 				require.NoError(t, os.MkdirAll(targetPath, perm.GroupPrivateDir))
 			},
-			expectedErrWithAtomicCreation: structerr.NewAlreadyExists("creating fork: repository exists already"),
+			expectedErr: func() error {
+				if testhelper.IsWALEnabled() {
+					return structerr.NewInternal("begin transaction: get partition: get partition ID: validate git directory: invalid git directory")
+				}
+
+				return structerr.NewAlreadyExists("creating fork: repository exists already")
+			}(),
 		},
 		{
 			desc: "non-empty target directory",
@@ -307,7 +313,13 @@ func TestCreateFork_targetExists(t *testing.T) {
 					perm.SharedFile,
 				))
 			},
-			expectedErrWithAtomicCreation: structerr.NewAlreadyExists("creating fork: repository exists already"),
+			expectedErr: func() error {
+				if testhelper.IsWALEnabled() {
+					return structerr.NewInternal("begin transaction: get partition: get partition ID: validate git directory: invalid git directory")
+				}
+
+				return structerr.NewAlreadyExists("creating fork: repository exists already")
+			}(),
 		},
 		{
 			desc: "target file",
@@ -315,7 +327,13 @@ func TestCreateFork_targetExists(t *testing.T) {
 				require.NoError(t, os.MkdirAll(filepath.Dir(targetPath), perm.GroupPrivateDir))
 				require.NoError(t, os.WriteFile(targetPath, nil, perm.SharedFile))
 			},
-			expectedErrWithAtomicCreation: structerr.NewAlreadyExists("creating fork: repository exists already"),
+			expectedErr: func() error {
+				if testhelper.IsWALEnabled() {
+					return structerr.NewInternal("begin transaction: get partition: get partition ID: validate git directory: not a directory")
+				}
+
+				return structerr.NewAlreadyExists("creating fork: repository exists already")
+			}(),
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
@@ -340,7 +358,7 @@ func TestCreateFork_targetExists(t *testing.T) {
 				Repository:       forkedRepo,
 				SourceRepository: repo,
 			})
-			testhelper.RequireGrpcError(t, tc.expectedErrWithAtomicCreation, err)
+			testhelper.RequireGrpcError(t, tc.expectedErr, err)
 		})
 	}
 }
