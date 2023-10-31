@@ -378,7 +378,7 @@ func TestPartitionManager(t *testing.T) {
 						storageMgr *storageManager,
 						commandFactory git.CommandFactory,
 						housekeepingManager housekeeping.Manager,
-						relativePath, absoluteStateDir, stagingDir string,
+						absoluteStateDir, stagingDir string,
 					) transactionManager {
 						return stoppedTransactionManager{
 							transactionManager: NewTransactionManager(
@@ -386,7 +386,6 @@ func TestPartitionManager(t *testing.T) {
 								storageMgr.logger,
 								storageMgr.database,
 								storageMgr.path,
-								relativePath,
 								absoluteStateDir,
 								stagingDir,
 								commandFactory,
@@ -426,14 +425,13 @@ func TestPartitionManager(t *testing.T) {
 						storageMgr *storageManager,
 						commandFactory git.CommandFactory,
 						housekeepingManager housekeeping.Manager,
-						relativePath, absoluteStateDir, stagingDir string,
+						absoluteStateDir, stagingDir string,
 					) transactionManager {
 						txMgr := NewTransactionManager(
 							partitionID,
 							logger,
 							storageMgr.database,
 							storageMgr.path,
-							relativePath,
 							absoluteStateDir,
 							stagingDir,
 							commandFactory,
@@ -717,7 +715,7 @@ func TestPartitionManager(t *testing.T) {
 						beginCtx = step.ctx
 					}
 
-					txn, err := partitionManager.Begin(beginCtx, step.repo, TransactionOptions{})
+					txn, err := partitionManager.Begin(beginCtx, step.repo.GetStorageName(), step.repo.GetRelativePath(), false)
 					require.Equal(t, step.expectedError, err)
 
 					blockOnPartitionClosing(t, partitionManager)
@@ -811,10 +809,7 @@ func TestPartitionManager_concurrentClose(t *testing.T) {
 	require.NoError(t, err)
 	defer partitionManager.Close()
 
-	tx, err := partitionManager.Begin(ctx, &gitalypb.Repository{
-		StorageName:  cfg.Storages[0].Name,
-		RelativePath: "relative-path",
-	}, TransactionOptions{})
+	tx, err := partitionManager.Begin(ctx, cfg.Storages[0].Name, "relative-path", false)
 	require.NoError(t, err)
 
 	start := make(chan struct{})

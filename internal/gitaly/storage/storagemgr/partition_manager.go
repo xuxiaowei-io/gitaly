@@ -29,7 +29,7 @@ var ErrPartitionManagerClosed = errors.New("partition manager closed")
 // transactionManager is the interface of TransactionManager as used by PartitionManager. See the
 // TransactionManager's documentation for more details.
 type transactionManager interface {
-	Begin(context.Context, TransactionOptions) (*Transaction, error)
+	Begin(context.Context, string, bool) (*Transaction, error)
 	Run() error
 	Close()
 	isClosing() bool
@@ -40,7 +40,7 @@ type transactionManagerFactory func(
 	storageMgr *storageManager,
 	cmdFactory git.CommandFactory,
 	housekeepingManager housekeeping.Manager,
-	relativePath, absoluteStateDir, stagingDir string,
+	absoluteStateDir, stagingDir string,
 ) transactionManager
 
 // PartitionManager is responsible for managing the lifecycle of each TransactionManager.
@@ -258,14 +258,13 @@ func NewPartitionManager(
 			storageMgr *storageManager,
 			cmdFactory git.CommandFactory,
 			housekeepingManager housekeeping.Manager,
-			relativePath, absoluteStateDir, stagingDir string,
+			absoluteStateDir, stagingDir string,
 		) transactionManager {
 			return NewTransactionManager(
 				partitionID,
 				logger,
 				storageMgr.database,
 				storageMgr.path,
-				relativePath,
 				absoluteStateDir,
 				stagingDir,
 				cmdFactory,
@@ -283,13 +282,18 @@ func stagingDirectoryPath(storagePath string) string {
 // Begin gets the TransactionManager for the specified repository and starts a transaction. If a
 // TransactionManager is not already running, a new one is created and used. The partition tracks
 // the number of pending transactions and this counter gets incremented when Begin is invoked.
-func (pm *PartitionManager) Begin(ctx context.Context, repo storage.Repository, opts TransactionOptions) (*finalizableTransaction, error) {
-	storageMgr, ok := pm.storages[repo.GetStorageName()]
+//
+// storageName and relativePath specify the target repository to begin a transaction against.
+//
+// readOnly indicates whether this is a read-only transaction. Read-only transactions are not
+// configured with a quarantine directory and do not commit a log entry.
+func (pm *PartitionManager) Begin(ctx context.Context, storageName, relativePath string, readOnly bool) (*finalizableTransaction, error) {
+	storageMgr, ok := pm.storages[storageName]
 	if !ok {
-		return nil, structerr.NewNotFound("unknown storage: %q", repo.GetStorageName())
+		return nil, structerr.NewNotFound("unknown storage: %q", storageName)
 	}
 
-	relativePath, err := storage.ValidateRelativePath(storageMgr.path, repo.GetRelativePath())
+	relativePath, err := storage.ValidateRelativePath(storageMgr.path, relativePath)
 	if err != nil {
 		return nil, structerr.NewInvalidArgument("validate relative path: %w", err)
 	}
@@ -335,7 +339,7 @@ func (pm *PartitionManager) Begin(ctx context.Context, repo storage.Repository, 
 				return nil, fmt.Errorf("create staging directory: %w", err)
 			}
 
-			mgr := pm.transactionManagerFactory(partitionID, storageMgr, pm.commandFactory, pm.housekeepingManager, relativePath, absoluteStateDir, stagingDir)
+			mgr := pm.transactionManagerFactory(partitionID, storageMgr, pm.commandFactory, pm.housekeepingManager, absoluteStateDir, stagingDir)
 
 			ptn.transactionManager = mgr
 
@@ -393,7 +397,7 @@ func (pm *PartitionManager) Begin(ctx context.Context, repo storage.Repository, 
 		ptn.pendingTransactionCount++
 		storageMgr.mu.Unlock()
 
-		transaction, err := ptn.transactionManager.Begin(ctx, opts)
+		transaction, err := ptn.transactionManager.Begin(ctx, relativePath, readOnly)
 		if err != nil {
 			// The pending transaction count needs to be decremented since the transaction is no longer
 			// inflight. A transaction failing does not necessarily mean the transaction manager has

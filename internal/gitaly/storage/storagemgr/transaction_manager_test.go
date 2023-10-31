@@ -313,8 +313,10 @@ func TestTransactionManager(t *testing.T) {
 		// TransactionID is the identifier given to the transaction created. This is used to identify
 		// the transaction in later steps.
 		TransactionID int
-		// TransactionOptions are the options to use in beginning this transaction.
-		TransactionOptions TransactionOptions
+		// RelativePath is the relative path of the repository this transaction is operating on.
+		RelativePath string
+		// ReadOnly indicates whether this is a read-only transaction.
+		ReadOnly bool
 		// Context is the context to use for the Begin call.
 		Context context.Context
 		// ExpectedSnapshot is the expected LSN this transaction should read the repsoitory's state at.
@@ -435,7 +437,9 @@ func TestTransactionManager(t *testing.T) {
 			desc: "invalid reference aborts the entire transaction",
 			steps: steps{
 				StartManager{},
-				Begin{},
+				Begin{
+					RelativePath: relativePath,
+				},
 				Commit{
 					SkipVerificationFailures: true,
 					ReferenceUpdates: ReferenceUpdates{
@@ -452,6 +456,7 @@ func TestTransactionManager(t *testing.T) {
 				StartManager{},
 				Begin{
 					TransactionID: 1,
+					RelativePath:  relativePath,
 				},
 				Commit{
 					TransactionID: 1,
@@ -462,6 +467,7 @@ func TestTransactionManager(t *testing.T) {
 				},
 				Begin{
 					TransactionID: 2,
+					RelativePath:  relativePath,
 				},
 				Commit{
 					TransactionID: 2,
@@ -486,7 +492,9 @@ func TestTransactionManager(t *testing.T) {
 			desc: "create reference",
 			steps: steps{
 				StartManager{},
-				Begin{},
+				Begin{
+					RelativePath: relativePath,
+				},
 				Commit{
 					ReferenceUpdates: ReferenceUpdates{
 						"refs/heads/main": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
@@ -514,7 +522,9 @@ func TestTransactionManager(t *testing.T) {
 						require.NoError(t, err)
 					},
 				},
-				Begin{},
+				Begin{
+					RelativePath: relativePath,
+				},
 				Commit{
 					ReferenceUpdates: ReferenceUpdates{
 						"refs/heads/main": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
@@ -539,6 +549,7 @@ func TestTransactionManager(t *testing.T) {
 				StartManager{},
 				Begin{
 					TransactionID: 1,
+					RelativePath:  relativePath,
 				},
 				Commit{
 					TransactionID: 1,
@@ -563,6 +574,7 @@ func TestTransactionManager(t *testing.T) {
 				},
 				Begin{
 					TransactionID:       2,
+					RelativePath:        relativePath,
 					ExpectedSnapshotLSN: 1,
 				},
 				Commit{
@@ -584,6 +596,7 @@ func TestTransactionManager(t *testing.T) {
 				StartManager{},
 				Begin{
 					TransactionID: 1,
+					RelativePath:  relativePath,
 				},
 				Commit{
 					TransactionID: 1,
@@ -608,6 +621,7 @@ func TestTransactionManager(t *testing.T) {
 				},
 				Begin{
 					TransactionID:       2,
+					RelativePath:        relativePath,
 					ExpectedSnapshotLSN: 1,
 				},
 				Commit{
@@ -629,6 +643,7 @@ func TestTransactionManager(t *testing.T) {
 				StartManager{},
 				Begin{
 					TransactionID: 1,
+					RelativePath:  relativePath,
 				},
 				Commit{
 					TransactionID: 1,
@@ -638,6 +653,7 @@ func TestTransactionManager(t *testing.T) {
 				},
 				Begin{
 					TransactionID:       2,
+					RelativePath:        relativePath,
 					ExpectedSnapshotLSN: 1,
 				},
 				Commit{
@@ -666,7 +682,9 @@ func TestTransactionManager(t *testing.T) {
 			desc: "create a file-directory reference conflict in same transaction",
 			steps: steps{
 				StartManager{},
-				Begin{},
+				Begin{
+					RelativePath: relativePath,
+				},
 				Commit{
 					ReferenceUpdates: ReferenceUpdates{
 						"refs/heads/parent":       {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
@@ -683,7 +701,9 @@ func TestTransactionManager(t *testing.T) {
 			desc: "file-directory conflict aborts the transaction with verification failures skipped",
 			steps: steps{
 				StartManager{},
-				Begin{},
+				Begin{
+					RelativePath: relativePath,
+				},
 				Commit{
 					SkipVerificationFailures: true,
 					ReferenceUpdates: ReferenceUpdates{
@@ -704,6 +724,7 @@ func TestTransactionManager(t *testing.T) {
 				StartManager{},
 				Begin{
 					TransactionID: 1,
+					RelativePath:  relativePath,
 				},
 				Commit{
 					TransactionID: 1,
@@ -713,6 +734,7 @@ func TestTransactionManager(t *testing.T) {
 				},
 				Begin{
 					TransactionID:       2,
+					RelativePath:        relativePath,
 					ExpectedSnapshotLSN: 1,
 				},
 				Commit{
@@ -741,7 +763,9 @@ func TestTransactionManager(t *testing.T) {
 			desc: "delete file-directory conflict in same transaction",
 			steps: steps{
 				StartManager{},
-				Begin{},
+				Begin{
+					RelativePath: relativePath,
+				},
 				Commit{
 					ReferenceUpdates: ReferenceUpdates{
 						"refs/heads/parent/child": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
@@ -758,7 +782,9 @@ func TestTransactionManager(t *testing.T) {
 			desc: "create a branch to a non-commit object",
 			steps: steps{
 				StartManager{},
-				Begin{},
+				Begin{
+					RelativePath: relativePath,
+				},
 				Commit{
 					SkipVerificationFailures: true,
 					ReferenceUpdates: ReferenceUpdates{
@@ -777,7 +803,9 @@ func TestTransactionManager(t *testing.T) {
 			desc: "create a tag to a non-commit object",
 			steps: steps{
 				StartManager{},
-				Begin{},
+				Begin{
+					RelativePath: relativePath,
+				},
 				Commit{
 					ReferenceUpdates: ReferenceUpdates{
 						"refs/tags/v1.0.0": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.ObjectHash.EmptyTreeOID},
@@ -799,7 +827,9 @@ func TestTransactionManager(t *testing.T) {
 			desc: "create a reference to non-existent object",
 			steps: steps{
 				StartManager{},
-				Begin{},
+				Begin{
+					RelativePath: relativePath,
+				},
 				Commit{
 					ReferenceUpdates: ReferenceUpdates{
 						"refs/heads/main": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.NonExistentOID},
@@ -817,6 +847,7 @@ func TestTransactionManager(t *testing.T) {
 				StartManager{},
 				Begin{
 					TransactionID: 1,
+					RelativePath:  relativePath,
 				},
 				Commit{
 					TransactionID: 1,
@@ -826,6 +857,7 @@ func TestTransactionManager(t *testing.T) {
 				},
 				Begin{
 					TransactionID:       2,
+					RelativePath:        relativePath,
 					ExpectedSnapshotLSN: 1,
 				},
 				Commit{
@@ -858,6 +890,7 @@ func TestTransactionManager(t *testing.T) {
 				StartManager{},
 				Begin{
 					TransactionID: 1,
+					RelativePath:  relativePath,
 				},
 				Commit{
 					TransactionID: 1,
@@ -867,6 +900,7 @@ func TestTransactionManager(t *testing.T) {
 				},
 				Begin{
 					TransactionID:       2,
+					RelativePath:        relativePath,
 					ExpectedSnapshotLSN: 1,
 				},
 				Commit{
@@ -900,6 +934,7 @@ func TestTransactionManager(t *testing.T) {
 				StartManager{},
 				Begin{
 					TransactionID: 1,
+					RelativePath:  relativePath,
 				},
 				Commit{
 					TransactionID: 1,
@@ -909,6 +944,7 @@ func TestTransactionManager(t *testing.T) {
 				},
 				Begin{
 					TransactionID:       2,
+					RelativePath:        relativePath,
 					ExpectedSnapshotLSN: 1,
 				},
 				Commit{
@@ -941,6 +977,7 @@ func TestTransactionManager(t *testing.T) {
 				StartManager{},
 				Begin{
 					TransactionID: 1,
+					RelativePath:  relativePath,
 				},
 				Commit{
 					TransactionID: 1,
@@ -950,6 +987,7 @@ func TestTransactionManager(t *testing.T) {
 				},
 				Begin{
 					TransactionID:       2,
+					RelativePath:        relativePath,
 					ExpectedSnapshotLSN: 1,
 				},
 				Commit{
@@ -977,6 +1015,7 @@ func TestTransactionManager(t *testing.T) {
 				StartManager{},
 				Begin{
 					TransactionID: 1,
+					RelativePath:  relativePath,
 				},
 				Commit{
 					TransactionID: 1,
@@ -987,6 +1026,7 @@ func TestTransactionManager(t *testing.T) {
 				},
 				Begin{
 					TransactionID:       2,
+					RelativePath:        relativePath,
 					ExpectedSnapshotLSN: 1,
 				},
 				Commit{
@@ -1019,6 +1059,7 @@ func TestTransactionManager(t *testing.T) {
 				StartManager{},
 				Begin{
 					TransactionID: 1,
+					RelativePath:  relativePath,
 				},
 				Commit{
 					TransactionID: 1,
@@ -1029,6 +1070,7 @@ func TestTransactionManager(t *testing.T) {
 				},
 				Begin{
 					TransactionID:       2,
+					RelativePath:        relativePath,
 					ExpectedSnapshotLSN: 1,
 				},
 				Commit{
@@ -1063,7 +1105,9 @@ func TestTransactionManager(t *testing.T) {
 			desc: "update non-existent reference",
 			steps: steps{
 				StartManager{},
-				Begin{},
+				Begin{
+					RelativePath: relativePath,
+				},
 				Commit{
 					ReferenceUpdates: ReferenceUpdates{
 						"refs/heads/main": {OldOID: setup.Commits.Second.OID, NewOID: setup.Commits.Third.OID},
@@ -1082,6 +1126,7 @@ func TestTransactionManager(t *testing.T) {
 				StartManager{},
 				Begin{
 					TransactionID: 1,
+					RelativePath:  relativePath,
 				},
 				Commit{
 					TransactionID: 1,
@@ -1091,6 +1136,7 @@ func TestTransactionManager(t *testing.T) {
 				},
 				Begin{
 					TransactionID:       2,
+					RelativePath:        relativePath,
 					ExpectedSnapshotLSN: 1,
 				},
 				Commit{
@@ -1118,6 +1164,7 @@ func TestTransactionManager(t *testing.T) {
 				StartManager{},
 				Begin{
 					TransactionID: 1,
+					RelativePath:  relativePath,
 				},
 				Commit{
 					TransactionID: 1,
@@ -1127,6 +1174,7 @@ func TestTransactionManager(t *testing.T) {
 				},
 				Begin{
 					TransactionID:       2,
+					RelativePath:        relativePath,
 					ExpectedSnapshotLSN: 1,
 				},
 				Commit{
@@ -1153,7 +1201,9 @@ func TestTransactionManager(t *testing.T) {
 						)
 					},
 				},
-				Begin{},
+				Begin{
+					RelativePath: relativePath,
+				},
 				Commit{
 					ReferenceUpdates: ReferenceUpdates{
 						"refs/heads/symbolic": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.ObjectHash.ZeroOID},
@@ -1179,6 +1229,7 @@ func TestTransactionManager(t *testing.T) {
 				},
 				Begin{
 					TransactionID: 1,
+					RelativePath:  relativePath,
 				},
 				Commit{
 					TransactionID: 1,
@@ -1188,6 +1239,7 @@ func TestTransactionManager(t *testing.T) {
 				},
 				Begin{
 					TransactionID:       2,
+					RelativePath:        relativePath,
 					ExpectedSnapshotLSN: 1,
 				},
 				Commit{
@@ -1223,6 +1275,7 @@ func TestTransactionManager(t *testing.T) {
 				},
 				Begin{
 					TransactionID: 1,
+					RelativePath:  relativePath,
 				},
 				Commit{
 					TransactionID: 1,
@@ -1232,6 +1285,7 @@ func TestTransactionManager(t *testing.T) {
 				},
 				Begin{
 					TransactionID:       2,
+					RelativePath:        relativePath,
 					ExpectedSnapshotLSN: 1,
 				},
 				Commit{
@@ -1263,6 +1317,7 @@ func TestTransactionManager(t *testing.T) {
 				StartManager{},
 				Begin{
 					TransactionID: 1,
+					RelativePath:  relativePath,
 				},
 				Commit{
 					TransactionID: 1,
@@ -1273,6 +1328,7 @@ func TestTransactionManager(t *testing.T) {
 				},
 				Begin{
 					TransactionID:       2,
+					RelativePath:        relativePath,
 					ExpectedSnapshotLSN: 1,
 				},
 				Commit{
@@ -1302,6 +1358,7 @@ func TestTransactionManager(t *testing.T) {
 				StartManager{},
 				Begin{
 					TransactionID: 1,
+					RelativePath:  relativePath,
 				},
 				Commit{
 					TransactionID: 1,
@@ -1312,6 +1369,7 @@ func TestTransactionManager(t *testing.T) {
 				},
 				Begin{
 					TransactionID:       2,
+					RelativePath:        relativePath,
 					ExpectedSnapshotLSN: 1,
 				},
 				Commit{
@@ -1346,7 +1404,9 @@ func TestTransactionManager(t *testing.T) {
 			desc: "delete non-existent reference",
 			steps: steps{
 				StartManager{},
-				Begin{},
+				Begin{
+					RelativePath: relativePath,
+				},
 				Commit{
 					ReferenceUpdates: ReferenceUpdates{
 						"refs/heads/main": {OldOID: setup.Commits.First.OID, NewOID: setup.ObjectHash.ZeroOID},
@@ -1363,7 +1423,9 @@ func TestTransactionManager(t *testing.T) {
 			desc: "delete reference no-op",
 			steps: steps{
 				StartManager{},
-				Begin{},
+				Begin{
+					RelativePath: relativePath,
+				},
 				Commit{
 					ReferenceUpdates: ReferenceUpdates{
 						"refs/heads/main": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.ObjectHash.ZeroOID},
@@ -1380,7 +1442,9 @@ func TestTransactionManager(t *testing.T) {
 			desc: "update reference multiple times successfully in a transaction",
 			steps: steps{
 				StartManager{},
-				Begin{},
+				Begin{
+					RelativePath: relativePath,
+				},
 				UpdateReferences{
 					ReferenceUpdates: ReferenceUpdates{
 						"refs/heads/main": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
@@ -1408,7 +1472,9 @@ func TestTransactionManager(t *testing.T) {
 			desc: "update reference multiple times fails due to wrong initial value",
 			steps: steps{
 				StartManager{},
-				Begin{},
+				Begin{
+					RelativePath: relativePath,
+				},
 				UpdateReferences{
 					ReferenceUpdates: ReferenceUpdates{
 						"refs/heads/main": {OldOID: setup.Commits.First.OID, NewOID: setup.Commits.Second.OID},
@@ -1434,7 +1500,9 @@ func TestTransactionManager(t *testing.T) {
 			desc: "recording initial value of a reference stages no updates",
 			steps: steps{
 				StartManager{},
-				Begin{},
+				Begin{
+					RelativePath: relativePath,
+				},
 				RecordInitialReferenceValues{
 					InitialValues: map[git.ReferenceName]git.ObjectID{
 						"refs/heads/main": setup.Commits.First.OID,
@@ -1452,7 +1520,9 @@ func TestTransactionManager(t *testing.T) {
 			desc: "update reference with non-existent initial value",
 			steps: steps{
 				StartManager{},
-				Begin{},
+				Begin{
+					RelativePath: relativePath,
+				},
 				RecordInitialReferenceValues{
 					InitialValues: map[git.ReferenceName]git.ObjectID{
 						"refs/heads/main": setup.ObjectHash.ZeroOID,
@@ -1483,6 +1553,7 @@ func TestTransactionManager(t *testing.T) {
 				StartManager{},
 				Begin{
 					TransactionID: 1,
+					RelativePath:  relativePath,
 				},
 				Commit{
 					TransactionID: 1,
@@ -1492,6 +1563,7 @@ func TestTransactionManager(t *testing.T) {
 				},
 				Begin{
 					TransactionID:       2,
+					RelativePath:        relativePath,
 					ExpectedSnapshotLSN: 1,
 				},
 				RecordInitialReferenceValues{
@@ -1528,6 +1600,7 @@ func TestTransactionManager(t *testing.T) {
 				StartManager{},
 				Begin{
 					TransactionID: 1,
+					RelativePath:  relativePath,
 				},
 				Commit{
 					TransactionID: 1,
@@ -1537,6 +1610,7 @@ func TestTransactionManager(t *testing.T) {
 				},
 				Begin{
 					TransactionID:       2,
+					RelativePath:        relativePath,
 					ExpectedSnapshotLSN: 1,
 				},
 				RecordInitialReferenceValues{
@@ -1573,6 +1647,7 @@ func TestTransactionManager(t *testing.T) {
 				StartManager{},
 				Begin{
 					TransactionID: 1,
+					RelativePath:  relativePath,
 				},
 				Commit{
 					TransactionID: 1,
@@ -1582,6 +1657,7 @@ func TestTransactionManager(t *testing.T) {
 				},
 				Begin{
 					TransactionID:       2,
+					RelativePath:        relativePath,
 					ExpectedSnapshotLSN: 1,
 				},
 				RecordInitialReferenceValues{
@@ -1621,7 +1697,9 @@ func TestTransactionManager(t *testing.T) {
 			desc: "initial value is only recorded on the first time",
 			steps: steps{
 				StartManager{},
-				Begin{},
+				Begin{
+					RelativePath: relativePath,
+				},
 				RecordInitialReferenceValues{
 					InitialValues: map[git.ReferenceName]git.ObjectID{
 						"refs/heads/main": setup.ObjectHash.ZeroOID,
@@ -1658,7 +1736,9 @@ func TestTransactionManager(t *testing.T) {
 			desc: "initial value is set on the first update",
 			steps: steps{
 				StartManager{},
-				Begin{},
+				Begin{
+					RelativePath: relativePath,
+				},
 				UpdateReferences{
 					ReferenceUpdates: ReferenceUpdates{
 						"refs/heads/main": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
@@ -1688,6 +1768,7 @@ func TestTransactionManager(t *testing.T) {
 				StartManager{},
 				Begin{
 					TransactionID: 1,
+					RelativePath:  relativePath,
 				},
 				Commit{
 					TransactionID: 1,
@@ -1697,6 +1778,7 @@ func TestTransactionManager(t *testing.T) {
 				},
 				Begin{
 					TransactionID:       2,
+					RelativePath:        relativePath,
 					ExpectedSnapshotLSN: 1,
 				},
 				Commit{
@@ -1727,6 +1809,7 @@ func TestTransactionManager(t *testing.T) {
 				StartManager{},
 				Begin{
 					TransactionID: 1,
+					RelativePath:  relativePath,
 				},
 				Commit{
 					TransactionID: 1,
@@ -1752,6 +1835,7 @@ func TestTransactionManager(t *testing.T) {
 				},
 				Begin{
 					TransactionID: 1,
+					RelativePath:  relativePath,
 				},
 				Commit{
 					TransactionID: 1,
@@ -1801,6 +1885,7 @@ func TestTransactionManager(t *testing.T) {
 				},
 				Begin{
 					TransactionID: 1,
+					RelativePath:  relativePath,
 				},
 				Commit{
 					TransactionID: 1,
@@ -1815,6 +1900,7 @@ func TestTransactionManager(t *testing.T) {
 				StartManager{},
 				Begin{
 					TransactionID:       2,
+					RelativePath:        relativePath,
 					ExpectedSnapshotLSN: 1,
 				},
 				Commit{
@@ -1823,12 +1909,14 @@ func TestTransactionManager(t *testing.T) {
 				},
 				Begin{
 					TransactionID:       3,
+					RelativePath:        relativePath,
 					ExpectedSnapshotLSN: 2,
 				},
 				CloseManager{},
 				StartManager{},
 				Begin{
 					TransactionID:       4,
+					RelativePath:        relativePath,
 					ExpectedSnapshotLSN: 2,
 				},
 				Rollback{
@@ -1858,6 +1946,7 @@ func TestTransactionManager(t *testing.T) {
 				StartManager{},
 				Begin{
 					TransactionID: 1,
+					RelativePath:  relativePath,
 				},
 				Commit{
 					TransactionID: 1,
@@ -1872,6 +1961,7 @@ func TestTransactionManager(t *testing.T) {
 				},
 				Begin{
 					TransactionID: 2,
+					RelativePath:  relativePath,
 				},
 				Commit{
 					TransactionID: 2,
@@ -1898,6 +1988,7 @@ func TestTransactionManager(t *testing.T) {
 				StartManager{},
 				Begin{
 					TransactionID: 1,
+					RelativePath:  relativePath,
 				},
 				Commit{
 					TransactionID: 1,
@@ -1910,6 +2001,7 @@ func TestTransactionManager(t *testing.T) {
 				StartManager{},
 				Begin{
 					TransactionID:       2,
+					RelativePath:        relativePath,
 					ExpectedSnapshotLSN: 1,
 				},
 				Commit{
@@ -1937,6 +2029,7 @@ func TestTransactionManager(t *testing.T) {
 				StartManager{},
 				Begin{
 					TransactionID: 1,
+					RelativePath:  relativePath,
 				},
 				Commit{
 					TransactionID: 1,
@@ -1953,6 +2046,7 @@ func TestTransactionManager(t *testing.T) {
 				StartManager{},
 				Begin{
 					TransactionID: 2,
+					RelativePath:  relativePath,
 				},
 				Commit{
 					TransactionID: 2,
@@ -1986,6 +2080,7 @@ func TestTransactionManager(t *testing.T) {
 				},
 				Begin{
 					TransactionID: 1,
+					RelativePath:  relativePath,
 				},
 				Commit{
 					TransactionID: 1,
@@ -2000,6 +2095,7 @@ func TestTransactionManager(t *testing.T) {
 				StartManager{},
 				Begin{
 					TransactionID:       2,
+					RelativePath:        relativePath,
 					ExpectedSnapshotLSN: 1,
 				},
 				Commit{
@@ -2033,6 +2129,7 @@ func TestTransactionManager(t *testing.T) {
 				},
 				Begin{
 					TransactionID: 1,
+					RelativePath:  relativePath,
 				},
 				Commit{
 					TransactionID: 1,
@@ -2045,6 +2142,7 @@ func TestTransactionManager(t *testing.T) {
 				StartManager{},
 				Begin{
 					TransactionID:       2,
+					RelativePath:        relativePath,
 					ExpectedSnapshotLSN: 1,
 				},
 				Commit{
@@ -2078,6 +2176,7 @@ func TestTransactionManager(t *testing.T) {
 				},
 				Begin{
 					TransactionID: 1,
+					RelativePath:  relativePath,
 				},
 				Commit{
 					TransactionID: 1,
@@ -2090,6 +2189,7 @@ func TestTransactionManager(t *testing.T) {
 				StartManager{},
 				Begin{
 					TransactionID:       2,
+					RelativePath:        relativePath,
 					ExpectedSnapshotLSN: 1,
 				},
 				Commit{
@@ -2120,6 +2220,7 @@ func TestTransactionManager(t *testing.T) {
 			desc: "begin returns if context is canceled before initialization",
 			steps: steps{
 				Begin{
+					RelativePath: relativePath,
 					Context: func() context.Context {
 						ctx, cancel := context.WithCancel(ctx)
 						cancel()
@@ -2137,7 +2238,9 @@ func TestTransactionManager(t *testing.T) {
 			desc: "commit returns if transaction processing stops before admission",
 			steps: steps{
 				StartManager{},
-				Begin{},
+				Begin{
+					RelativePath: relativePath,
+				},
 				CloseManager{},
 				Commit{
 					ExpectedError: ErrTransactionProcessingStopped,
@@ -2157,7 +2260,9 @@ func TestTransactionManager(t *testing.T) {
 							},
 						},
 					},
-					Begin{},
+					Begin{
+						RelativePath: relativePath,
+					},
 					Commit{
 						Context: ctx,
 						ReferenceUpdates: ReferenceUpdates{
@@ -2191,7 +2296,9 @@ func TestTransactionManager(t *testing.T) {
 						WaitForTransactionsWhenClosing: true,
 					},
 				},
-				Begin{},
+				Begin{
+					RelativePath: relativePath,
+				},
 				CloseManager{},
 				Commit{
 					ExpectedError: ErrTransactionProcessingStopped,
@@ -2208,7 +2315,9 @@ func TestTransactionManager(t *testing.T) {
 						},
 					},
 				},
-				Begin{},
+				Begin{
+					RelativePath: relativePath,
+				},
 				Commit{
 					ReferenceUpdates: ReferenceUpdates{
 						"refs/heads/main": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
@@ -2236,6 +2345,7 @@ func TestTransactionManager(t *testing.T) {
 				StartManager{},
 				Begin{
 					TransactionID: 1,
+					RelativePath:  relativePath,
 				},
 				Commit{
 					TransactionID: 1,
@@ -2246,6 +2356,7 @@ func TestTransactionManager(t *testing.T) {
 				},
 				Begin{
 					TransactionID:       2,
+					RelativePath:        relativePath,
 					ExpectedSnapshotLSN: 1,
 				},
 				Commit{
@@ -2276,6 +2387,7 @@ func TestTransactionManager(t *testing.T) {
 				StartManager{},
 				Begin{
 					TransactionID: 1,
+					RelativePath:  relativePath,
 				},
 				Commit{
 					TransactionID: 1,
@@ -2285,6 +2397,7 @@ func TestTransactionManager(t *testing.T) {
 				},
 				Begin{
 					TransactionID:       2,
+					RelativePath:        relativePath,
 					ExpectedSnapshotLSN: 1,
 				},
 				Commit{
@@ -2317,7 +2430,9 @@ func TestTransactionManager(t *testing.T) {
 			desc: "update default branch with invalid reference name",
 			steps: steps{
 				StartManager{},
-				Begin{},
+				Begin{
+					RelativePath: relativePath,
+				},
 				Commit{
 					ReferenceUpdates: ReferenceUpdates{
 						"refs/heads/main": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
@@ -2335,7 +2450,9 @@ func TestTransactionManager(t *testing.T) {
 			desc: "update default branch to point to a non-existent reference name",
 			steps: steps{
 				StartManager{},
-				Begin{},
+				Begin{
+					RelativePath: relativePath,
+				},
 				Commit{
 					ReferenceUpdates: ReferenceUpdates{
 						"refs/heads/main": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
@@ -2361,7 +2478,9 @@ func TestTransactionManager(t *testing.T) {
 			desc: "update default branch to point non-refs prefixed reference",
 			steps: steps{
 				StartManager{},
-				Begin{},
+				Begin{
+					RelativePath: relativePath,
+				},
 				Commit{
 					DefaultBranchUpdate: &DefaultBranchUpdate{
 						Reference: "other/non-existent",
@@ -2376,6 +2495,7 @@ func TestTransactionManager(t *testing.T) {
 				StartManager{},
 				Begin{
 					TransactionID: 1,
+					RelativePath:  relativePath,
 				},
 				Commit{
 					TransactionID: 1,
@@ -2386,6 +2506,7 @@ func TestTransactionManager(t *testing.T) {
 				},
 				Begin{
 					TransactionID:       2,
+					RelativePath:        relativePath,
 					ExpectedSnapshotLSN: 1,
 				},
 				Commit{
@@ -2418,6 +2539,7 @@ func TestTransactionManager(t *testing.T) {
 				StartManager{},
 				Begin{
 					TransactionID: 1,
+					RelativePath:  relativePath,
 				},
 				Commit{
 					TransactionID: 1,
@@ -2428,6 +2550,7 @@ func TestTransactionManager(t *testing.T) {
 				},
 				Begin{
 					TransactionID:       2,
+					RelativePath:        relativePath,
 					ExpectedSnapshotLSN: 1,
 				},
 				Commit{
@@ -2468,6 +2591,7 @@ func TestTransactionManager(t *testing.T) {
 				},
 				Begin{
 					TransactionID: 1,
+					RelativePath:  relativePath,
 				},
 				Commit{
 					TransactionID: 1,
@@ -2486,6 +2610,7 @@ func TestTransactionManager(t *testing.T) {
 				StartManager{},
 				Begin{
 					TransactionID:       2,
+					RelativePath:        relativePath,
 					ExpectedSnapshotLSN: 1,
 				},
 				Commit{
@@ -2516,9 +2641,11 @@ func TestTransactionManager(t *testing.T) {
 				StartManager{},
 				Begin{
 					TransactionID: 1,
+					RelativePath:  relativePath,
 				},
 				Begin{
 					TransactionID: 2,
+					RelativePath:  relativePath,
 				},
 				RepositoryAssertion{
 					TransactionID: 1,
@@ -2578,6 +2705,7 @@ func TestTransactionManager(t *testing.T) {
 				},
 				Begin{
 					TransactionID:       3,
+					RelativePath:        relativePath,
 					ExpectedSnapshotLSN: 1,
 				},
 				// Transaction 3 is should see the new changes as it began after transaction 1 was committed.
@@ -2616,6 +2744,7 @@ func TestTransactionManager(t *testing.T) {
 				},
 				Begin{
 					TransactionID:       4,
+					RelativePath:        relativePath,
 					ExpectedSnapshotLSN: 2,
 				},
 				Rollback{
@@ -2623,6 +2752,7 @@ func TestTransactionManager(t *testing.T) {
 				},
 				Begin{
 					TransactionID:       5,
+					RelativePath:        relativePath,
 					ExpectedSnapshotLSN: 2,
 				},
 				Commit{
@@ -2634,6 +2764,7 @@ func TestTransactionManager(t *testing.T) {
 				},
 				Begin{
 					TransactionID:       6,
+					RelativePath:        relativePath,
 					ExpectedSnapshotLSN: 3,
 				},
 				Rollback{
@@ -2671,6 +2802,7 @@ func TestTransactionManager(t *testing.T) {
 				StartManager{},
 				Begin{
 					TransactionID: 1,
+					RelativePath:  relativePath,
 				},
 				Commit{
 					TransactionID: 1,
@@ -2684,6 +2816,7 @@ func TestTransactionManager(t *testing.T) {
 				},
 				Begin{
 					TransactionID: 2,
+					RelativePath:  relativePath,
 				},
 				Commit{
 					TransactionID: 2,
@@ -2732,6 +2865,7 @@ func TestTransactionManager(t *testing.T) {
 				StartManager{},
 				Begin{
 					TransactionID: 1,
+					RelativePath:  relativePath,
 				},
 				Commit{
 					TransactionID: 1,
@@ -2745,6 +2879,7 @@ func TestTransactionManager(t *testing.T) {
 				},
 				Begin{
 					TransactionID:       2,
+					RelativePath:        relativePath,
 					ExpectedSnapshotLSN: 1,
 				},
 				// Point main to the first commit so the second one is unreachable.
@@ -2768,6 +2903,7 @@ func TestTransactionManager(t *testing.T) {
 				},
 				Begin{
 					TransactionID:       3,
+					RelativePath:        relativePath,
 					ExpectedSnapshotLSN: 2,
 				},
 				Commit{
@@ -2850,6 +2986,7 @@ func TestTransactionManager(t *testing.T) {
 				},
 				Begin{
 					TransactionID: 1,
+					RelativePath:  relativePath,
 				},
 				Commit{
 					TransactionID: 1,
@@ -2903,6 +3040,7 @@ func TestTransactionManager(t *testing.T) {
 				StartManager{},
 				Begin{
 					TransactionID: 1,
+					RelativePath:  relativePath,
 				},
 				Commit{
 					TransactionID: 1,
@@ -2928,6 +3066,7 @@ func TestTransactionManager(t *testing.T) {
 				StartManager{},
 				Begin{
 					TransactionID: 1,
+					RelativePath:  relativePath,
 				},
 				Commit{
 					TransactionID: 1,
@@ -2938,6 +3077,7 @@ func TestTransactionManager(t *testing.T) {
 				},
 				Begin{
 					TransactionID:       2,
+					RelativePath:        relativePath,
 					ExpectedSnapshotLSN: 1,
 				},
 				Commit{
@@ -2989,6 +3129,7 @@ func TestTransactionManager(t *testing.T) {
 				StartManager{},
 				Begin{
 					TransactionID: 1,
+					RelativePath:  relativePath,
 				},
 				Commit{
 					TransactionID:    1,
@@ -3015,7 +3156,9 @@ func TestTransactionManager(t *testing.T) {
 			steps: steps{
 				Prune{},
 				StartManager{},
-				Begin{},
+				Begin{
+					RelativePath: relativePath,
+				},
 				Commit{
 					QuarantinedPacks: [][]byte{
 						setup.Commits.First.Pack,
@@ -3060,7 +3203,9 @@ func TestTransactionManager(t *testing.T) {
 			steps: steps{
 				Prune{},
 				StartManager{},
-				Begin{},
+				Begin{
+					RelativePath: relativePath,
+				},
 				Commit{
 					QuarantinedPacks: [][]byte{
 						setup.Commits.First.Pack,
@@ -3107,7 +3252,9 @@ func TestTransactionManager(t *testing.T) {
 			steps: steps{
 				Prune{},
 				StartManager{},
-				Begin{},
+				Begin{
+					RelativePath: relativePath,
+				},
 				Commit{
 					QuarantinedPacks: [][]byte{
 						setup.Commits.First.Pack,
@@ -3133,6 +3280,7 @@ func TestTransactionManager(t *testing.T) {
 				StartManager{},
 				Begin{
 					TransactionID: 1,
+					RelativePath:  relativePath,
 				},
 				Commit{
 					TransactionID: 1,
@@ -3143,6 +3291,7 @@ func TestTransactionManager(t *testing.T) {
 				},
 				Begin{
 					TransactionID:       2,
+					RelativePath:        relativePath,
 					ExpectedSnapshotLSN: 1,
 				},
 				Commit{
@@ -3188,6 +3337,7 @@ func TestTransactionManager(t *testing.T) {
 				StartManager{},
 				Begin{
 					TransactionID: 1,
+					RelativePath:  relativePath,
 				},
 				Commit{
 					TransactionID: 1,
@@ -3198,10 +3348,12 @@ func TestTransactionManager(t *testing.T) {
 				},
 				Begin{
 					TransactionID:       2,
+					RelativePath:        relativePath,
 					ExpectedSnapshotLSN: 1,
 				},
 				Begin{
 					TransactionID:       3,
+					RelativePath:        relativePath,
 					ExpectedSnapshotLSN: 1,
 				},
 				Commit{
@@ -3280,6 +3432,7 @@ func TestTransactionManager(t *testing.T) {
 				StartManager{},
 				Begin{
 					TransactionID: 1,
+					RelativePath:  relativePath,
 				},
 				Commit{
 					TransactionID:    1,
@@ -3287,6 +3440,7 @@ func TestTransactionManager(t *testing.T) {
 				},
 				Begin{
 					TransactionID:       2,
+					RelativePath:        relativePath,
 					ExpectedSnapshotLSN: 1,
 				},
 				RepositoryAssertion{
@@ -3310,9 +3464,11 @@ func TestTransactionManager(t *testing.T) {
 				StartManager{},
 				Begin{
 					TransactionID: 1,
+					RelativePath:  relativePath,
 				},
 				Begin{
 					TransactionID: 2,
+					RelativePath:  relativePath,
 				},
 				Commit{
 					TransactionID:    1,
@@ -3337,9 +3493,11 @@ func TestTransactionManager(t *testing.T) {
 				StartManager{},
 				Begin{
 					TransactionID: 1,
+					RelativePath:  relativePath,
 				},
 				Begin{
 					TransactionID: 2,
+					RelativePath:  relativePath,
 				},
 				Commit{
 					TransactionID:    1,
@@ -3364,9 +3522,11 @@ func TestTransactionManager(t *testing.T) {
 				StartManager{},
 				Begin{
 					TransactionID: 1,
+					RelativePath:  relativePath,
 				},
 				Begin{
 					TransactionID: 2,
+					RelativePath:  relativePath,
 				},
 				Commit{
 					TransactionID:    1,
@@ -3393,9 +3553,11 @@ func TestTransactionManager(t *testing.T) {
 				StartManager{},
 				Begin{
 					TransactionID: 1,
+					RelativePath:  relativePath,
 				},
 				Begin{
 					TransactionID: 2,
+					RelativePath:  relativePath,
 				},
 				Commit{
 					TransactionID:    1,
@@ -3429,6 +3591,7 @@ func TestTransactionManager(t *testing.T) {
 				},
 				Begin{
 					TransactionID: 1,
+					RelativePath:  relativePath,
 				},
 				Commit{
 					TransactionID:    1,
@@ -3441,6 +3604,7 @@ func TestTransactionManager(t *testing.T) {
 				StartManager{},
 				Begin{
 					TransactionID:       2,
+					RelativePath:        relativePath,
 					ExpectedSnapshotLSN: 1,
 				},
 				RepositoryAssertion{
@@ -3471,6 +3635,7 @@ func TestTransactionManager(t *testing.T) {
 				},
 				Begin{
 					TransactionID: 1,
+					RelativePath:  relativePath,
 				},
 				Commit{
 					TransactionID:    1,
@@ -3483,6 +3648,7 @@ func TestTransactionManager(t *testing.T) {
 				StartManager{},
 				Begin{
 					TransactionID:       2,
+					RelativePath:        relativePath,
 					ExpectedSnapshotLSN: 1,
 				},
 				RepositoryAssertion{
@@ -3507,6 +3673,7 @@ func TestTransactionManager(t *testing.T) {
 				StartManager{},
 				Begin{
 					TransactionID: 1,
+					RelativePath:  relativePath,
 				},
 				RepositoryAssertion{
 					TransactionID: 1,
@@ -3528,9 +3695,11 @@ func TestTransactionManager(t *testing.T) {
 				StartManager{},
 				Begin{
 					TransactionID: 1,
+					RelativePath:  relativePath,
 				},
 				Begin{
 					TransactionID: 2,
+					RelativePath:  relativePath,
 				},
 				Commit{
 					TransactionID: 1,
@@ -3566,9 +3735,11 @@ func TestTransactionManager(t *testing.T) {
 				StartManager{},
 				Begin{
 					TransactionID: 1,
+					RelativePath:  relativePath,
 				},
 				Begin{
 					TransactionID: 2,
+					RelativePath:  relativePath,
 				},
 				Commit{
 					TransactionID:    1,
@@ -3618,6 +3789,7 @@ func TestTransactionManager(t *testing.T) {
 					ExpectedError: errSimulatedCrash,
 				},
 				Begin{
+					RelativePath:  relativePath,
 					ExpectedError: errInitializationFailed,
 				},
 				AssertManager{
@@ -3633,7 +3805,9 @@ func TestTransactionManager(t *testing.T) {
 			desc: "transaction rollbacked after already being rollbacked",
 			steps: steps{
 				StartManager{},
-				Begin{},
+				Begin{
+					RelativePath: relativePath,
+				},
 				Rollback{},
 				Rollback{
 					ExpectedError: ErrTransactionAlreadyRollbacked,
@@ -3644,7 +3818,9 @@ func TestTransactionManager(t *testing.T) {
 			desc: "transaction rollbacked after already being committed",
 			steps: steps{
 				StartManager{},
-				Begin{},
+				Begin{
+					RelativePath: relativePath,
+				},
 				Commit{},
 				Rollback{
 					ExpectedError: ErrTransactionAlreadyCommitted,
@@ -3660,7 +3836,9 @@ func TestTransactionManager(t *testing.T) {
 			desc: "transaction committed after already being committed",
 			steps: steps{
 				StartManager{},
-				Begin{},
+				Begin{
+					RelativePath: relativePath,
+				},
 				Commit{},
 				Commit{
 					ExpectedError: ErrTransactionAlreadyCommitted,
@@ -3676,7 +3854,9 @@ func TestTransactionManager(t *testing.T) {
 			desc: "transaction committed after already being rollbacked",
 			steps: steps{
 				StartManager{},
-				Begin{},
+				Begin{
+					RelativePath: relativePath,
+				},
 				Rollback{},
 				Commit{
 					ExpectedError: ErrTransactionAlreadyRollbacked,
@@ -3688,9 +3868,8 @@ func TestTransactionManager(t *testing.T) {
 			steps: steps{
 				StartManager{},
 				Begin{
-					TransactionOptions: TransactionOptions{
-						ReadOnly: true,
-					},
+					RelativePath: relativePath,
+					ReadOnly:     true,
 				},
 				Commit{},
 			},
@@ -3700,9 +3879,8 @@ func TestTransactionManager(t *testing.T) {
 			steps: steps{
 				StartManager{},
 				Begin{
-					TransactionOptions: TransactionOptions{
-						ReadOnly: true,
-					},
+					RelativePath: relativePath,
+					ReadOnly:     true,
 				},
 				Commit{
 					ReferenceUpdates: ReferenceUpdates{
@@ -3717,9 +3895,8 @@ func TestTransactionManager(t *testing.T) {
 			steps: steps{
 				StartManager{},
 				Begin{
-					TransactionOptions: TransactionOptions{
-						ReadOnly: true,
-					},
+					RelativePath: relativePath,
+					ReadOnly:     true,
 				},
 				Commit{
 					DefaultBranchUpdate: &DefaultBranchUpdate{
@@ -3734,9 +3911,8 @@ func TestTransactionManager(t *testing.T) {
 			steps: steps{
 				StartManager{},
 				Begin{
-					TransactionOptions: TransactionOptions{
-						ReadOnly: true,
-					},
+					RelativePath: relativePath,
+					ReadOnly:     true,
 				},
 				Commit{
 					CustomHooksUpdate: &CustomHooksUpdate{
@@ -3751,9 +3927,8 @@ func TestTransactionManager(t *testing.T) {
 			steps: steps{
 				StartManager{},
 				Begin{
-					TransactionOptions: TransactionOptions{
-						ReadOnly: true,
-					},
+					RelativePath: relativePath,
+					ReadOnly:     true,
 				},
 				Commit{
 					DeleteRepository: true,
@@ -3766,9 +3941,8 @@ func TestTransactionManager(t *testing.T) {
 			steps: steps{
 				StartManager{},
 				Begin{
-					TransactionOptions: TransactionOptions{
-						ReadOnly: true,
-					},
+					RelativePath: relativePath,
+					ReadOnly:     true,
 				},
 				Commit{
 					IncludeObjects: []git.ObjectID{setup.Commits.First.OID},
@@ -3783,9 +3957,11 @@ func TestTransactionManager(t *testing.T) {
 				StartManager{},
 				Begin{
 					TransactionID: 1,
+					RelativePath:  relativePath,
 				},
 				Begin{
 					TransactionID: 2,
+					RelativePath:  relativePath,
 				},
 				Commit{
 					TransactionID: 2,
@@ -3802,6 +3978,7 @@ func TestTransactionManager(t *testing.T) {
 				},
 				Begin{
 					TransactionID:       3,
+					RelativePath:        relativePath,
 					ExpectedSnapshotLSN: 1,
 				},
 				// This transaction was started before the commit, so it should see the original state.
@@ -3891,6 +4068,7 @@ func TestTransactionManager(t *testing.T) {
 				StartManager{},
 				Begin{
 					TransactionID: 1,
+					RelativePath:  relativePath,
 				},
 				Commit{
 					TransactionID: 1,
@@ -3907,10 +4085,12 @@ func TestTransactionManager(t *testing.T) {
 				},
 				Begin{
 					TransactionID:       2,
+					RelativePath:        relativePath,
 					ExpectedSnapshotLSN: 1,
 				},
 				Begin{
 					TransactionID:       3,
+					RelativePath:        relativePath,
 					ExpectedSnapshotLSN: 1,
 				},
 				Commit{
@@ -3948,6 +4128,7 @@ func TestTransactionManager(t *testing.T) {
 				},
 				Begin{
 					TransactionID:       4,
+					RelativePath:        relativePath,
 					ExpectedSnapshotLSN: 2,
 				},
 				RepositoryAssertion{
@@ -3984,7 +4165,9 @@ func TestTransactionManager(t *testing.T) {
 			steps: steps{
 				RemoveRepository{},
 				StartManager{},
-				Begin{},
+				Begin{
+					RelativePath: relativePath,
+				},
 				CreateRepository{},
 				Commit{},
 			},
@@ -4006,9 +4189,11 @@ func TestTransactionManager(t *testing.T) {
 				StartManager{},
 				Begin{
 					TransactionID: 1,
+					RelativePath:  relativePath,
 				},
 				Begin{
 					TransactionID: 2,
+					RelativePath:  relativePath,
 				},
 				CreateRepository{
 					TransactionID: 1,
@@ -4042,6 +4227,7 @@ func TestTransactionManager(t *testing.T) {
 				StartManager{},
 				Begin{
 					TransactionID: 1,
+					RelativePath:  relativePath,
 				},
 				CreateRepository{
 					TransactionID: 1,
@@ -4051,6 +4237,7 @@ func TestTransactionManager(t *testing.T) {
 				},
 				Begin{
 					TransactionID:       2,
+					RelativePath:        relativePath,
 					ExpectedSnapshotLSN: 1,
 				},
 				Commit{
@@ -4065,6 +4252,7 @@ func TestTransactionManager(t *testing.T) {
 				},
 				Begin{
 					TransactionID:       3,
+					RelativePath:        relativePath,
 					ExpectedSnapshotLSN: 2,
 				},
 				Commit{
@@ -4073,6 +4261,7 @@ func TestTransactionManager(t *testing.T) {
 				},
 				Begin{
 					TransactionID:       4,
+					RelativePath:        relativePath,
 					ExpectedSnapshotLSN: 3,
 				},
 				CreateRepository{
@@ -4112,7 +4301,9 @@ func TestTransactionManager(t *testing.T) {
 			steps: steps{
 				RemoveRepository{},
 				StartManager{},
-				Begin{},
+				Begin{
+					RelativePath: relativePath,
+				},
 				CreateRepository{
 					DefaultBranch: "refs/heads/branch",
 					References: map[git.ReferenceName]git.ObjectID{
@@ -4175,6 +4366,7 @@ func TestTransactionManager(t *testing.T) {
 				StartManager{},
 				Begin{
 					TransactionID: 1,
+					RelativePath:  relativePath,
 				},
 				CreateRepository{
 					TransactionID: 1,
@@ -4189,10 +4381,12 @@ func TestTransactionManager(t *testing.T) {
 				},
 				Begin{
 					TransactionID:       2,
+					RelativePath:        relativePath,
 					ExpectedSnapshotLSN: 1,
 				},
 				Begin{
 					TransactionID:       3,
+					RelativePath:        relativePath,
 					ExpectedSnapshotLSN: 1,
 				},
 				Commit{
@@ -4201,6 +4395,7 @@ func TestTransactionManager(t *testing.T) {
 				},
 				Begin{
 					TransactionID:       4,
+					RelativePath:        relativePath,
 					ExpectedSnapshotLSN: 2,
 				},
 				CreateRepository{
@@ -4302,6 +4497,7 @@ func TestTransactionManager(t *testing.T) {
 				},
 				Begin{
 					TransactionID: 1,
+					RelativePath:  relativePath,
 				},
 				CreateRepository{
 					TransactionID: 1,
@@ -4316,6 +4512,7 @@ func TestTransactionManager(t *testing.T) {
 				StartManager{},
 				Begin{
 					TransactionID:       2,
+					RelativePath:        relativePath,
 					ExpectedSnapshotLSN: 1,
 				},
 				Commit{
@@ -4344,6 +4541,7 @@ func TestTransactionManager(t *testing.T) {
 				},
 				Begin{
 					TransactionID: 1,
+					RelativePath:  relativePath,
 				},
 				CreateRepository{
 					TransactionID: 1,
@@ -4409,11 +4607,126 @@ func TestTransactionManager(t *testing.T) {
 			steps: steps{
 				RemoveRepository{},
 				StartManager{},
-				Begin{},
+				Begin{
+					RelativePath: relativePath,
+				},
 				Commit{},
 			},
 			expectedState: StateAssertion{
 				Repositories: RepositoryStates{},
+			},
+		},
+		{
+			desc: "two repositories created in different transactions",
+			steps: steps{
+				RemoveRepository{},
+				StartManager{},
+				Begin{
+					TransactionID: 1,
+					RelativePath:  "repository-1",
+				},
+				Begin{
+					TransactionID: 2,
+					RelativePath:  "repository-2",
+				},
+				CreateRepository{
+					TransactionID: 1,
+					References: map[git.ReferenceName]git.ObjectID{
+						"refs/heads/main": setup.Commits.First.OID,
+					},
+					Packs:       [][]byte{setup.Commits.First.Pack},
+					CustomHooks: validCustomHooks(t),
+				},
+				CreateRepository{
+					TransactionID: 2,
+					References: map[git.ReferenceName]git.ObjectID{
+						"refs/heads/branch": setup.Commits.Third.OID,
+					},
+					DefaultBranch: "refs/heads/branch",
+					Packs: [][]byte{
+						setup.Commits.First.Pack,
+						setup.Commits.Second.Pack,
+						setup.Commits.Third.Pack,
+					},
+				},
+				Commit{
+					TransactionID: 1,
+				},
+				Commit{
+					TransactionID: 2,
+				},
+			},
+			expectedState: StateAssertion{
+				Database: DatabaseState{
+					string(keyAppliedLSN(partitionID)): LSN(2).toProto(),
+				},
+				Repositories: RepositoryStates{
+					"repository-1": {
+						References: []git.Reference{
+							{Name: "refs/heads/main", Target: setup.Commits.First.OID.String()},
+						},
+						Objects: []git.ObjectID{
+							setup.ObjectHash.EmptyTreeOID,
+							setup.Commits.First.OID,
+						},
+						CustomHooks: testhelper.DirectoryState{
+							"/": {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
+							"/pre-receive": {
+								Mode:    umask.Mask(fs.ModePerm),
+								Content: []byte("hook content"),
+							},
+							"/private-dir":              {Mode: umask.Mask(fs.ModeDir | perm.PrivateDir)},
+							"/private-dir/private-file": {Mode: umask.Mask(perm.PrivateFile), Content: []byte("private content")},
+						},
+					},
+					"repository-2": {
+						DefaultBranch: "refs/heads/branch",
+						References: []git.Reference{
+							{Name: "refs/heads/branch", Target: setup.Commits.Third.OID.String()},
+						},
+						Objects: []git.ObjectID{
+							setup.ObjectHash.EmptyTreeOID,
+							setup.Commits.First.OID,
+							setup.Commits.Second.OID,
+							setup.Commits.Third.OID,
+						},
+					},
+				},
+				Directory: testhelper.DirectoryState{
+					"/":                  {Mode: fs.ModeDir | perm.PrivateDir},
+					"/wal":               {Mode: fs.ModeDir | perm.PrivateDir},
+					"/wal/1":             {Mode: fs.ModeDir | perm.PrivateDir},
+					"/wal/1/objects.idx": indexFileDirectoryEntry(setup.Config),
+					"/wal/1/objects.pack": packFileDirectoryEntry(
+						setup.Config,
+						[]git.ObjectID{
+							setup.ObjectHash.EmptyTreeOID,
+							setup.Commits.First.OID,
+						},
+					),
+					"/wal/1/objects.rev": reverseIndexFileDirectoryEntry(setup.Config),
+					"/wal/2":             {Mode: fs.ModeDir | perm.PrivateDir},
+					"/wal/2/objects.idx": indexFileDirectoryEntry(setup.Config),
+					"/wal/2/objects.pack": packFileDirectoryEntry(
+						setup.Config,
+						[]git.ObjectID{
+							setup.ObjectHash.EmptyTreeOID,
+							setup.Commits.First.OID,
+							setup.Commits.Second.OID,
+							setup.Commits.Third.OID,
+						},
+					),
+					"/wal/2/objects.rev": reverseIndexFileDirectoryEntry(setup.Config),
+				},
+			},
+		},
+		{
+			desc: "start transaction with empty relative path",
+			steps: steps{
+				StartManager{},
+				Begin{
+					ExpectedError: errRelativePathNotSet,
+				},
 			},
 		},
 	}
@@ -4428,7 +4741,9 @@ func TestTransactionManager(t *testing.T) {
 			desc: fmt.Sprintf("invalid reference %s", tc.desc),
 			steps: steps{
 				StartManager{},
-				Begin{},
+				Begin{
+					RelativePath: relativePath,
+				},
 				Commit{
 					ReferenceUpdates: ReferenceUpdates{
 						tc.referenceName: {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
@@ -4528,7 +4843,7 @@ func TestTransactionManager(t *testing.T) {
 				// managerRunning tracks whether the manager is running or closed.
 				managerRunning bool
 				// transactionManager is the current TransactionManager instance.
-				transactionManager = NewTransactionManager(partitionID, logger, database, storagePath, relativePath, stateDir, stagingDir, setup.CommandFactory, housekeepingManager, storageScopedFactory)
+				transactionManager = NewTransactionManager(partitionID, logger, database, storagePath, stateDir, stagingDir, setup.CommandFactory, housekeepingManager, storageScopedFactory)
 				// managerErr is used for synchronizing manager closing and returning
 				// the error from Run.
 				managerErr chan error
@@ -4575,7 +4890,7 @@ func TestTransactionManager(t *testing.T) {
 					require.NoError(t, os.RemoveAll(stagingDir))
 					require.NoError(t, os.Mkdir(stagingDir, perm.PrivateDir))
 
-					transactionManager = NewTransactionManager(partitionID, logger, database, storagePath, relativePath, stateDir, stagingDir, setup.CommandFactory, housekeepingManager, storageScopedFactory)
+					transactionManager = NewTransactionManager(partitionID, logger, database, storagePath, stateDir, stagingDir, setup.CommandFactory, housekeepingManager, storageScopedFactory)
 					installHooks(t, transactionManager, database, hooks{
 						beforeReadLogEntry:  step.Hooks.BeforeApplyLogEntry,
 						beforeStoreLogEntry: step.Hooks.BeforeAppendLogEntry,
@@ -4618,13 +4933,13 @@ func TestTransactionManager(t *testing.T) {
 						beginCtx = step.Context
 					}
 
-					transaction, err := transactionManager.Begin(beginCtx, step.TransactionOptions)
+					transaction, err := transactionManager.Begin(beginCtx, step.RelativePath, step.ReadOnly)
 					require.Equal(t, step.ExpectedError, err)
 					if err == nil {
 						require.Equal(t, step.ExpectedSnapshotLSN, transaction.SnapshotLSN())
 					}
 
-					if step.TransactionOptions.ReadOnly {
+					if step.ReadOnly {
 						require.Empty(t,
 							transaction.quarantineDirectory,
 							"read-only transaction should not have a quarantine directory",
@@ -4872,7 +5187,7 @@ func checkManagerError(t *testing.T, ctx context.Context, managerErrChannel chan
 			// Begin a transaction to wait until the manager has applied all log entries currently
 			// committed. This ensures the disk state assertions run with all log entries fully applied
 			// to the repository.
-			tx, err := mgr.Begin(ctx, TransactionOptions{})
+			tx, err := mgr.Begin(ctx, "non-existent", false)
 			require.NoError(t, err)
 			require.NoError(t, tx.Rollback())
 
@@ -4982,10 +5297,12 @@ func BenchmarkTransactionManager(b *testing.B) {
 			require.NoError(b, err)
 
 			// Set up the repositories and start their TransactionManagers.
+			var relativePaths []string
 			for i := 0; i < tc.numberOfRepositories; i++ {
 				repo, repoPath := gittest.CreateRepository(b, ctx, cfg, gittest.CreateRepositoryConfig{
 					SkipCreationViaService: true,
 				})
+				relativePaths = append(relativePaths, repo.RelativePath)
 
 				// Set up two commits that the updaters update their references back and forth.
 				// The commit IDs are the same across all repositories as the parameters used to
@@ -5004,7 +5321,7 @@ func BenchmarkTransactionManager(b *testing.B) {
 
 				// Valid partition IDs are >=1.
 				partitionID := partitionID(i + 1)
-				manager := NewTransactionManager(partitionID, logger, database, storagePath, repo.RelativePath, stateDir, stagingDir, cmdFactory, housekeepingManager, repositoryFactory)
+				manager := NewTransactionManager(partitionID, logger, database, storagePath, stateDir, stagingDir, cmdFactory, housekeepingManager, repositoryFactory)
 
 				managers = append(managers, manager)
 
@@ -5018,7 +5335,7 @@ func BenchmarkTransactionManager(b *testing.B) {
 				require.NoError(b, err)
 
 				for j := 0; j < tc.concurrentUpdaters; j++ {
-					transaction, err := manager.Begin(ctx, TransactionOptions{})
+					transaction, err := manager.Begin(ctx, repo.RelativePath, false)
 					require.NoError(b, err)
 					transaction.UpdateReferences(getReferenceUpdates(j, objectHash.ZeroOID, commit1))
 					require.NoError(b, transaction.Commit(ctx))
@@ -5029,15 +5346,16 @@ func BenchmarkTransactionManager(b *testing.B) {
 			var transactionWG sync.WaitGroup
 			transactionChan := make(chan struct{})
 
-			for _, manager := range managers {
+			for i, manager := range managers {
 				manager := manager
+				relativePath := relativePaths[i]
 				for i := 0; i < tc.concurrentUpdaters; i++ {
 
 					// Build the reference updates that this updater will go back and forth with.
 					currentReferences := getReferenceUpdates(i, commit1, commit2)
 					nextReferences := getReferenceUpdates(i, commit2, commit1)
 
-					transaction, err := manager.Begin(ctx, TransactionOptions{})
+					transaction, err := manager.Begin(ctx, relativePath, false)
 					require.NoError(b, err)
 					transaction.UpdateReferences(currentReferences)
 
@@ -5049,7 +5367,7 @@ func BenchmarkTransactionManager(b *testing.B) {
 						defer transactionWG.Done()
 
 						for range transactionChan {
-							transaction, err := manager.Begin(ctx, TransactionOptions{})
+							transaction, err := manager.Begin(ctx, relativePath, false)
 							require.NoError(b, err)
 							transaction.UpdateReferences(nextReferences)
 							assert.NoError(b, transaction.Commit(ctx))

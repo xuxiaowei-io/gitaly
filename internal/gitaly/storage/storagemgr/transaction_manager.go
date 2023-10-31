@@ -49,6 +49,9 @@ var (
 	errInitializationFailed = errors.New("initializing transaction processing failed")
 	// errNotDirectory is returned when the repository's path doesn't point to a directory
 	errNotDirectory = errors.New("repository's path didn't point to a directory")
+	// errRelativePathNotSet is returned when a transaction is begun without providing a relative path
+	// of the target repository.
+	errRelativePathNotSet = errors.New("relative path not set")
 )
 
 // InvalidReferenceFormatError is returned when a reference name was invalid.
@@ -200,19 +203,17 @@ type Transaction struct {
 	includedObjects          map[git.ObjectID]struct{}
 }
 
-// TransactionOptions configures transaction options when beginning a transaction.
-type TransactionOptions struct {
-	// ReadOnly indicates whether this is a read-only transaction. Read-only transactions are not
-	// configured with a quarantine directory and do not commit a log entry.
-	ReadOnly bool
-}
-
 // Begin opens a new transaction. The caller must call either Commit or Rollback to release
 // the resources tied to the transaction. The returned Transaction is not safe for concurrent use.
 //
 // The returned Transaction's read snapshot includes all writes that were committed prior to the
 // Begin call. Begin blocks until the committed writes have been applied to the repository.
-func (mgr *TransactionManager) Begin(ctx context.Context, opts TransactionOptions) (_ *Transaction, returnedErr error) {
+//
+// relativePath is the relative path of the target repository the transaction is operating on.
+//
+// readOnly indicates whether this is a read-only transaction. Read-only transactions are not
+// configured with a quarantine directory and do not commit a log entry.
+func (mgr *TransactionManager) Begin(ctx context.Context, relativePath string, readOnly bool) (_ *Transaction, returnedErr error) {
 	// Wait until the manager has been initialized so the notification channels
 	// and the LSNs are loaded.
 	select {
@@ -224,14 +225,20 @@ func (mgr *TransactionManager) Begin(ctx context.Context, opts TransactionOption
 		}
 	}
 
+	if relativePath == "" {
+		// For now we don't have a use case for transactions that don't target a repository.
+		// Until support is implemented, error out.
+		return nil, errRelativePathNotSet
+	}
+
 	mgr.mutex.Lock()
 
 	txn := &Transaction{
-		readOnly:     opts.ReadOnly,
+		readOnly:     readOnly,
 		commit:       mgr.commit,
 		snapshotLSN:  mgr.appendedLSN,
 		finished:     make(chan struct{}),
-		relativePath: mgr.relativePath,
+		relativePath: relativePath,
 	}
 
 	mgr.snapshotLocks[txn.snapshotLSN].activeSnapshotters.Add(1)
@@ -691,12 +698,9 @@ type TransactionManager struct {
 	commandFactory git.CommandFactory
 	// repositoryFactory is used to build localrepo.Repo instances.
 	repositoryFactory localrepo.StorageScopedFactory
-
 	// storagePath is an absolute path to the root of the storage this TransactionManager
 	// is operating in.
 	storagePath string
-	// relativePath is the repository's relative path inside the storage.
-	relativePath string
 	// partitionID is the ID of the partition this manager is operating on. This is used to determine the database keys.
 	partitionID partitionID
 	// db is the handle to the key-value store used for storing the write-ahead log related state.
@@ -740,7 +744,6 @@ func NewTransactionManager(
 	logger log.Logger,
 	db *badger.DB,
 	storagePath,
-	relativePath,
 	stateDir,
 	stagingDir string,
 	cmdFactory git.CommandFactory,
@@ -757,7 +760,6 @@ func NewTransactionManager(
 		commandFactory:       cmdFactory,
 		repositoryFactory:    repositoryFactory,
 		storagePath:          storagePath,
-		relativePath:         relativePath,
 		partitionID:          ptnID,
 		db:                   newDatabaseAdapter(db),
 		admissionQueue:       make(chan *Transaction),
