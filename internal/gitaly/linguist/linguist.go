@@ -46,9 +46,9 @@ func Color(language string) string {
 	return fmt.Sprintf("#%x", colorSha[0:3])
 }
 
-func IsGenerated(ctx context.Context, repo git.RepositoryExecutor, revision git.Revision, filename string, content []byte) (bool, error) {
+func (inst *Instance) IsGenerated(ctx context.Context, revision git.Revision, filename string, oid string) (bool, error) {
 	attrs := []string{linguistGenerated}
-	checkAttr, finishAttr, err := gitattributes.CheckAttr(ctx, repo, revision, attrs)
+	checkAttr, finishAttr, err := gitattributes.CheckAttr(ctx, inst.repo, revision, attrs)
 	if err != nil {
 		return false, err
 	}
@@ -57,6 +57,22 @@ func IsGenerated(ctx context.Context, repo git.RepositoryExecutor, revision git.
 	fileInstance, err := newFileInstance(filename, checkAttr)
 	if err != nil {
 		return false, fmt.Errorf("new file instance: %w", err)
+	}
+
+	objectReader, cancel, err := inst.catfileCache.ObjectReader(ctx, inst.repo)
+	if err != nil {
+		return false, fmt.Errorf("create object reader: %w", err)
+	}
+	defer cancel()
+
+	blob, err := objectReader.Object(ctx, git.Revision(oid))
+	if err != nil {
+		return false, fmt.Errorf("read object: %w", err)
+	}
+
+	content, err := io.ReadAll(blob)
+	if err != nil {
+		return false, fmt.Errorf("read content: %w", err)
 	}
 
 	return fileInstance.isGenerated(content), nil

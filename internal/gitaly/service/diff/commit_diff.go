@@ -101,8 +101,9 @@ func (s *server) CommitDiff(in *gitalypb.CommitDiffRequest, stream gitalypb.Diff
 
 		patch := diff.Patch
 
-		if in.CollapseGenerated {
-			linguistGenerated, err := linguist.IsGenerated(ctx, repo, git.Revision(leftSha), string(diff.FromPath), []byte(""))
+		if in.CollapseGenerated && in.CollapseDiffs {
+			instance := linguist.New(s.logger, s.catfileCache, repo)
+			linguistGenerated, err := instance.IsGenerated(ctx, git.Revision(leftSha), string(diff.FromPath), diff.FromID)
 			if err != nil {
 				return structerr.NewAborted("send: %w", err)
 			}
