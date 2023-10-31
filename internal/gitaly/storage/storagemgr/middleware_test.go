@@ -102,10 +102,8 @@ messages and behavior by erroring out the requests before they even hit this int
 	// them transactionally. For now, make these RPCs transactional within this test only. There's no point
 	// switching to dependency injection with the list of non transactional RPCs as we're soon enabling
 	// transactions for the remaining non-transactional RPCs and remove the list entirely.
-	delete(storagemgr.NonTransactionalRPCs, "/gitaly.ObjectPoolService/CreateObjectPool")
 	delete(storagemgr.NonTransactionalRPCs, "/gitaly.ObjectPoolService/LinkRepositoryToObjectPool")
 	defer func() {
-		storagemgr.NonTransactionalRPCs["/gitaly.ObjectPoolService/CreateObjectPool"] = struct{}{}
 		storagemgr.NonTransactionalRPCs["/gitaly.ObjectPoolService/LinkRepositoryToObjectPool"] = struct{}{}
 	}()
 
