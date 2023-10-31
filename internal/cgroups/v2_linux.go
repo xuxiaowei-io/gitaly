@@ -66,9 +66,9 @@ func (cvh *cgroupV2Handler) setupRepository(reposResources *specs.LinuxResources
 }
 
 func (cvh *cgroupV2Handler) addToCgroup(pid int, cgroupPath string) error {
-	control, err := cgroup2.Load("/"+cgroupPath, cgroup2.WithMountpoint(cvh.cfg.Mountpoint))
+	control, err := cvh.loadCgroup(cgroupPath)
 	if err != nil {
-		return fmt.Errorf("failed loading %s cgroup: %w", cgroupPath, err)
+		return err
 	}
 
 	if err := control.AddProc(uint64(pid)); err != nil {
@@ -83,6 +83,14 @@ func (cvh *cgroupV2Handler) addToCgroup(pid int, cgroupPath string) error {
 	return nil
 }
 
+func (cvh *cgroupV2Handler) loadCgroup(cgroupPath string) (*cgroup2.Manager, error) {
+	control, err := cgroup2.Load("/"+cgroupPath, cgroup2.WithMountpoint(cvh.cfg.Mountpoint))
+	if err != nil {
+		return nil, fmt.Errorf("failed loading %s cgroup: %w", cgroupPath, err)
+	}
+	return control, nil
+}
+
 func (cvh *cgroupV2Handler) collect(ch chan<- prometheus.Metric) {
 	if !cvh.cfg.MetricsEnabled {
 		return
@@ -91,7 +99,7 @@ func (cvh *cgroupV2Handler) collect(ch chan<- prometheus.Metric) {
 	for i := 0; i < int(cvh.cfg.Repositories.Count); i++ {
 		repoPath := cvh.repoPath(i)
 		logger := cvh.logger.WithField("cgroup_path", repoPath)
-		control, err := cgroup2.Load("/"+repoPath, cgroup2.WithMountpoint(cvh.cfg.Mountpoint))
+		control, err := cvh.loadCgroup(repoPath)
 		if err != nil {
 			logger.WithError(err).Warn("unable to load cgroup controller")
 			return
@@ -152,9 +160,9 @@ func (cvh *cgroupV2Handler) collect(ch chan<- prometheus.Metric) {
 func (cvh *cgroupV2Handler) cleanup() error {
 	processCgroupPath := cvh.currentProcessCgroup()
 
-	control, err := cgroup2.Load("/"+processCgroupPath, cgroup2.WithMountpoint(cvh.cfg.Mountpoint))
+	control, err := cvh.loadCgroup(processCgroupPath)
 	if err != nil {
-		return fmt.Errorf("failed loading cgroup %s: %w", processCgroupPath, err)
+		return err
 	}
 
 	if err := control.Delete(); err != nil {
@@ -175,9 +183,9 @@ func (cvh *cgroupV2Handler) currentProcessCgroup() string {
 func (cvh *cgroupV2Handler) stats() (Stats, error) {
 	processCgroupPath := cvh.currentProcessCgroup()
 
-	control, err := cgroup2.Load("/"+processCgroupPath, cgroup2.WithMountpoint(cvh.cfg.Mountpoint))
+	control, err := cvh.loadCgroup(processCgroupPath)
 	if err != nil {
-		return Stats{}, fmt.Errorf("failed loading cgroup %s: %w", processCgroupPath, err)
+		return Stats{}, err
 	}
 
 	metrics, err := control.Stat()
