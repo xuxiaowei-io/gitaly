@@ -42,7 +42,6 @@ var NonTransactionalRPCs = map[string]struct{}{
 
 	// Object pools are not yet supported with WAL.
 	"/gitaly.ObjectPoolService/CreateObjectPool":           {},
-	"/gitaly.ObjectPoolService/DeleteObjectPool":           {},
 	"/gitaly.ObjectPoolService/LinkRepositoryToObjectPool": {},
 	"/gitaly.ObjectPoolService/DisconnectGitAlternates":    {},
 	"/gitaly.ObjectPoolService/FetchIntoObjectPool":        {},
