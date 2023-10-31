@@ -20,15 +20,16 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// SortBy ...
+// SortBy defines the allowed field names which references can be sorted by.
+// https://git-scm.com/docs/git-for-each-ref#Documentation/git-for-each-ref.txt---sortltkeygt
 type FindLocalBranchesRequest_SortBy int32
 
 const (
-	// NAME ...
+	// NAME is for the `--sort=refname` option and is the default option.
 	FindLocalBranchesRequest_NAME FindLocalBranchesRequest_SortBy = 0 // protolint:disable:this ENUM_FIELD_NAMES_PREFIX ENUM_FIELD_NAMES_ZERO_VALUE_END_WITH
-	// UPDATED_ASC ...
+	// UPDATED_ASC is for the `--sort=committerdate` option.
 	FindLocalBranchesRequest_UPDATED_ASC FindLocalBranchesRequest_SortBy = 1 // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
-	// UPDATED_DESC ...
+	// UPDATED_DESC is for the `--sort=-committerdate` option.
 	FindLocalBranchesRequest_UPDATED_DESC FindLocalBranchesRequest_SortBy = 2 // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
 )
 
@@ -77,9 +78,9 @@ func (FindLocalBranchesRequest_SortBy) EnumDescriptor() ([]byte, []int) {
 type FindAllTagsRequest_SortBy_Key int32
 
 const (
-	// REFNAME ...
+	// REFNAME is for the `refname` field and is the default option.
 	FindAllTagsRequest_SortBy_REFNAME FindAllTagsRequest_SortBy_Key = 0 // protolint:disable:this ENUM_FIELD_NAMES_PREFIX ENUM_FIELD_NAMES_ZERO_VALUE_END_WITH
-	// CREATORDATE ...
+	// CREATORDATE is for the `creatordate` field.
 	FindAllTagsRequest_SortBy_CREATORDATE FindAllTagsRequest_SortBy_Key = 1 // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
 	// VERSION_REFNAME sorts tags by their semantic versions (https://semver.org/).
 	// tag names that are not semantic versions are sorted lexicographically. They come before
@@ -129,17 +130,18 @@ func (FindAllTagsRequest_SortBy_Key) EnumDescriptor() ([]byte, []int) {
 	return file_ref_proto_rawDescGZIP(), []int{9, 0, 0}
 }
 
-// Key ...
+// Key is a key used for sorting.
+// https://git-scm.com/docs/git-for-each-ref#Documentation/git-for-each-ref.txt---sortltkeygt
 type ListRefsRequest_SortBy_Key int32
 
 const (
-	// REFNAME ...
+	// REFNAME is for the `refname` field and is the default option.
 	ListRefsRequest_SortBy_REFNAME ListRefsRequest_SortBy_Key = 0 // protolint:disable:this ENUM_FIELD_NAMES_PREFIX ENUM_FIELD_NAMES_ZERO_VALUE_END_WITH
-	// CREATORDATE ...
+	// CREATORDATE is for the `creatordate` field.
 	ListRefsRequest_SortBy_CREATORDATE ListRefsRequest_SortBy_Key = 1 // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
-	// AUTHORDATE ...
+	// AUTHORDATE is for the `authordate` field.
 	ListRefsRequest_SortBy_AUTHORDATE ListRefsRequest_SortBy_Key = 2 // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
-	// COMMITTERDATE ...
+	// COMMITTERDATE is for the `committerdate` field.
 	ListRefsRequest_SortBy_COMMITTERDATE ListRefsRequest_SortBy_Key = 3 // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
 )
 
@@ -186,7 +188,7 @@ func (ListRefsRequest_SortBy_Key) EnumDescriptor() ([]byte, []int) {
 	return file_ref_proto_rawDescGZIP(), []int{31, 0, 0}
 }
 
-// FindDefaultBranchNameRequest is the request for the FindDefaultBranchName RPC.
+// FindDefaultBranchNameRequest is a request for the FindDefaultBranchName RPC.
 type FindDefaultBranchNameRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -245,7 +247,7 @@ func (x *FindDefaultBranchNameRequest) GetHeadOnly() bool {
 	return false
 }
 
-// FindDefaultBranchNameResponse is the response for the FindDefaultBranchName RPC.
+// FindDefaultBranchNameResponse is a response for the FindDefaultBranchName RPC.
 type FindDefaultBranchNameResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -294,15 +296,15 @@ func (x *FindDefaultBranchNameResponse) GetName() []byte {
 	return nil
 }
 
-// FindLocalBranchesRequest ...
+// FindLocalBranchesRequest is a request for the FindLocalBranches RPC.
 type FindLocalBranchesRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// repository ...
+	// repository is the repository to find the branch in.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// sort_by ...
+	// sort_by sets which field the returned branches are sorted by.
 	SortBy FindLocalBranchesRequest_SortBy `protobuf:"varint,2,opt,name=sort_by,json=sortBy,proto3,enum=gitaly.FindLocalBranchesRequest_SortBy" json:"sort_by,omitempty"`
 	// pagination_params controls paging. Refer to PaginationParameter documentation for
 	// further info.
@@ -362,13 +364,13 @@ func (x *FindLocalBranchesRequest) GetPaginationParams() *PaginationParameter {
 	return nil
 }
 
-// FindLocalBranchesResponse ...
+// FindLocalBranchesResponse is a response for the FindLocalBranches RPC.
 type FindLocalBranchesResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// local_branches ...
+	// local_branches is a list of local branches found in the repository.
 	LocalBranches []*Branch `protobuf:"bytes,2,rep,name=local_branches,json=localBranches,proto3" json:"local_branches,omitempty"`
 }
 
@@ -411,13 +413,13 @@ func (x *FindLocalBranchesResponse) GetLocalBranches() []*Branch {
 	return nil
 }
 
-// FindAllBranchesRequest ...
+// FindAllBranchesRequest is a request for the FindAllBranches RPC.
 type FindAllBranchesRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// repository ...
+	// repository is the repository to find the branch in.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
 	// merged_only if set, will only return branches that are merged into root ref.
 	MergedOnly bool `protobuf:"varint,2,opt,name=merged_only,json=mergedOnly,proto3" json:"merged_only,omitempty"`
@@ -479,13 +481,13 @@ func (x *FindAllBranchesRequest) GetMergedBranches() [][]byte {
 	return nil
 }
 
-// FindAllBranchesResponse ...
+// FindAllBranchesResponse is a response for the FindAllBranches RPC.
 type FindAllBranchesResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// branches ...
+	// branches is a list of branches found in the repository.
 	Branches []*FindAllBranchesResponse_Branch `protobuf:"bytes,1,rep,name=branches,proto3" json:"branches,omitempty"`
 }
 
@@ -707,13 +709,13 @@ type FindTagError_TagNotFound struct {
 
 func (*FindTagError_TagNotFound) isFindTagError_Error() {}
 
-// FindAllTagsRequest ...
+// FindAllTagsRequest is a request for the FindAllTags RPC.
 type FindAllTagsRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// repository ...
+	// repository is the repository to look up the tags in.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
 	// sort_by allows to request tags in particular order.
 	SortBy *FindAllTagsRequest_SortBy `protobuf:"bytes,2,opt,name=sort_by,json=sortBy,proto3" json:"sort_by,omitempty"`
@@ -775,13 +777,13 @@ func (x *FindAllTagsRequest) GetPaginationParams() *PaginationParameter {
 	return nil
 }
 
-// FindAllTagsResponse ...
+// FindAllTagsResponse is a response for the FindAllTags RPC.
 type FindAllTagsResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// tags ...
+	// tags is a list of the found tags.
 	Tags []*Tag `protobuf:"bytes,1,rep,name=tags,proto3" json:"tags,omitempty"`
 }
 
@@ -824,13 +826,13 @@ func (x *FindAllTagsResponse) GetTags() []*Tag {
 	return nil
 }
 
-// RefExistsRequest ...
+// RefExistsRequest is a request for the RefExists RPC.
 type RefExistsRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// repository ...
+	// repository is the repository to check if the reference exists in.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
 	// ref denotes any ref, e.g. 'refs/heads/master' or 'refs/tags/v1.0.1'.
 	// Must start with 'refs/'.
@@ -883,13 +885,13 @@ func (x *RefExistsRequest) GetRef() []byte {
 	return nil
 }
 
-// RefExistsResponse ...
+// RefExistsResponse is a response for the RefExists RPC.
 type RefExistsResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// value ...
+	// value represents if the reference exists.
 	Value bool `protobuf:"varint,1,opt,name=value,proto3" json:"value,omitempty"`
 }
 
@@ -932,7 +934,7 @@ func (x *RefExistsResponse) GetValue() bool {
 	return false
 }
 
-// FindBranchRequest ...
+// FindBranchRequest is a request for the FindBranch RPC.
 type FindBranchRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -991,13 +993,13 @@ func (x *FindBranchRequest) GetName() []byte {
 	return nil
 }
 
-// FindBranchResponse ...
+// FindBranchResponse is a response for the FindBranch RPC.
 type FindBranchResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// branch ...
+	// branch is the found branch.
 	Branch *Branch `protobuf:"bytes,1,opt,name=branch,proto3" json:"branch,omitempty"`
 }
 
@@ -1241,18 +1243,20 @@ func (*UpdateReferencesError_ReferencesLocked) isUpdateReferencesError_Error() {
 
 func (*UpdateReferencesError_ReferenceStateMismatch) isUpdateReferencesError_Error() {}
 
-// DeleteRefsRequest ...
+// DeleteRefsRequest is a request for the DeleteRefs RPC.
 type DeleteRefsRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// repository ...
+	// repository is the repository that reference is deleted from.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// except_with_prefix ...
-	// The following two fields are mutually exclusive
+	// except_with_prefix is the prefix used to determine which references to exclude from being deleted.
+	// This field can not be set in combination with the refs field. If the refs field is not set, except_with_prefix
+	// must contain at least one prefix as deleting all references in not allowed.
 	ExceptWithPrefix [][]byte `protobuf:"bytes,2,rep,name=except_with_prefix,json=exceptWithPrefix,proto3" json:"except_with_prefix,omitempty"` // protolint:disable:this REPEATED_FIELD_NAMES_PLURALIZED
-	// refs ...
+	// refs is the list of references to be deleted. This field can not be set in combination with except_with_prefix
+	// and cannot be empty if except_with_prefix is also empty.
 	Refs [][]byte `protobuf:"bytes,3,rep,name=refs,proto3" json:"refs,omitempty"`
 }
 
@@ -1309,13 +1313,13 @@ func (x *DeleteRefsRequest) GetRefs() [][]byte {
 	return nil
 }
 
-// DeleteRefsResponse ...
+// DeleteRefsResponse is a response for the DeleteRefs RPC.
 type DeleteRefsResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// git_error ...
+	// git_error is a Git error returned by the RPC. Is empty if no error occurs.
 	GitError string `protobuf:"bytes,1,opt,name=git_error,json=gitError,proto3" json:"git_error,omitempty"`
 }
 
@@ -1444,15 +1448,15 @@ func (*DeleteRefsError_InvalidFormat) isDeleteRefsError_Error() {}
 
 func (*DeleteRefsError_ReferencesLocked) isDeleteRefsError_Error() {}
 
-// ListBranchNamesContainingCommitRequest ...
+// ListBranchNamesContainingCommitRequest is a request for the ListBranchNamesContainingCommit RPC.
 type ListBranchNamesContainingCommitRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// repository ...
+	// repository is the repository to find branches with the specified commit in.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// commit_id ...
+	// commit_id is the commit ID used to find branches.
 	CommitId string `protobuf:"bytes,2,opt,name=commit_id,json=commitId,proto3" json:"commit_id,omitempty"`
 	// limit the number of tag names to be returned
 	// If the limit is set to zero, all items will be returned
@@ -1512,13 +1516,13 @@ func (x *ListBranchNamesContainingCommitRequest) GetLimit() uint32 {
 	return 0
 }
 
-// ListBranchNamesContainingCommitResponse ...
+// ListBranchNamesContainingCommitResponse is a response for the ListBranchNamesContainingCommit RPC.
 type ListBranchNamesContainingCommitResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// branch_names ...
+	// branch_names contains a list of found branch names.
 	BranchNames [][]byte `protobuf:"bytes,2,rep,name=branch_names,json=branchNames,proto3" json:"branch_names,omitempty"`
 }
 
@@ -1561,15 +1565,15 @@ func (x *ListBranchNamesContainingCommitResponse) GetBranchNames() [][]byte {
 	return nil
 }
 
-// ListTagNamesContainingCommitRequest ...
+// ListTagNamesContainingCommitRequest is a request for the ListTagNamesContainingCommit RPC.
 type ListTagNamesContainingCommitRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// repository ...
+	// repository is the repository to find tags with the specified commit in.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// commit_id ...
+	// commit_id is the commit ID used to find tags.
 	CommitId string `protobuf:"bytes,2,opt,name=commit_id,json=commitId,proto3" json:"commit_id,omitempty"`
 	// limit the number of tag names to be returned
 	// If the limit is set to zero, all items will be returned
@@ -1629,13 +1633,13 @@ func (x *ListTagNamesContainingCommitRequest) GetLimit() uint32 {
 	return 0
 }
 
-// ListTagNamesContainingCommitResponse ...
+// ListTagNamesContainingCommitResponse is a response for the ListTagNamesContainingCommit RPC.
 type ListTagNamesContainingCommitResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// tag_names ...
+	// tag_names contains a list of tag names found.
 	TagNames [][]byte `protobuf:"bytes,2,rep,name=tag_names,json=tagNames,proto3" json:"tag_names,omitempty"`
 }
 
@@ -1789,15 +1793,15 @@ func (x *GetTagSignaturesResponse) GetSignatures() []*GetTagSignaturesResponse_T
 	return nil
 }
 
-// GetTagMessagesRequest ...
+// GetTagMessagesRequest is a request for the GetTagMessages RPC.
 type GetTagMessagesRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// repository ...
+	// repository is the repository to get tag messages from.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// tag_ids ...
+	// tag_ids is the list of annotated tag IDs used to get the tag messages.
 	TagIds []string `protobuf:"bytes,3,rep,name=tag_ids,json=tagIds,proto3" json:"tag_ids,omitempty"`
 }
 
@@ -1847,16 +1851,19 @@ func (x *GetTagMessagesRequest) GetTagIds() []string {
 	return nil
 }
 
-// GetTagMessagesResponse ...
+// GetTagMessagesResponse is a response for the GetTagMessages RPC. Annotated tag messages are
+// chunked and streamed back to the client across multiple response messages sequentially. Each
+// series of responses for a given tag begins with a response that contains only the associated tag
+// ID and is subsequently followed by responses containing the tag message contents. This is
+// repeated for each annotated tag included as part of the response stream.
 type GetTagMessagesResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// message ...
+	// message content from the annotated tag message.
 	Message []byte `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
-	// tag_id ...
-	// Only present for a new tag message.
+	// tag_id is the ID of the tag for which the message belongs.
 	TagId string `protobuf:"bytes,3,opt,name=tag_id,json=tagId,proto3" json:"tag_id,omitempty"`
 }
 
@@ -1906,15 +1913,15 @@ func (x *GetTagMessagesResponse) GetTagId() string {
 	return ""
 }
 
-// FindAllRemoteBranchesRequest ...
+// FindAllRemoteBranchesRequest is a request for the FindAllRemoteBranches RPC.
 type FindAllRemoteBranchesRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// repository ...
+	// repository is the repository to find remote branches from.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// remote_name ...
+	// remote_name is the name of the remote repository.
 	RemoteName string `protobuf:"bytes,2,opt,name=remote_name,json=remoteName,proto3" json:"remote_name,omitempty"`
 }
 
@@ -1964,13 +1971,13 @@ func (x *FindAllRemoteBranchesRequest) GetRemoteName() string {
 	return ""
 }
 
-// FindAllRemoteBranchesResponse ...
+// FindAllRemoteBranchesResponse is a request for the FindAllRemoteBranches RPC.
 type FindAllRemoteBranchesResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// branches ...
+	// branches contains a list of found remote branches.
 	Branches []*Branch `protobuf:"bytes,1,rep,name=branches,proto3" json:"branches,omitempty"`
 }
 
@@ -2163,7 +2170,7 @@ func (x *ListRefsResponse) GetReferences() []*ListRefsResponse_Reference {
 	return nil
 }
 
-// FindRefsByOIDRequest ...
+// FindRefsByOIDRequest is a request for the FindRefsByOID RPC.
 type FindRefsByOIDRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -2251,7 +2258,7 @@ func (x *FindRefsByOIDRequest) GetLimit() uint32 {
 	return 0
 }
 
-// FindRefsByOIDResponse ...
+// FindRefsByOIDResponse is a response for the FindRefsByOID RPC.
 type FindRefsByOIDResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -2300,15 +2307,15 @@ func (x *FindRefsByOIDResponse) GetRefs() []string {
 	return nil
 }
 
-// Branch ...
+// Branch is a branch found in the repository.
 type FindAllBranchesResponse_Branch struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// name ...
+	// name is the name of the branch.
 	Name []byte `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	// target ...
+	// target is the commit referenced by the branch.
 	Target *GitCommit `protobuf:"bytes,2,opt,name=target,proto3" json:"target,omitempty"`
 }
 
@@ -2364,9 +2371,9 @@ type FindAllTagsRequest_SortBy struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// key ...
+	// key is the key that tags are sorted by.
 	Key FindAllTagsRequest_SortBy_Key `protobuf:"varint,1,opt,name=key,proto3,enum=gitaly.FindAllTagsRequest_SortBy_Key" json:"key,omitempty"`
-	// direction ...
+	// direction is the direction that tags should be sorted in.
 	Direction SortDirection `protobuf:"varint,2,opt,name=direction,proto3,enum=gitaly.SortDirection" json:"direction,omitempty"`
 }
 
@@ -2559,7 +2566,7 @@ func (x *GetTagSignaturesResponse_TagSignature) GetContent() []byte {
 	return nil
 }
 
-// SortBy ...
+// SortBy defines the field to sort on and its direction.
 type ListRefsRequest_SortBy struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -2567,7 +2574,7 @@ type ListRefsRequest_SortBy struct {
 
 	// key is a key used for sorting.
 	Key ListRefsRequest_SortBy_Key `protobuf:"varint,1,opt,name=key,proto3,enum=gitaly.ListRefsRequest_SortBy_Key" json:"key,omitempty"`
-	// direction ...
+	// direction is the direction that tags should be sorted in.
 	Direction SortDirection `protobuf:"varint,2,opt,name=direction,proto3,enum=gitaly.SortDirection" json:"direction,omitempty"`
 }
 

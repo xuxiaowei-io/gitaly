@@ -32,20 +32,23 @@ type RefServiceClient interface {
 	// 5. If a branch exists named refs/heads/master, return refs/heads/master.
 	// 6. Return the first branch (as per default ordering by git).
 	FindDefaultBranchName(ctx context.Context, in *FindDefaultBranchNameRequest, opts ...grpc.CallOption) (*FindDefaultBranchNameResponse, error)
-	// FindLocalBranches ...
-	// Return a stream so we can divide the response in chunks of branches
+	// FindLocalBranches finds all the local branches under `refs/heads/` for the specified repository.
+	// The response is streamed back to the client to divide the list of branches into chunks.
 	FindLocalBranches(ctx context.Context, in *FindLocalBranchesRequest, opts ...grpc.CallOption) (RefService_FindLocalBranchesClient, error)
-	// FindAllBranches ...
+	// FindAllBranches finds all branches under `refs/heads/` and `refs/remotes/` for the specified repository.
+	// The response is streamed back to the client to divide the list of branches into chunks.
 	FindAllBranches(ctx context.Context, in *FindAllBranchesRequest, opts ...grpc.CallOption) (RefService_FindAllBranchesClient, error)
-	// FindAllTags returns a stream of tags repository has.
+	// FindAllTags finds all tags under `refs/tags/` for the specified repository.
+	// The response is streamed back to the client to divide the list of tags into chunks.
 	FindAllTags(ctx context.Context, in *FindAllTagsRequest, opts ...grpc.CallOption) (RefService_FindAllTagsClient, error)
 	// FindTag looks up a tag by its name and returns it to the caller if it exists. This RPC supports
 	// both lightweight and annotated tags. Note: this RPC returns an `Internal` error if the tag was
 	// not found.
 	FindTag(ctx context.Context, in *FindTagRequest, opts ...grpc.CallOption) (*FindTagResponse, error)
-	// FindAllRemoteBranches ...
+	// FindAllRemoteBranches finds all the remote branches under `refs/remotes/` for the specified repository.
+	// The response is streamed back to the client to divide the list of branches into chunks.
 	FindAllRemoteBranches(ctx context.Context, in *FindAllRemoteBranchesRequest, opts ...grpc.CallOption) (RefService_FindAllRemoteBranchesClient, error)
-	// RefExists ...
+	// RefExists checks if the specified reference exists. The reference must be fully qualified.
 	RefExists(ctx context.Context, in *RefExistsRequest, opts ...grpc.CallOption) (*RefExistsResponse, error)
 	// FindBranch finds a branch by its unqualified name (like "master") and
 	// returns the commit it currently points to.
@@ -55,18 +58,26 @@ type RefServiceClient interface {
 	//
 	// Updating symbolic references with this RPC is not allowed.
 	UpdateReferences(ctx context.Context, opts ...grpc.CallOption) (RefService_UpdateReferencesClient, error)
-	// DeleteRefs ...
+	// DeleteRefs deletes the specified references from its repository. Attempting to delete an
+	// non-existent reference does not result in an error. It is recommended to instead use the
+	// UpdateReferences RPC because it can delete references in a raceless manner via the expected old
+	// object ID.
 	DeleteRefs(ctx context.Context, in *DeleteRefsRequest, opts ...grpc.CallOption) (*DeleteRefsResponse, error)
-	// ListBranchNamesContainingCommit ...
+	// ListBranchNamesContainingCommit finds all branches under `refs/heads/` that contain the specified commit.
+	// The response is streamed back to the client to divide the list of branches into chunks.
 	ListBranchNamesContainingCommit(ctx context.Context, in *ListBranchNamesContainingCommitRequest, opts ...grpc.CallOption) (RefService_ListBranchNamesContainingCommitClient, error)
-	// ListTagNamesContainingCommit ...
+	// ListTagNamesContainingCommit finds all tags under `refs/tags/` that contain the specified commit.
+	// The response is streamed back to the client to divide the list of tags into chunks.
 	ListTagNamesContainingCommit(ctx context.Context, in *ListTagNamesContainingCommitRequest, opts ...grpc.CallOption) (RefService_ListTagNamesContainingCommitClient, error)
 	// GetTagSignatures returns signatures for annotated tags resolved from a set of revisions. Revisions
 	// which don't resolve to an annotated tag are silently discarded. Revisions which cannot be resolved
 	// result in an error. Tags which are annotated but not signed will return a TagSignature response
 	// which has no signature, but its unsigned contents will still be returned.
 	GetTagSignatures(ctx context.Context, in *GetTagSignaturesRequest, opts ...grpc.CallOption) (RefService_GetTagSignaturesClient, error)
-	// GetTagMessages ...
+	// GetTagMessages returns tag messages for the annotated tags identified via the given revisions.
+	// The response is streamed back to the client with a response message containing the tag ID
+	// always preceding one or more messages containing the tag message contents. This is repeated for
+	// all tags in the response.
 	GetTagMessages(ctx context.Context, in *GetTagMessagesRequest, opts ...grpc.CallOption) (RefService_GetTagMessagesClient, error)
 	// ListRefs returns a stream of all references in the repository. By default, pseudo-revisions like HEAD
 	// will not be returned by this RPC. Any symbolic references will be resolved to the object ID it is
@@ -476,20 +487,23 @@ type RefServiceServer interface {
 	// 5. If a branch exists named refs/heads/master, return refs/heads/master.
 	// 6. Return the first branch (as per default ordering by git).
 	FindDefaultBranchName(context.Context, *FindDefaultBranchNameRequest) (*FindDefaultBranchNameResponse, error)
-	// FindLocalBranches ...
-	// Return a stream so we can divide the response in chunks of branches
+	// FindLocalBranches finds all the local branches under `refs/heads/` for the specified repository.
+	// The response is streamed back to the client to divide the list of branches into chunks.
 	FindLocalBranches(*FindLocalBranchesRequest, RefService_FindLocalBranchesServer) error
-	// FindAllBranches ...
+	// FindAllBranches finds all branches under `refs/heads/` and `refs/remotes/` for the specified repository.
+	// The response is streamed back to the client to divide the list of branches into chunks.
 	FindAllBranches(*FindAllBranchesRequest, RefService_FindAllBranchesServer) error
-	// FindAllTags returns a stream of tags repository has.
+	// FindAllTags finds all tags under `refs/tags/` for the specified repository.
+	// The response is streamed back to the client to divide the list of tags into chunks.
 	FindAllTags(*FindAllTagsRequest, RefService_FindAllTagsServer) error
 	// FindTag looks up a tag by its name and returns it to the caller if it exists. This RPC supports
 	// both lightweight and annotated tags. Note: this RPC returns an `Internal` error if the tag was
 	// not found.
 	FindTag(context.Context, *FindTagRequest) (*FindTagResponse, error)
-	// FindAllRemoteBranches ...
+	// FindAllRemoteBranches finds all the remote branches under `refs/remotes/` for the specified repository.
+	// The response is streamed back to the client to divide the list of branches into chunks.
 	FindAllRemoteBranches(*FindAllRemoteBranchesRequest, RefService_FindAllRemoteBranchesServer) error
-	// RefExists ...
+	// RefExists checks if the specified reference exists. The reference must be fully qualified.
 	RefExists(context.Context, *RefExistsRequest) (*RefExistsResponse, error)
 	// FindBranch finds a branch by its unqualified name (like "master") and
 	// returns the commit it currently points to.
@@ -499,18 +513,26 @@ type RefServiceServer interface {
 	//
 	// Updating symbolic references with this RPC is not allowed.
 	UpdateReferences(RefService_UpdateReferencesServer) error
-	// DeleteRefs ...
+	// DeleteRefs deletes the specified references from its repository. Attempting to delete an
+	// non-existent reference does not result in an error. It is recommended to instead use the
+	// UpdateReferences RPC because it can delete references in a raceless manner via the expected old
+	// object ID.
 	DeleteRefs(context.Context, *DeleteRefsRequest) (*DeleteRefsResponse, error)
-	// ListBranchNamesContainingCommit ...
+	// ListBranchNamesContainingCommit finds all branches under `refs/heads/` that contain the specified commit.
+	// The response is streamed back to the client to divide the list of branches into chunks.
 	ListBranchNamesContainingCommit(*ListBranchNamesContainingCommitRequest, RefService_ListBranchNamesContainingCommitServer) error
-	// ListTagNamesContainingCommit ...
+	// ListTagNamesContainingCommit finds all tags under `refs/tags/` that contain the specified commit.
+	// The response is streamed back to the client to divide the list of tags into chunks.
 	ListTagNamesContainingCommit(*ListTagNamesContainingCommitRequest, RefService_ListTagNamesContainingCommitServer) error
 	// GetTagSignatures returns signatures for annotated tags resolved from a set of revisions. Revisions
 	// which don't resolve to an annotated tag are silently discarded. Revisions which cannot be resolved
 	// result in an error. Tags which are annotated but not signed will return a TagSignature response
 	// which has no signature, but its unsigned contents will still be returned.
 	GetTagSignatures(*GetTagSignaturesRequest, RefService_GetTagSignaturesServer) error
-	// GetTagMessages ...
+	// GetTagMessages returns tag messages for the annotated tags identified via the given revisions.
+	// The response is streamed back to the client with a response message containing the tag ID
+	// always preceding one or more messages containing the tag message contents. This is repeated for
+	// all tags in the response.
 	GetTagMessages(*GetTagMessagesRequest, RefService_GetTagMessagesServer) error
 	// ListRefs returns a stream of all references in the repository. By default, pseudo-revisions like HEAD
 	// will not be returned by this RPC. Any symbolic references will be resolved to the object ID it is
