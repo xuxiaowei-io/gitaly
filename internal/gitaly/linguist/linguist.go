@@ -67,7 +67,7 @@ func Color(language string) string {
 }
 
 // IsGenerated returns true if the given file is considered to be generated
-func (inst *Instance) IsGenerated(filename string, oid string) (bool, error) {
+func (inst *Instance) IsGenerated(filename string, oid git.ObjectID) (bool, error) {
 	fileInstance, err := newFileInstance(filename, inst.checkAttrCmd)
 	if err != nil {
 		return false, fmt.Errorf("new file instance: %w", err)
@@ -81,24 +81,38 @@ func (inst *Instance) IsGenerated(filename string, oid string) (bool, error) {
 		return true, nil
 	}
 
+	// Read arbitrary number of bytes considered enough to determine language.
+	content, err := inst.readPartialObject(oid, 2048)
+	if err != nil {
+		return false, fmt.Errorf("read partial content: %w", err)
+	}
+
+	return enry.IsGenerated(filename, content), nil
+}
+
+// readPartialObject reads given object upto the limit and discard the rest
+func (inst *Instance) readPartialObject(oid git.ObjectID, limit int64) ([]byte, error) {
 	objectReader, cancel, err := inst.catfileCache.ObjectReader(inst.ctx, inst.repo)
 	if err != nil {
-		return false, fmt.Errorf("create object reader: %w", err)
+		return nil, fmt.Errorf("new object reader: %w", err)
 	}
 	defer cancel()
 
 	blob, err := objectReader.Object(inst.ctx, git.Revision(oid))
 	if err != nil {
-		return false, fmt.Errorf("read object: %w", err)
+		return nil, fmt.Errorf("new object: %w", err)
 	}
 
-	// Read arbitrary number of bytes considered enough to determine language.
-	content, err := io.ReadAll(io.LimitReader(blob, 2048))
+	content, err := io.ReadAll(io.LimitReader(blob, limit))
 	if err != nil {
-		return false, fmt.Errorf("read content: %w", err)
+		return nil, fmt.Errorf("read content: %w", err)
 	}
 
-	return enry.IsGenerated(filename, content), nil
+	if _, err := io.Copy(io.Discard, blob); err != nil {
+		return nil, fmt.Errorf("discard excess content: %w", err)
+	}
+
+	return content, nil
 }
 
 // Stats returns the repository's language statistics.
