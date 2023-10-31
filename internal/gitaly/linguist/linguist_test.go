@@ -366,7 +366,7 @@ func TestInstance_Stats(t *testing.T) {
 
 				// We simply run the linguist once before so that it can already
 				// write the cache.
-				_, err := New(cfg, testhelper.NewLogger(t), catfileCache, repo).Stats(ctx, commitID)
+				_, err := New(testhelper.NewLogger(t), catfileCache, repo).Stats(ctx, commitID)
 				require.NoError(t, err)
 				require.FileExists(t, filepath.Join(repoPath, languageStatsFilename))
 
@@ -397,7 +397,7 @@ func TestInstance_Stats(t *testing.T) {
 				))
 				repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-				_, err := New(cfg, testhelper.NewLogger(t), catfileCache, repo).Stats(ctx, commitID)
+				_, err := New(testhelper.NewLogger(t), catfileCache, repo).Stats(ctx, commitID)
 				require.NoError(t, err)
 				require.FileExists(t, filepath.Join(repoPath, languageStatsFilename))
 
@@ -485,7 +485,7 @@ func TestInstance_Stats(t *testing.T) {
 
 				// Precreate the cache with the old commit. This ensures that
 				// linguist knows to update the cache.
-				stats, err := New(cfg, testhelper.NewLogger(t), catfileCache, repo).Stats(ctx, oldCommitID)
+				stats, err := New(testhelper.NewLogger(t), catfileCache, repo).Stats(ctx, oldCommitID)
 				require.NoError(t, err)
 				require.FileExists(t, filepath.Join(repoPath, languageStatsFilename))
 				require.Equal(t, ByteCountPerLanguage{
@@ -524,7 +524,7 @@ func TestInstance_Stats(t *testing.T) {
 			repoProto, repoPath, objectID := tc.setup(t)
 
 			repo := localrepo.NewTestRepo(t, cfg, repoProto)
-			linguist := New(cfg, testhelper.NewLogger(t), catfileCache, repo)
+			linguist := New(testhelper.NewLogger(t), catfileCache, repo)
 			stats, err := linguist.Stats(ctx, objectID)
 			if tc.expectedErr == "" {
 				require.NoError(t, err)
@@ -568,7 +568,7 @@ func TestInstance_Stats_failureGitattributes(t *testing.T) {
 
 	repo := localrepo.New(logger, locator, gitCmdFactory, catfileCache, repoProto)
 
-	linguist := New(cfg, logger, catfileCache, repo)
+	linguist := New(logger, catfileCache, repo)
 	_, err := linguist.Stats(ctx, commitID)
 
 	expectedErr := `linguist object iterator: ls-tree skip: new file instance: checking attribute:`
@@ -609,7 +609,7 @@ func BenchmarkInstance_Stats(b *testing.B) {
 	})
 	repo := localrepo.NewTestRepo(b, cfg, repoProto)
 
-	linguist := New(cfg, testhelper.NewLogger(b), catfileCache, repo)
+	linguist := New(testhelper.NewLogger(b), catfileCache, repo)
 
 	var scratchStat ByteCountPerLanguage
 	var incStats ByteCountPerLanguage

@@ -13,7 +13,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gitattributes"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gitpipe"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 )
 
@@ -22,7 +21,6 @@ type ByteCountPerLanguage map[string]uint64
 
 // Instance is a holder of the defined in the system language settings.
 type Instance struct {
-	cfg          config.Cfg
 	logger       log.Logger
 	catfileCache catfile.Cache
 	repo         *localrepo.Repo
@@ -30,9 +28,8 @@ type Instance struct {
 
 // New creates a new instance that can be used to calculate language stats for
 // the given repo.
-func New(cfg config.Cfg, logger log.Logger, catfileCache catfile.Cache, repo *localrepo.Repo) *Instance {
+func New(logger log.Logger, catfileCache catfile.Cache, repo *localrepo.Repo) *Instance {
 	return &Instance{
-		cfg:          cfg,
 		logger:       logger,
 		catfileCache: catfileCache,
 		repo:         repo,
