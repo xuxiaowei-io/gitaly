@@ -225,10 +225,21 @@ doesn't seem to test a realistic scenario.`)
 				altObjectDir := filepath.Join(repoPath, "alt-object-dir")
 				require.NoError(t, os.WriteFile(altFile, []byte(fmt.Sprintf("%s\n", altObjectDir)), 0o000))
 
-				return setupData{
+				setupData := setupData{
 					repo:            repoProto,
 					expectedEntries: []string{"HEAD", "refs/", "refs/heads/", "refs/tags/"},
 				}
+
+				if testhelper.IsWALEnabled() {
+					setupData.expectedEntries = nil
+					setupData.requireError = func(actual error) {
+						// Skipping an alternate due to bad permissions could lead to corrupted snapshots. It would be better
+						// to fix the problem, so we don't strive to match the behavior here with transactions.
+						require.Regexp(t, "begin transaction: new snapshot: create repository snapshots: get alternate path: read alternates file: open: open .+/objects/info/alternates: permission denied$", actual.Error())
+					}
+				}
+
+				return setupData
 			},
 		},
 		{
@@ -297,7 +308,7 @@ doesn't seem to test a realistic scenario.`)
 				require.NoError(t, os.WriteFile(altFile, []byte("./alt-objects\n"), perm.SharedFile))
 				gittest.RequireObjectExists(t, cfg, repoPath, commitID)
 
-				return setupData{
+				setupData := setupData{
 					repo: repoProto,
 					expectedEntries: []string{
 						"HEAD",
@@ -311,6 +322,16 @@ doesn't seem to test a realistic scenario.`)
 						fmt.Sprintf("objects/alt-objects/%s/%s", commitID[0:2], commitID[2:]),
 					},
 				}
+
+				if testhelper.IsWALEnabled() {
+					setupData.expectedEntries = nil
+					setupData.requireError = func(actual error) {
+						// This doesn't seem like a realistic scenario given the alternates should only point to pool repositories.
+						require.Regexp(t, "begin transaction: new snapshot: create repository snapshots: create alternate snapshot: create directory snapshot: walk: create dir: mkdir .+/objects: file exists", actual.Error())
+					}
+				}
+
+				return setupData
 			},
 		},
 		{
