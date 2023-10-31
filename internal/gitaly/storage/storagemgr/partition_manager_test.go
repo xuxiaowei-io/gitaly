@@ -3,6 +3,7 @@ package storagemgr
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -58,6 +59,8 @@ func TestPartitionManager(t *testing.T) {
 		ctx context.Context
 		// repo is the repository that the transaction belongs to.
 		repo storage.Repository
+		// alternateRelativePath is the relative path of the alternate repository.
+		alternateRelativePath string
 		// expectedState contains the partitions by their storages and their pending transaction count at
 		// the end of the step.
 		expectedState map[string]map[partitionID]uint
@@ -652,6 +655,108 @@ func TestPartitionManager(t *testing.T) {
 				}
 			},
 		},
+		{
+			desc: "repository and alternate target the same partition",
+			setup: func(t *testing.T, cfg config.Cfg) setupData {
+				repo := setupRepository(t, cfg, cfg.Storages[0])
+				alternateRepo := setupRepository(t, cfg, cfg.Storages[0])
+
+				return setupData{
+					steps: steps{
+						begin{
+							transactionID:         1,
+							repo:                  repo,
+							alternateRelativePath: alternateRepo.GetRelativePath(),
+							expectedState: map[string]map[partitionID]uint{
+								"default": {
+									1: 1,
+								},
+							},
+						},
+						begin{
+							transactionID: 2,
+							repo:          repo,
+							expectedState: map[string]map[partitionID]uint{
+								"default": {
+									1: 2,
+								},
+							},
+						},
+						begin{
+							transactionID: 3,
+							repo:          alternateRepo,
+							expectedState: map[string]map[partitionID]uint{
+								"default": {
+									1: 3,
+								},
+							},
+						},
+						rollback{
+							transactionID: 1,
+							expectedState: map[string]map[partitionID]uint{
+								"default": {
+									1: 2,
+								},
+							},
+						},
+						rollback{
+							transactionID: 2,
+							expectedState: map[string]map[partitionID]uint{
+								"default": {
+									1: 1,
+								},
+							},
+						},
+						rollback{
+							transactionID: 3,
+						},
+					},
+				}
+			},
+		},
+		{
+			desc: "beginning transaction on repositories in different partitions fails",
+			setup: func(t *testing.T, cfg config.Cfg) setupData {
+				repo1 := setupRepository(t, cfg, cfg.Storages[0])
+				repo2 := setupRepository(t, cfg, cfg.Storages[0])
+
+				return setupData{
+					steps: steps{
+						begin{
+							transactionID: 1,
+							repo:          repo1,
+							expectedState: map[string]map[partitionID]uint{
+								"default": {
+									1: 1,
+								},
+							},
+						},
+						begin{
+							transactionID: 2,
+							repo:          repo2,
+							expectedState: map[string]map[partitionID]uint{
+								"default": {
+									1: 1,
+									2: 1,
+								},
+							},
+						},
+						begin{
+							transactionID:         3,
+							repo:                  repo1,
+							alternateRelativePath: repo2.GetRelativePath(),
+							expectedState: map[string]map[partitionID]uint{
+								"default": {
+									1: 1,
+									2: 1,
+								},
+							},
+							expectedError: fmt.Errorf("get partition: %w", errRepositoriesAreInDifferentPartitions),
+						},
+					},
+				}
+			},
+		},
 	} {
 		tc := tc
 		t.Run(tc.desc, func(t *testing.T) {
@@ -721,7 +826,7 @@ func TestPartitionManager(t *testing.T) {
 						beginCtx = step.ctx
 					}
 
-					txn, err := partitionManager.Begin(beginCtx, step.repo.GetStorageName(), step.repo.GetRelativePath(), false)
+					txn, err := partitionManager.Begin(beginCtx, step.repo.GetStorageName(), step.repo.GetRelativePath(), step.alternateRelativePath, false)
 					require.Equal(t, step.expectedError, err)
 
 					blockOnPartitionClosing(t, partitionManager)
@@ -916,7 +1021,7 @@ func TestPartitionManager_concurrentClose(t *testing.T) {
 	require.NoError(t, err)
 	defer partitionManager.Close()
 
-	tx, err := partitionManager.Begin(ctx, cfg.Storages[0].Name, "relative-path", false)
+	tx, err := partitionManager.Begin(ctx, cfg.Storages[0].Name, "relative-path", "", false)
 	require.NoError(t, err)
 
 	start := make(chan struct{})

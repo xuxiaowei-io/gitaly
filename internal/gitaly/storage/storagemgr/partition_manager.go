@@ -362,9 +362,11 @@ func stagingDirectoryPath(storagePath string) string {
 //
 // storageName and relativePath specify the target repository to begin a transaction against.
 //
+// alternateRelativePath specifies a repository to include in the transaction's snapshot as well.
+//
 // readOnly indicates whether this is a read-only transaction. Read-only transactions are not
 // configured with a quarantine directory and do not commit a log entry.
-func (pm *PartitionManager) Begin(ctx context.Context, storageName, relativePath string, readOnly bool) (*finalizableTransaction, error) {
+func (pm *PartitionManager) Begin(ctx context.Context, storageName, relativePath, alternateRelativePath string, readOnly bool) (*finalizableTransaction, error) {
 	storageMgr, ok := pm.storages[storageName]
 	if !ok {
 		return nil, structerr.NewNotFound("unknown storage: %q", storageName)
@@ -375,7 +377,7 @@ func (pm *PartitionManager) Begin(ctx context.Context, storageName, relativePath
 		return nil, structerr.NewInvalidArgument("validate relative path: %w", err)
 	}
 
-	partitionID, err := storageMgr.partitionAssigner.getPartitionID(ctx, relativePath, "")
+	partitionID, err := storageMgr.partitionAssigner.getPartitionID(ctx, relativePath, alternateRelativePath)
 	if err != nil {
 		if errors.Is(err, badger.ErrDBClosed) {
 			// The database is closed when PartitionManager is closing. Return a more
@@ -474,7 +476,12 @@ func (pm *PartitionManager) Begin(ctx context.Context, storageName, relativePath
 		ptn.pendingTransactionCount++
 		storageMgr.mu.Unlock()
 
-		transaction, err := ptn.transactionManager.Begin(ctx, relativePath, nil, readOnly)
+		var snapshottedRelativePaths []string
+		if alternateRelativePath != "" {
+			snapshottedRelativePaths = []string{alternateRelativePath}
+		}
+
+		transaction, err := ptn.transactionManager.Begin(ctx, relativePath, snapshottedRelativePaths, readOnly)
 		if err != nil {
 			// The pending transaction count needs to be decremented since the transaction is no longer
 			// inflight. A transaction failing does not necessarily mean the transaction manager has
