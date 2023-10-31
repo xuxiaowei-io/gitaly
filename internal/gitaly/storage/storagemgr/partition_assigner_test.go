@@ -61,20 +61,52 @@ func TestPartitionAssigner(t *testing.T) {
 
 	relativePath1 := "relative-path-1"
 	// The relative path should get assigned into partition.
-	ptnID1, err := pa.getPartitionID(ctx, relativePath1)
+	ptnID1, err := pa.getPartitionID(ctx, relativePath1, "")
 	require.NoError(t, err)
 	require.EqualValues(t, 1, ptnID1, "first allocated partition id should be 1")
 
 	// The second repository should land into its own partition.
-	ptnID2, err := pa.getPartitionID(ctx, "relative-path-2")
+	ptnID2, err := pa.getPartitionID(ctx, "relative-path-2", "")
 	require.NoError(t, err)
 	require.EqualValues(t, 2, ptnID2)
 
 	// Retrieving the first repository's partition should return the partition that
 	// was assigned earlier.
-	ptnID1, err = pa.getPartitionID(ctx, relativePath1)
+	ptnID1, err = pa.getPartitionID(ctx, relativePath1, "")
 	require.NoError(t, err)
 	require.EqualValues(t, 1, ptnID1)
+
+	// Repository should get assigned into the same partition as the alternate.
+	ptnID3, err := pa.getPartitionID(ctx, "relative-path-3", relativePath1)
+	require.NoError(t, err)
+	require.Equal(t, ptnID3, ptnID1)
+
+	// The alternate should get assigned into the same partition as the target repository
+	// if it already has a partition.
+	ptnID4, err := pa.getPartitionID(ctx, relativePath1, "relative-path-4")
+	require.NoError(t, err)
+	require.Equal(t, ptnID4, ptnID1)
+
+	// If neither repository are yet assigned, they should both get assigned into the same
+	// partition.
+	const relativePath6 = "relative-path-6"
+	ptnID5, err := pa.getPartitionID(ctx, "relative-path-5", relativePath6)
+	require.NoError(t, err)
+	require.EqualValues(t, 3, ptnID5)
+
+	// Getting a partition fails if the repositories are in different partitions.
+	ptnID6, err := pa.getPartitionID(ctx, relativePath1, relativePath6)
+	require.Equal(t, errRepositoriesAreInDifferentPartitions, err)
+	require.EqualValues(t, 0, ptnID6)
+
+	require.Equal(t, partitionAssignments{
+		relativePath1:     1,
+		"relative-path-2": 2,
+		"relative-path-3": 1,
+		"relative-path-4": 1,
+		"relative-path-5": 3,
+		relativePath6:     3,
+	}, getPartitionAssignments(t, db))
 }
 
 func TestPartitionAssigner_alternates(t *testing.T) {
@@ -188,13 +220,13 @@ func TestPartitionAssigner_alternates(t *testing.T) {
 				expectedPartitionAssignments = partitionAssignments{}
 			}
 
-			if memberPartitionID, err := pa.getPartitionID(ctx, memberRepo.RelativePath); tc.expectedError != nil {
+			if memberPartitionID, err := pa.getPartitionID(ctx, memberRepo.RelativePath, ""); tc.expectedError != nil {
 				require.ErrorIs(t, err, tc.expectedError)
 			} else {
 				require.NoError(t, err)
 				require.Equal(t, expectedPartitionAssignments["member"], memberPartitionID)
 
-				poolPartitionID, err := pa.getPartitionID(ctx, poolRepo.RelativePath)
+				poolPartitionID, err := pa.getPartitionID(ctx, poolRepo.RelativePath, "")
 				require.NoError(t, err)
 				require.Equal(t, expectedPartitionAssignments["pool"], poolPartitionID)
 			}
@@ -228,7 +260,7 @@ func TestPartitionAssigner_close(t *testing.T) {
 	// A block of ID is loaded into memory when the partitionAssigner is initialized.
 	// Closing the partitionAssigner is expected to return the unused IDs in the block
 	// back to the database.
-	ptnID, err := pa.getPartitionID(testhelper.Context(t), "relative-path")
+	ptnID, err := pa.getPartitionID(testhelper.Context(t), "relative-path", "")
 	require.NoError(t, err)
 	require.EqualValues(t, 1, ptnID)
 }
@@ -297,7 +329,7 @@ func TestPartitionAssigner_concurrentAccess(t *testing.T) {
 					go func() {
 						defer wg.Done()
 						<-start
-						_, err := pa.getPartitionID(ctx, repo.RelativePath)
+						_, err := pa.getPartitionID(ctx, repo.RelativePath, "")
 						assert.NoError(t, err)
 					}()
 				}
@@ -308,7 +340,7 @@ func TestPartitionAssigner_concurrentAccess(t *testing.T) {
 					go func() {
 						defer wg.Done()
 						<-start
-						ptnID, err := pa.getPartitionID(ctx, repo.RelativePath)
+						ptnID, err := pa.getPartitionID(ctx, repo.RelativePath, "")
 						assert.NoError(t, err)
 						collectedIDs[i][j] = ptnID
 					}()
@@ -331,7 +363,7 @@ func TestPartitionAssigner_concurrentAccess(t *testing.T) {
 			if tc.withAlternate {
 				// We expect all repositories to have been assigned to the same partition as they are all linked to the same pool.
 				require.Equal(t, []partitionID{1, 1, 1, 1, 1, 1, 1, 1, 1, 1}, partitionIDs)
-				ptnID, err := pa.getPartitionID(ctx, pool.RelativePath)
+				ptnID, err := pa.getPartitionID(ctx, pool.RelativePath, "")
 				require.NoError(t, err)
 				require.Equal(t, partitionID(1), ptnID, "pool should have been assigned into the same partition as the linked repositories")
 				return

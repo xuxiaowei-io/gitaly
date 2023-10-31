@@ -375,7 +375,7 @@ func (pm *PartitionManager) Begin(ctx context.Context, storageName, relativePath
 		return nil, structerr.NewInvalidArgument("validate relative path: %w", err)
 	}
 
-	partitionID, err := storageMgr.partitionAssigner.getPartitionID(ctx, relativePath)
+	partitionID, err := storageMgr.partitionAssigner.getPartitionID(ctx, relativePath, "")
 	if err != nil {
 		if errors.Is(err, badger.ErrDBClosed) {
 			// The database is closed when PartitionManager is closing. Return a more

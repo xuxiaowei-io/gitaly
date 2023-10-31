@@ -734,7 +734,7 @@ func TestPartitionManager(t *testing.T) {
 					storageMgr := partitionManager.storages[step.repo.GetStorageName()]
 					storageMgr.mu.Lock()
 
-					ptnID, err := storageMgr.partitionAssigner.getPartitionID(ctx, step.repo.GetRelativePath())
+					ptnID, err := storageMgr.partitionAssigner.getPartitionID(ctx, step.repo.GetRelativePath(), "")
 					require.NoError(t, err)
 
 					ptn := storageMgr.partitions[ptnID]
