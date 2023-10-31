@@ -10,9 +10,11 @@ import (
 	"strings"
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage/storagectx"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/safe"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/transaction/voting"
+	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
 
 // Link will link the given repository to the object pool. This is done by writing the object pool's
@@ -61,6 +63,15 @@ func (o *ObjectPool) Link(ctx context.Context, repo *localrepo.Repo) (returnedEr
 	if err := transaction.CommitLockedFile(ctx, o.txManager, alternatesWriter); err != nil {
 		return fmt.Errorf("committing alternates: %w", err)
 	}
+
+	storagectx.RunWithTransaction(ctx, func(tx storagectx.Transaction) {
+		// Convert the relative path to the original one without the snapshot's
+		// prefix. This way it's correct also when applied to the actual repository.
+		tx.UpdateAlternate(tx.OriginalRepository(&gitalypb.Repository{
+			StorageName:  o.Repo.GetStorageName(),
+			RelativePath: o.Repo.GetRelativePath(),
+		}).GetRelativePath())
+	})
 
 	return o.removeMemberBitmaps(repo)
 }

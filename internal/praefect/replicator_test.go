@@ -292,18 +292,26 @@ func TestDefaultReplicator_Replicate(t *testing.T) {
 					RelativePath: sourcePool.Repository.RelativePath,
 				})
 
+				expectedPool := &gitalypb.ObjectPool{
+					Repository: &gitalypb.Repository{
+						StorageName:  targetStorage,
+						RelativePath: sourcePool.Repository.RelativePath,
+					},
+				}
+
+				if testhelper.IsWALEnabled() {
+					// See the replicator's replicate method for reasoning behind the pool
+					// not being connected with transactions.
+					expectedPool = nil
+				}
+
 				return setupData{
 					job: datastore.ReplicationJob{
 						ReplicaPath:       sourceRepo.RelativePath,
 						TargetNodeStorage: targetStorage,
 						SourceNodeStorage: sourceStorage,
 					},
-					expectedPool: &gitalypb.ObjectPool{
-						Repository: &gitalypb.Repository{
-							StorageName:  targetStorage,
-							RelativePath: sourcePool.Repository.RelativePath,
-						},
-					},
+					expectedPool: expectedPool,
 				}
 			},
 		},
@@ -357,18 +365,26 @@ func TestDefaultReplicator_Replicate(t *testing.T) {
 					RelativePath: sourcePool.Repository.RelativePath,
 				})
 
+				expectedPool := &gitalypb.ObjectPool{
+					Repository: &gitalypb.Repository{
+						StorageName:  targetStorage,
+						RelativePath: sourcePool.Repository.RelativePath,
+					},
+				}
+
+				if testhelper.IsWALEnabled() {
+					// See the replicator's replicate method for reasoning behind the pool
+					// not being connected with transactions.
+					expectedPool = nil
+				}
+
 				return setupData{
 					job: datastore.ReplicationJob{
 						ReplicaPath:       sourceRepo.RelativePath,
 						TargetNodeStorage: targetStorage,
 						SourceNodeStorage: sourceStorage,
 					},
-					expectedPool: &gitalypb.ObjectPool{
-						Repository: &gitalypb.Repository{
-							StorageName:  targetStorage,
-							RelativePath: sourcePool.Repository.RelativePath,
-						},
-					},
+					expectedPool: expectedPool,
 				}
 			},
 		},

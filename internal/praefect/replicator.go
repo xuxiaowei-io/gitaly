@@ -4,12 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service/repository"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage/storagemgr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/praefect/config"
@@ -136,7 +138,16 @@ func (dr defaultReplicator) Replicate(ctx context.Context, event datastore.Repli
 			ObjectPool: targetObjectPool,
 			Repository: targetRepository,
 		}); err != nil {
-			return err
+			if !strings.Contains(err.Error(), storagemgr.ErrRepositoriesAreInDifferentPartitions.Error()) {
+				return err
+			}
+
+			// The pool and the member repository were not in the same partition and thus failed to be linked.
+			// When transactions are enabled, the pool and the member repository must be in the same partition
+			// are only serialized within partitions. Moving a repository into a different partition is difficult
+			// as one would have to create a new repository in the same partition as the pool, and delete the old
+			// one. We don't intend to support moving repositories between partitions with Praefect. If we hit this
+			// error, we'll leave the repository without the alternate link.
 		}
 	}
 
