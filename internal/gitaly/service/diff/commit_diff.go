@@ -109,9 +109,9 @@ func (s *server) CommitDiff(in *gitalypb.CommitDiffRequest, stream gitalypb.Diff
 		patch := diff.Patch
 
 		if in.CollapseGenerated && in.CollapseDiffs {
-			oid := diff.FromID
-			if diff.FromID == "0000000000000000000000000000000000000000" {
-				oid = diff.ToID
+			oid := git.ObjectID(diff.FromID)
+			if objectHash.IsZeroOID(oid) {
+				oid = git.ObjectID(diff.ToID)
 			}
 
 			linguistGenerated, err := linguistInstance.IsGenerated(string(diff.FromPath), oid)
