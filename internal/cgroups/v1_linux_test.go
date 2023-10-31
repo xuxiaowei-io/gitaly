@@ -4,7 +4,6 @@ package cgroups
 
 import (
 	"fmt"
-	"hash/crc32"
 	"io/fs"
 	"os"
 	"os/exec"
@@ -229,17 +228,16 @@ func TestAddCommand(t *testing.T) {
 	require.NoError(t, v1Manager1.Setup())
 	ctx := testhelper.Context(t)
 
-	cmd2 := exec.CommandContext(ctx, "ls", "-hal", ".")
+	cmd2 := exec.CommandContext(ctx, cmdArgs[0], cmdArgs[1:]...)
 	require.NoError(t, cmd2.Run())
 
 	v1Manager2 := mock.newCgroupManager(config, testhelper.SharedLogger(t), pid)
 
 	t.Run("without overridden key", func(t *testing.T) {
+		groupID := calcGroupID(cmd2.Args, config.Repositories.Count)
+
 		_, err := v1Manager2.AddCommand(cmd2)
 		require.NoError(t, err)
-
-		checksum := crc32.ChecksumIEEE([]byte(strings.Join(cmd2.Args, "/")))
-		groupID := uint(checksum) % config.Repositories.Count
 
 		for _, s := range mock.subsystems {
 			path := filepath.Join(mock.root, string(s.Name()), "gitaly",
@@ -254,15 +252,14 @@ func TestAddCommand(t *testing.T) {
 	})
 
 	t.Run("with overridden key", func(t *testing.T) {
+		overridenGroupID := calcGroupID([]string{"foobar"}, config.Repositories.Count)
+
 		_, err := v1Manager2.AddCommand(cmd2, WithCgroupKey("foobar"))
 		require.NoError(t, err)
 
-		checksum := crc32.ChecksumIEEE([]byte("foobar"))
-		groupID := uint(checksum) % config.Repositories.Count
-
 		for _, s := range mock.subsystems {
 			path := filepath.Join(mock.root, string(s.Name()), "gitaly",
-				fmt.Sprintf("gitaly-%d", pid), fmt.Sprintf("repos-%d", groupID), "cgroup.procs")
+				fmt.Sprintf("gitaly-%d", pid), fmt.Sprintf("repos-%d", overridenGroupID), "cgroup.procs")
 			content := readCgroupFile(t, path)
 
 			cmdPid, err := strconv.Atoi(string(content))
@@ -354,17 +351,17 @@ gitaly_cgroup_cpu_cfs_throttled_seconds_total{path="%s"} 0.001
 
 			ctx := testhelper.Context(t)
 
-			cmd := exec.CommandContext(ctx, "ls", "-hal", ".")
+			cmd := exec.CommandContext(ctx, cmdArgs[0], cmdArgs[1:]...)
 			require.NoError(t, cmd.Start())
 			_, err := v1Manager1.AddCommand(cmd)
 			require.NoError(t, err)
 
-			gitCmd1 := exec.CommandContext(ctx, "ls", "-hal", ".")
+			gitCmd1 := exec.CommandContext(ctx, cmdArgs[0], cmdArgs[1:]...)
 			require.NoError(t, gitCmd1.Start())
 			_, err = v1Manager1.AddCommand(gitCmd1)
 			require.NoError(t, err)
 
-			gitCmd2 := exec.CommandContext(ctx, "ls", "-hal", ".")
+			gitCmd2 := exec.CommandContext(ctx, cmdArgs[0], cmdArgs[1:]...)
 			require.NoError(t, gitCmd2.Start())
 			_, err = v1Manager1.AddCommand(gitCmd2)
 			require.NoError(t, err)
