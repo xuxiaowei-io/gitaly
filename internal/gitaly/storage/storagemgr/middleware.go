@@ -44,7 +44,6 @@ var NonTransactionalRPCs = map[string]struct{}{
 	"/gitaly.ObjectPoolService/CreateObjectPool":           {},
 	"/gitaly.ObjectPoolService/LinkRepositoryToObjectPool": {},
 	"/gitaly.ObjectPoolService/DisconnectGitAlternates":    {},
-	"/gitaly.ObjectPoolService/FetchIntoObjectPool":        {},
 
 	// ReplicateRepository is replicating the attributes and config which the
 	// WAL won't support. This is pending removal of their replication.
