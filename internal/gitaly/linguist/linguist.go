@@ -21,39 +21,21 @@ type ByteCountPerLanguage map[string]uint64
 
 // Instance is a holder of the defined in the system language settings.
 type Instance struct {
+	ctx          context.Context
 	logger       log.Logger
 	catfileCache catfile.Cache
 	repo         *localrepo.Repo
-	ctx          context.Context
-	checkAttrCmd *gitattributes.CheckAttrCmd
 }
 
 // New creates a new instance that can be used to calculate language stats for
 // the given repo.
-func New(logger log.Logger, catfileCache catfile.Cache, repo *localrepo.Repo) *Instance {
+func New(ctx context.Context, logger log.Logger, catfileCache catfile.Cache, repo *localrepo.Repo) *Instance {
 	return &Instance{
-		logger:       logger,
-		catfileCache: catfileCache,
-		repo:         repo,
-	}
-}
-
-// NewWithGitAttributes creates a new instance with CheckAttrCmd
-func NewWithGitAttributes(ctx context.Context, logger log.Logger, catfileCache catfile.Cache, repo *localrepo.Repo, revision git.Revision) (*Instance, func(), error) {
-	attrs := []string{linguistGenerated}
-
-	checkAttr, finishAttr, err := gitattributes.CheckAttr(ctx, repo, revision, attrs)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	return &Instance{
-		logger:       logger,
-		catfileCache: catfileCache,
-		repo:         repo,
 		ctx:          ctx,
-		checkAttrCmd: checkAttr,
-	}, finishAttr, nil
+		logger:       logger,
+		catfileCache: catfileCache,
+		repo:         repo,
+	}
 }
 
 // Color returns the color Linguist has assigned to language.
@@ -67,8 +49,8 @@ func Color(language string) string {
 }
 
 // IsGenerated returns true if the given file is considered to be generated
-func (inst *Instance) IsGenerated(filename string, oid git.ObjectID) (bool, error) {
-	fileInstance, err := newFileInstance(filename, inst.checkAttrCmd)
+func (inst *Instance) IsGenerated(checkAttrCmd *gitattributes.CheckAttrCmd, filename string, oid git.ObjectID) (bool, error) {
+	fileInstance, err := newFileInstance(filename, checkAttrCmd)
 	if err != nil {
 		return false, fmt.Errorf("new file instance: %w", err)
 	}
@@ -88,6 +70,18 @@ func (inst *Instance) IsGenerated(filename string, oid git.ObjectID) (bool, erro
 	}
 
 	return enry.IsGenerated(filename, content), nil
+}
+
+// CheckAttrGenerated returns a CheckAttr that reads linguist-generated override
+func (inst *Instance) CheckAttrGenerated(revision git.Revision) (*gitattributes.CheckAttrCmd, func(), error) {
+	attrs := []string{linguistGenerated}
+
+	checkAttr, finishAttr, err := gitattributes.CheckAttr(inst.ctx, inst.repo, revision, attrs)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return checkAttr, finishAttr, nil
 }
 
 // readPartialObject reads given object upto the limit and discard the rest
