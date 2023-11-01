@@ -2,10 +2,13 @@ package log
 
 import (
 	"context"
+	"github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors"
 	"regexp"
 
 	grpcmwlogging "github.com/grpc-ecosystem/go-grpc-middleware/logging"
 	grpcmwlogrus "github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
+	"github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/selector"
+
 	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/env"
 	"google.golang.org/grpc"
@@ -38,6 +41,16 @@ func DeciderOption() grpcmwlogrus.Option {
 	}
 
 	return grpcmwlogrus.WithDecider(decider)
+}
+
+func DeciderMatcher() selector.Matcher {
+	matcher := methodNameMatcherFromEnv()
+	return selector.MatchFunc(func(_ context.Context, callMeta interceptors.CallMeta) bool {
+		if matcher == nil {
+			return true
+		}
+		return matcher(callMeta.FullMethod())
+	})
 }
 
 func methodNameMatcherFromEnv() func(string) bool {
