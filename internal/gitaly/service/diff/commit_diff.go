@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gitattributes"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/diff"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/linguist"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
@@ -85,13 +86,19 @@ func (s *server) CommitDiff(in *gitalypb.CommitDiffRequest, stream gitalypb.Diff
 	limits.SafeMaxLines = int(in.SafeMaxLines)
 	limits.SafeMaxBytes = int(in.SafeMaxBytes)
 
-	linguistInstance := linguist.New(ctx, s.logger, s.catfileCache, repo)
-	checkAttrCmd, checkAttrFinish, err := linguistInstance.CheckAttrGenerated(git.Revision(leftSha))
-	if err != nil {
-		return structerr.NewAborted("send: %w", err)
-	}
+	var linguistInstance *linguist.Instance
+	var checkAttrCmd *gitattributes.CheckAttrCmd
+	var checkAttrFinish func()
 
-	defer checkAttrFinish()
+	if in.CollapseGenerated && in.CollapseDiffs {
+		linguistInstance = linguist.New(ctx, s.logger, s.catfileCache, repo)
+		checkAttrCmd, checkAttrFinish, err = linguistInstance.CheckAttrGenerated(git.Revision(leftSha))
+		if err != nil {
+			return structerr.NewAborted("send: %w", err)
+		}
+
+		defer checkAttrFinish()
+	}
 
 	return s.eachDiff(ctx, repo, cmd, limits, func(diff *diff.Diff) error {
 		response := &gitalypb.CommitDiffResponse{
