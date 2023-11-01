@@ -704,7 +704,7 @@ type TransactionManager struct {
 	// partitionID is the ID of the partition this manager is operating on. This is used to determine the database keys.
 	partitionID partitionID
 	// db is the handle to the key-value store used for storing the write-ahead log related state.
-	db database
+	db Database
 	// admissionQueue is where the incoming writes are waiting to be admitted to the transaction
 	// manager.
 	admissionQueue chan *Transaction
@@ -742,7 +742,7 @@ type TransactionManager struct {
 func NewTransactionManager(
 	ptnID partitionID,
 	logger log.Logger,
-	db *badger.DB,
+	db Database,
 	storagePath,
 	stateDir,
 	stagingDir string,
@@ -761,7 +761,7 @@ func NewTransactionManager(
 		repositoryFactory:    repositoryFactory,
 		storagePath:          storagePath,
 		partitionID:          ptnID,
-		db:                   newDatabaseAdapter(db),
+		db:                   db,
 		admissionQueue:       make(chan *Transaction),
 		initialized:          make(chan struct{}),
 		snapshotLocks:        make(map[LSN]*snapshotLock),
@@ -1265,7 +1265,7 @@ func (mgr *TransactionManager) initialize(ctx context.Context) error {
 	//
 	// As the LSNs in the keys are encoded in big endian, the latest log entry can be found by taking
 	// the first key when iterating the log entry key space in reverse.
-	if err := mgr.db.View(func(txn databaseTransaction) error {
+	if err := mgr.db.View(func(txn DatabaseTransaction) error {
 		logPrefix := keyPrefixLogEntries(mgr.partitionID)
 
 		iterator := txn.NewIterator(badger.IteratorOptions{Reverse: true, Prefix: logPrefix})
@@ -1919,7 +1919,7 @@ func (mgr *TransactionManager) setKey(key []byte, value proto.Message) error {
 // readKey reads a key from the database and unmarshals its value in to the destination protocol
 // buffer message.
 func (mgr *TransactionManager) readKey(key []byte, destination proto.Message) error {
-	return mgr.db.View(func(txn databaseTransaction) error {
+	return mgr.db.View(func(txn DatabaseTransaction) error {
 		item, err := txn.Get(key)
 		if err != nil {
 			return fmt.Errorf("get: %w", err)
@@ -1931,7 +1931,7 @@ func (mgr *TransactionManager) readKey(key []byte, destination proto.Message) er
 
 // deleteKey deletes a key from the database.
 func (mgr *TransactionManager) deleteKey(key []byte) error {
-	return mgr.db.Update(func(txn databaseTransaction) error {
+	return mgr.db.Update(func(txn DatabaseTransaction) error {
 		if err := txn.Delete(key); err != nil {
 			return fmt.Errorf("delete: %w", err)
 		}

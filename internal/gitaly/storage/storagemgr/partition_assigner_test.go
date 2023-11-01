@@ -20,11 +20,11 @@ import (
 
 type partitionAssignments map[string]partitionID
 
-func getPartitionAssignments(tb testing.TB, db *badger.DB) partitionAssignments {
+func getPartitionAssignments(tb testing.TB, db Database) partitionAssignments {
 	tb.Helper()
 
 	state := partitionAssignments{}
-	require.NoError(tb, db.View(func(txn *badger.Txn) error {
+	require.NoError(tb, db.View(func(txn DatabaseTransaction) error {
 		it := txn.NewIterator(badger.IteratorOptions{
 			Prefix: []byte(prefixPartitionAssignment),
 		})

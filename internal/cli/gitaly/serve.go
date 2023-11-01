@@ -37,6 +37,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/backchannel"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/client"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/middleware/limithandler"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/protoregistry"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/env"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/limiter"
@@ -256,6 +257,7 @@ func run(cfg config.Cfg, logger log.Logger) error {
 
 	prometheus.MustRegister(gitCmdFactory)
 
+	txRegistry := storagemgr.NewTransactionRegistry()
 	if skipHooks {
 		logger.Warn("skipping GitLab API client creation since hooks are bypassed via GITALY_TESTING_NO_GIT_HOOKS")
 	} else {
@@ -265,9 +267,7 @@ func run(cfg config.Cfg, logger log.Logger) error {
 		}
 		prometheus.MustRegister(gitlabClient)
 
-		hm := hook.NewManager(cfg, locator, logger, gitCmdFactory, transactionManager, gitlabClient, hook.NewTransactionRegistry(storagemgr.NewTransactionRegistry()))
-
-		hookManager = hm
+		hookManager = hook.NewManager(cfg, locator, logger, gitCmdFactory, transactionManager, gitlabClient, hook.NewTransactionRegistry(txRegistry))
 	}
 
 	conns := client.NewPool(
@@ -366,13 +366,37 @@ func run(cfg config.Cfg, logger log.Logger) error {
 		defer stop()
 	}
 
+	var txMiddleware server.TransactionMiddleware
+	if cfg.Transactions.Enabled {
+		logger.WarnContext(ctx, "Transactions enabled. Transactions are an experimental feature. The feature is not production ready yet and might lead to various issues including data loss.")
+
+		partitionMgr, err := storagemgr.NewPartitionManager(
+			cfg.Storages,
+			gitCmdFactory,
+			housekeepingManager,
+			localrepo.NewFactory(logger, locator, gitCmdFactory, catfileCache),
+			logger,
+			storagemgr.DatabaseOpenerFunc(storagemgr.OpenDatabase),
+			helper.NewTimerTickerFactory(time.Minute),
+		)
+		if err != nil {
+			return fmt.Errorf("new partition manager: %w", err)
+		}
+		defer partitionMgr.Close()
+
+		txMiddleware = server.TransactionMiddleware{
+			UnaryInterceptor:  storagemgr.NewUnaryInterceptor(logger, protoregistry.GitalyProtoPreregistered, txRegistry, partitionMgr, locator),
+			StreamInterceptor: storagemgr.NewStreamInterceptor(logger, protoregistry.GitalyProtoPreregistered, txRegistry, partitionMgr, locator),
+		}
+	}
+
 	gitalyServerFactory := server.NewGitalyServerFactory(
 		cfg,
 		logger,
 		registry,
 		diskCache,
 		[]*limithandler.LimiterMiddleware{perRPCLimitHandler, rateLimitHandler},
-		server.TransactionMiddleware{},
+		txMiddleware,
 	)
 	defer gitalyServerFactory.Stop()
 

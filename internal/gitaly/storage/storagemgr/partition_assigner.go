@@ -53,9 +53,9 @@ func (id partitionID) String() string {
 }
 
 // partitionAssignmentTable records which partitions repositories are assigned into.
-type partitionAssignmentTable struct{ db *badger.DB }
+type partitionAssignmentTable struct{ db Database }
 
-func newPartitionAssignmentTable(db *badger.DB) *partitionAssignmentTable {
+func newPartitionAssignmentTable(db Database) *partitionAssignmentTable {
 	return &partitionAssignmentTable{db: db}
 }
 
@@ -65,7 +65,7 @@ func (pt *partitionAssignmentTable) key(relativePath string) []byte {
 
 func (pt *partitionAssignmentTable) getPartitionID(relativePath string) (partitionID, error) {
 	var id partitionID
-	if err := pt.db.View(func(txn *badger.Txn) error {
+	if err := pt.db.View(func(txn DatabaseTransaction) error {
 		item, err := txn.Get(pt.key(relativePath))
 		if err != nil {
 			if errors.Is(err, badger.ErrKeyNotFound) {
@@ -107,7 +107,7 @@ type partitionAssigner struct {
 	// channel closing signals the lock being released.
 	repositoryLocks map[string]chan struct{}
 	// idSequence is the sequence used to mint partition IDs.
-	idSequence *badger.Sequence
+	idSequence Sequence
 	// partitionAssignmentTable contains the partition assignment records.
 	partitionAssignmentTable *partitionAssignmentTable
 	// storagePath is the path to the root directory of the storage the relative
@@ -117,7 +117,7 @@ type partitionAssigner struct {
 
 // newPartitionAssigner returns a new partitionAssigner. Close must be called on the
 // returned instance to release acquired resources.
-func newPartitionAssigner(db *badger.DB, storagePath string) (*partitionAssigner, error) {
+func newPartitionAssigner(db Database, storagePath string) (*partitionAssigner, error) {
 	seq, err := db.GetSequence([]byte("partition_id_seq"), 100)
 	if err != nil {
 		return nil, fmt.Errorf("get sequence: %w", err)
