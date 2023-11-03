@@ -49,7 +49,7 @@ func (s *server) CommitLanguages(ctx context.Context, req *gitalypb.CommitLangua
 		return nil, structerr.NewInternal("looking up revision: %w", err)
 	}
 
-	stats, err := linguist.New(ctx, s.logger, s.catfileCache, repo).Stats(ctx, git.ObjectID(commitID))
+	stats, err := linguist.New(s.logger, s.catfileCache, repo).Stats(ctx, git.ObjectID(commitID))
 	if err != nil {
 		return nil, structerr.NewInternal("language stats: %w", err)
 	}

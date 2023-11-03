@@ -21,7 +21,6 @@ type ByteCountPerLanguage map[string]uint64
 
 // Instance is a holder of the defined in the system language settings.
 type Instance struct {
-	ctx          context.Context
 	logger       log.Logger
 	catfileCache catfile.Cache
 	repo         *localrepo.Repo
@@ -29,9 +28,8 @@ type Instance struct {
 
 // New creates a new instance that can be used to calculate language stats for
 // the given repo.
-func New(ctx context.Context, logger log.Logger, catfileCache catfile.Cache, repo *localrepo.Repo) *Instance {
+func New(logger log.Logger, catfileCache catfile.Cache, repo *localrepo.Repo) *Instance {
 	return &Instance{
-		ctx:          ctx,
 		logger:       logger,
 		catfileCache: catfileCache,
 		repo:         repo,
@@ -53,7 +51,7 @@ func Color(language string) string {
 // first then uses the huristics from go-enry if the override is not defined.
 // Generated files are usually generated based on a template or source file
 // by running a build tool.
-func (inst *Instance) IsGenerated(checkAttrCmd *gitattributes.CheckAttrCmd, filename string, oid git.ObjectID) (bool, error) {
+func (inst *Instance) IsGenerated(ctx context.Context, checkAttrCmd *gitattributes.CheckAttrCmd, filename string, oid git.ObjectID) (bool, error) {
 	fileInstance, err := newFileInstance(filename, checkAttrCmd)
 	if err != nil {
 		return false, fmt.Errorf("new file instance: %w", err)
@@ -68,7 +66,7 @@ func (inst *Instance) IsGenerated(checkAttrCmd *gitattributes.CheckAttrCmd, file
 	}
 
 	// Read arbitrary number of bytes considered enough to determine language.
-	content, err := inst.readPartialObject(oid, 2048)
+	content, err := inst.readPartialObject(ctx, oid, 2048)
 	if err != nil {
 		return false, fmt.Errorf("read partial content: %w", err)
 	}
@@ -77,10 +75,10 @@ func (inst *Instance) IsGenerated(checkAttrCmd *gitattributes.CheckAttrCmd, file
 }
 
 // CheckAttrGenerated returns a CheckAttr that reads linguist-generated override
-func (inst *Instance) CheckAttrGenerated(revision git.Revision) (*gitattributes.CheckAttrCmd, func(), error) {
+func (inst *Instance) CheckAttrGenerated(ctx context.Context, revision git.Revision) (*gitattributes.CheckAttrCmd, func(), error) {
 	attrs := []string{linguistGenerated}
 
-	checkAttr, finishAttr, err := gitattributes.CheckAttr(inst.ctx, inst.repo, revision, attrs)
+	checkAttr, finishAttr, err := gitattributes.CheckAttr(ctx, inst.repo, revision, attrs)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -89,14 +87,14 @@ func (inst *Instance) CheckAttrGenerated(revision git.Revision) (*gitattributes.
 }
 
 // readPartialObject reads given object upto the limit and discard the rest
-func (inst *Instance) readPartialObject(oid git.ObjectID, limit int64) ([]byte, error) {
-	objectReader, cancel, err := inst.catfileCache.ObjectReader(inst.ctx, inst.repo)
+func (inst *Instance) readPartialObject(ctx context.Context, oid git.ObjectID, limit int64) ([]byte, error) {
+	objectReader, cancel, err := inst.catfileCache.ObjectReader(ctx, inst.repo)
 	if err != nil {
 		return nil, fmt.Errorf("new object reader: %w", err)
 	}
 	defer cancel()
 
-	blob, err := objectReader.Object(inst.ctx, git.Revision(oid))
+	blob, err := objectReader.Object(ctx, git.Revision(oid))
 	if err != nil {
 		return nil, fmt.Errorf("new object: %w", err)
 	}

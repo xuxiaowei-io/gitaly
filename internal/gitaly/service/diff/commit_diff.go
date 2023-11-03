@@ -91,8 +91,8 @@ func (s *server) CommitDiff(in *gitalypb.CommitDiffRequest, stream gitalypb.Diff
 	var checkAttrFinish func()
 
 	if in.CollapseGenerated && in.CollapseDiffs {
-		linguistInstance = linguist.New(ctx, s.logger, s.catfileCache, repo)
-		checkAttrCmd, checkAttrFinish, err = linguistInstance.CheckAttrGenerated(git.Revision(leftSha))
+		linguistInstance = linguist.New(s.logger, s.catfileCache, repo)
+		checkAttrCmd, checkAttrFinish, err = linguistInstance.CheckAttrGenerated(ctx, git.Revision(leftSha))
 		if err != nil {
 			return structerr.NewAborted("send: %w", err)
 		}
@@ -122,7 +122,7 @@ func (s *server) CommitDiff(in *gitalypb.CommitDiffRequest, stream gitalypb.Diff
 				oid = git.ObjectID(diff.ToID)
 			}
 
-			linguistGenerated, err := linguistInstance.IsGenerated(checkAttrCmd, string(diff.FromPath), oid)
+			linguistGenerated, err := linguistInstance.IsGenerated(ctx, checkAttrCmd, string(diff.FromPath), oid)
 			if err != nil {
 				return structerr.NewAborted("send: %w", err)
 			}
