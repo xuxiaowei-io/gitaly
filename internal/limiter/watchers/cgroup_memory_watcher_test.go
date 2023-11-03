@@ -56,7 +56,7 @@ func TestCgroupMemoryWatcher_Poll(t *testing.T) {
 			expectedErr: fmt.Errorf("cgroup watcher: poll stats from cgroup manager: %w", fmt.Errorf("something goes wrong")),
 		},
 		{
-			desc: "cgroup memory usage is more than 90%",
+			desc: "cgroup memory usage is more than or equal to 90%",
 			manager: &testCgroupManager{
 				ready: true,
 				statsList: []cgroups.Stats{
@@ -71,7 +71,40 @@ func TestCgroupMemoryWatcher_Poll(t *testing.T) {
 			expectedEvent: &limiter.BackoffEvent{
 				WatcherName:   cgroupMemoryWatcherName,
 				ShouldBackoff: true,
-				Reason:        "cgroup memory exceeds limit: 1800000000/2000000000",
+				Reason:        "cgroup memory exceeds threshold",
+				Stats: map[string]any{
+					"memory_usage":     uint64(1800000000),
+					"inactive_file":    uint64(0),
+					"memory_limit":     uint64(2000000000),
+					"memory_threshold": 0.9,
+				},
+			},
+			expectedErr: nil,
+		},
+		{
+			desc: "cgroup memory usage excluding inactive file is greater than or equal to 90%",
+			manager: &testCgroupManager{
+				ready: true,
+				statsList: []cgroups.Stats{
+					{
+						ParentStats: cgroups.CgroupStats{
+							MemoryUsage:  1900000000,
+							InactiveFile: 100000000,
+							MemoryLimit:  2000000000,
+						},
+					},
+				},
+			},
+			expectedEvent: &limiter.BackoffEvent{
+				WatcherName:   cgroupMemoryWatcherName,
+				ShouldBackoff: true,
+				Reason:        "cgroup memory exceeds threshold",
+				Stats: map[string]any{
+					"memory_usage":     uint64(1900000000),
+					"inactive_file":    uint64(100000000),
+					"memory_limit":     uint64(2000000000),
+					"memory_threshold": 0.9,
+				},
 			},
 			expectedErr: nil,
 		},
@@ -105,6 +138,26 @@ func TestCgroupMemoryWatcher_Poll(t *testing.T) {
 						ParentStats: cgroups.CgroupStats{
 							MemoryUsage: 1700000000,
 							MemoryLimit: 2000000000,
+						},
+					},
+				},
+			},
+			expectedEvent: &limiter.BackoffEvent{
+				WatcherName:   cgroupMemoryWatcherName,
+				ShouldBackoff: false,
+			},
+			expectedErr: nil,
+		},
+		{
+			desc: "cgroup memory usage excluding inactive file is normal",
+			manager: &testCgroupManager{
+				ready: true,
+				statsList: []cgroups.Stats{
+					{
+						ParentStats: cgroups.CgroupStats{
+							MemoryUsage:  1900000000,
+							InactiveFile: 200000000,
+							MemoryLimit:  2000000000,
 						},
 					},
 				},

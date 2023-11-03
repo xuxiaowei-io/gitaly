@@ -137,7 +137,12 @@ func TestCgroupCPUWatcher_Poll(t *testing.T) {
 				{
 					WatcherName:   cgroupCPUWatcherName,
 					ShouldBackoff: true,
-					Reason:        "cgroup CPU throttled too much: 8.00/15.00 seconds",
+					Reason:        "cgroup CPU throttled too much",
+					Stats: map[string]any{
+						"time_diff":           15.0,
+						"throttled_duration":  8.0,
+						"throttled_threshold": 0.5,
+					},
 				},
 			},
 		},
@@ -166,12 +171,22 @@ func TestCgroupCPUWatcher_Poll(t *testing.T) {
 				{
 					WatcherName:   cgroupCPUWatcherName,
 					ShouldBackoff: true,
-					Reason:        "cgroup CPU throttled too much: 8.00/15.00 seconds",
+					Reason:        "cgroup CPU throttled too much",
+					Stats: map[string]any{
+						"time_diff":           15.0,
+						"throttled_duration":  8.0,
+						"throttled_threshold": 0.5,
+					},
 				},
 				{
 					WatcherName:   cgroupCPUWatcherName,
 					ShouldBackoff: true,
-					Reason:        "cgroup CPU throttled too much: 15.00/15.00 seconds",
+					Reason:        "cgroup CPU throttled too much",
+					Stats: map[string]any{
+						"time_diff":           15.0,
+						"throttled_duration":  15.0,
+						"throttled_threshold": 0.5,
+					},
 				},
 				{
 					WatcherName:   cgroupCPUWatcherName,
@@ -203,7 +218,12 @@ func TestCgroupCPUWatcher_Poll(t *testing.T) {
 				{
 					WatcherName:   cgroupCPUWatcherName,
 					ShouldBackoff: true,
-					Reason:        "cgroup CPU throttled too much: 100.00/15.00 seconds",
+					Reason:        "cgroup CPU throttled too much",
+					Stats: map[string]any{
+						"time_diff":           15.0,
+						"throttled_duration":  100.0,
+						"throttled_threshold": 0.5,
+					},
 				},
 			},
 		},
@@ -231,7 +251,12 @@ func TestCgroupCPUWatcher_Poll(t *testing.T) {
 				{
 					WatcherName:   cgroupCPUWatcherName,
 					ShouldBackoff: true,
-					Reason:        "cgroup CPU throttled too much: 100.00/15.00 seconds",
+					Reason:        "cgroup CPU throttled too much",
+					Stats: map[string]any{
+						"time_diff":           15.0,
+						"throttled_duration":  100.0,
+						"throttled_threshold": 0.5,
+					},
 				},
 			},
 		},
@@ -264,7 +289,12 @@ func TestCgroupCPUWatcher_Poll(t *testing.T) {
 				{
 					WatcherName:   cgroupCPUWatcherName,
 					ShouldBackoff: true,
-					Reason:        "cgroup CPU throttled too much: 8.00/15.00 seconds",
+					Reason:        "cgroup CPU throttled too much",
+					Stats: map[string]any{
+						"time_diff":           15.0,
+						"throttled_duration":  8.0,
+						"throttled_threshold": 0.5,
+					},
 				},
 				{
 					WatcherName:   cgroupCPUWatcherName,
@@ -302,7 +332,12 @@ func TestCgroupCPUWatcher_Poll(t *testing.T) {
 				{
 					WatcherName:   cgroupCPUWatcherName,
 					ShouldBackoff: true,
-					Reason:        "cgroup CPU throttled too much: 9.00/15.00 seconds",
+					Reason:        "cgroup CPU throttled too much",
+					Stats: map[string]any{
+						"time_diff":           15.0,
+						"throttled_duration":  9.0,
+						"throttled_threshold": 0.5,
+					},
 				},
 			},
 		},
@@ -337,12 +372,22 @@ func TestCgroupCPUWatcher_Poll(t *testing.T) {
 				{
 					WatcherName:   cgroupCPUWatcherName,
 					ShouldBackoff: true,
-					Reason:        "cgroup CPU throttled too much: 16.00/30.00 seconds",
+					Reason:        "cgroup CPU throttled too much",
+					Stats: map[string]any{
+						"time_diff":           30.0,
+						"throttled_duration":  16.0,
+						"throttled_threshold": 0.5,
+					},
 				},
 				{
 					WatcherName:   cgroupCPUWatcherName,
 					ShouldBackoff: true,
-					Reason:        "cgroup CPU throttled too much: 31.00/60.00 seconds",
+					Reason:        "cgroup CPU throttled too much",
+					Stats: map[string]any{
+						"time_diff":           60.0,
+						"throttled_duration":  31.0,
+						"throttled_threshold": 0.5,
+					},
 				},
 				{
 					WatcherName:   cgroupCPUWatcherName,
