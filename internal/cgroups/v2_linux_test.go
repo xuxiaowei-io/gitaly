@@ -546,6 +546,12 @@ oom_kill 5`},
 				{"cpu.stat", `nr_periods 10
 nr_throttled 50
 throttled_usec 1000000`}, // 0.001 seconds
+				{"memory.stat", `anon 234000000
+file 235000000
+inactive_anon 200000000
+active_anon 34000000
+inactive_file 100000000
+active_file 135000000`},
 			},
 			expectedStats: Stats{
 				ParentStats: CgroupStats{
@@ -554,6 +560,12 @@ throttled_usec 1000000`}, // 0.001 seconds
 					MemoryUsage:          1234000000,
 					MemoryLimit:          2000000000,
 					OOMKills:             5,
+					Anon:                 234000000,
+					ActiveAnon:           34000000,
+					InactiveAnon:         200000000,
+					File:                 235000000,
+					ActiveFile:           135000000,
+					InactiveFile:         100000000,
 				},
 			},
 		},

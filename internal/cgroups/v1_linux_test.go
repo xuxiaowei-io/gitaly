@@ -574,6 +574,12 @@ oom_kill 3`},
 				{"cpu.stat", `nr_periods 10
 nr_throttled 50
 throttled_time 1000000`}, // 0.001 seconds
+				{"memory.stat", `cache 235000000
+rss 234000000
+inactive_anon 200000000
+active_anon 34000000
+inactive_file 100000000
+active_file 135000000`},
 			},
 			expectedStats: Stats{
 				ParentStats: CgroupStats{
@@ -583,6 +589,12 @@ throttled_time 1000000`}, // 0.001 seconds
 					MemoryLimit:          2000000000,
 					OOMKills:             3,
 					UnderOOM:             true,
+					Anon:                 234000000,
+					ActiveAnon:           34000000,
+					InactiveAnon:         200000000,
+					File:                 235000000,
+					ActiveFile:           135000000,
+					InactiveFile:         100000000,
 				},
 			},
 		},

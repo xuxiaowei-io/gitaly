@@ -205,6 +205,12 @@ func (cvh *cgroupV1Handler) stats() (Stats, error) {
 			MemoryLimit:          metrics.Memory.Usage.Limit,
 			OOMKills:             metrics.MemoryOomControl.OomKill,
 			UnderOOM:             metrics.MemoryOomControl.UnderOom != 0,
+			Anon:                 metrics.Memory.RSS,
+			ActiveAnon:           metrics.Memory.ActiveAnon,
+			InactiveAnon:         metrics.Memory.InactiveAnon,
+			File:                 metrics.Memory.Cache,
+			ActiveFile:           metrics.Memory.ActiveFile,
+			InactiveFile:         metrics.Memory.InactiveFile,
 		},
 	}, nil
 }
