@@ -48,7 +48,11 @@ func Color(language string) string {
 	return fmt.Sprintf("#%x", colorSha[0:3])
 }
 
-// IsGenerated returns true if the given file is considered to be generated
+// IsGenerated returns true if the given file is considered to have been
+// generated. It looks for linguist-generated attribute in .gitattributes
+// first then uses the huristics from go-enry if the override is not defined.
+// Generated files are usually generated based on a template or source file
+// by running a build tool.
 func (inst *Instance) IsGenerated(checkAttrCmd *gitattributes.CheckAttrCmd, filename string, oid git.ObjectID) (bool, error) {
 	fileInstance, err := newFileInstance(filename, checkAttrCmd)
 	if err != nil {
