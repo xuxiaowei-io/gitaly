@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 
+	"gitlab.com/gitlab-org/gitaly/v16/internal/bundleuri"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/stats"
@@ -104,6 +105,9 @@ func (s *server) runUploadPack(ctx context.Context, req *gitalypb.PostUploadPack
 			stats = collector.finish()
 		}
 	}()
+
+	gitConfig = append(gitConfig,
+		bundleuri.UploadPackGitConfig(ctx, s.backupLocator, s.backupSink, req.GetRepository())...)
 
 	commandOpts := []git.CmdOpt{
 		git.WithStdin(stdin),
