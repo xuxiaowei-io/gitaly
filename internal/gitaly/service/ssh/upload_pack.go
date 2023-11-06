@@ -7,6 +7,7 @@ import (
 	"io"
 	"sync"
 
+	"gitlab.com/gitlab-org/gitaly/v16/internal/bundleuri"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/pktline"
@@ -110,6 +111,9 @@ func (s *server) sshUploadPack(ctx context.Context, req sshUploadPackRequest, st
 		}
 		stats.UpdateMetrics(s.packfileNegotiationMetrics)
 	}()
+
+	config = append(config,
+		bundleuri.UploadPackGitConfig(ctx, s.backupLocator, s.backupSink, req.GetRepository())...)
 
 	commandOpts := []git.CmdOpt{
 		git.WithGitProtocol(s.logger, req),
