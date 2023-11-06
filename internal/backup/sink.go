@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/url"
 	"strings"
+	"time"
 
 	"gocloud.dev/blob"
 	"gocloud.dev/blob/azureblob"
@@ -97,4 +98,22 @@ func (s *StorageServiceSink) GetReader(ctx context.Context, relativePath string)
 		return nil, fmt.Errorf("storage service sink: new reader for %q: %w", relativePath, err)
 	}
 	return reader, nil
+}
+
+// SignedURL returns a URL that can be used to GET the blob for the duration
+// specified in expiry.
+func (s *StorageServiceSink) SignedURL(ctx context.Context, relativePath string, expiry time.Duration) (string, error) {
+	opt := &blob.SignedURLOptions{
+		Expiry: expiry,
+	}
+
+	signed, err := s.bucket.SignedURL(ctx, relativePath, opt)
+	if err != nil {
+		if gcerrors.Code(err) == gcerrors.NotFound {
+			err = ErrDoesntExist
+		}
+		return "", fmt.Errorf("storage service sink: signed URL for %q: %w", relativePath, err)
+	}
+
+	return signed, err
 }

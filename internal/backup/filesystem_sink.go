@@ -7,8 +7,10 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"time"
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 )
 
 // FilesystemSink is a sink for creating and restoring backups from the local filesystem.
@@ -58,4 +60,9 @@ func (fs *FilesystemSink) GetReader(ctx context.Context, relativePath string) (i
 // Close is a no-op to implement the Sink interface
 func (fs *FilesystemSink) Close() error {
 	return nil
+}
+
+// SignedURL is not supported by FilesystemSink.
+func (fs *FilesystemSink) SignedURL(ctx context.Context, relativePath string, expiry time.Duration) (string, error) {
+	return "", structerr.NewUnimplemented("SignedURL not implemented for FilesystemSink")
 }

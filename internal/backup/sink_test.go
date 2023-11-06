@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
@@ -146,4 +147,51 @@ func TestStorageServiceSink(t *testing.T) {
 		require.Equal(t, fmt.Errorf(`storage service sink: new reader for "not-existing": %w`, ErrDoesntExist), err)
 		require.Nil(t, reader)
 	})
+}
+
+func TestStorageServiceSink_SignedURL_notImplemented(t *testing.T) {
+	t.Parallel()
+
+	ctx := testhelper.Context(t)
+	tmpDir := testhelper.TempDir(t)
+
+	for _, tc := range []struct {
+		desc      string
+		bucketURL string
+	}{
+		{
+			desc:      "memory bucket",
+			bucketURL: "mem://test_bucket",
+		},
+		{
+			desc:      "fs bucket",
+			bucketURL: tmpDir,
+		},
+	} {
+		tc := tc
+
+		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
+
+			sss, err := ResolveSink(ctx, tc.bucketURL)
+			require.NoError(t, err)
+			t.Cleanup(func() { require.NoError(t, sss.Close()) })
+
+			const relativePath = "path/to/data"
+
+			data := []byte("test")
+
+			w, err := sss.GetWriter(ctx, relativePath)
+			require.NoError(t, err)
+
+			_, err = io.Copy(w, bytes.NewReader(data))
+			require.NoError(t, err)
+
+			require.NoError(t, w.Close())
+
+			_, err = sss.SignedURL(ctx, relativePath, 10*time.Minute)
+			require.Error(t, err)
+			require.Contains(t, err.Error(), "not implemented")
+		})
+	}
 }
