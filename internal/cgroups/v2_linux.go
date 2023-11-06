@@ -199,6 +199,12 @@ func (cvh *cgroupV2Handler) stats() (Stats, error) {
 			CPUThrottledDuration: float64(metrics.CPU.ThrottledUsec) / float64(time.Second),
 			MemoryUsage:          metrics.Memory.Usage,
 			MemoryLimit:          metrics.Memory.UsageLimit,
+			Anon:                 metrics.Memory.Anon,
+			ActiveAnon:           metrics.Memory.ActiveAnon,
+			InactiveAnon:         metrics.Memory.InactiveAnon,
+			File:                 metrics.Memory.File,
+			ActiveFile:           metrics.Memory.ActiveFile,
+			InactiveFile:         metrics.Memory.InactiveFile,
 		},
 	}
 	if metrics.MemoryEvents != nil {

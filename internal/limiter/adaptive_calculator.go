@@ -30,6 +30,7 @@ type BackoffEvent struct {
 	WatcherName   string
 	ShouldBackoff bool
 	Reason        string
+	Stats         map[string]any
 }
 
 // ResourceWatcher is an interface of the watchers that monitor the system resources.
@@ -271,12 +272,16 @@ func (c *AdaptiveCalculator) calibrateLimits(ctx context.Context) {
 			if newLimit < setting.Min {
 				newLimit = setting.Min
 			}
-			logger.WithFields(map[string]interface{}{
+			fields := map[string]interface{}{
 				"previous_limit": limit.Current(),
 				"new_limit":      newLimit,
 				"watcher":        c.lastBackoffEvent.WatcherName,
 				"reason":         c.lastBackoffEvent.Reason,
-			}).Info("Multiplicative decrease")
+			}
+			for key, value := range c.lastBackoffEvent.Stats {
+				fields[fmt.Sprintf("stats.%s", key)] = value
+			}
+			logger.WithFields(fields).Info("Multiplicative decrease")
 		}
 		c.updateLimit(limit, newLimit)
 	}

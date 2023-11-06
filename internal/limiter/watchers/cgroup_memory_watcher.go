@@ -57,12 +57,28 @@ func (c *CgroupMemoryWatcher) Poll(context.Context) (*limiter.BackoffEvent, erro
 		}, nil
 	}
 
+	// MemoryUsage reports the total memory usage of the parent cgroup and its descendants. However, it aggregates
+	// different types of memory. Each of them affect cgroup reclaim and eviction policy. The more accurate
+	// breakdown can be found in `memory.stat` file of the parent cgroup. The stat consists of:
+	// - Anonymous memory (`rss` in V1/`anon` in V2).
+	// - Page caches (cache in V1/File in V2)
+	// - Swap and some Kernel memory.
+	// When the cgroup faces a memory pressure, the cgroup attempts to evict a small amount of memory enough for new
+	// allocations. If it cannot make enough space, OOM-Killer kicks in. Anonymous memory cannot be evicted, except
+	// for some special insignificant cases (LazyFree for example). A portion of the Page Caches, noted by `inactive_file`,
+	// is the target for the eviction first. So, it makes sense to exclude the easy evictable memory from the threshold.
 	if parentStats.MemoryLimit > 0 && parentStats.MemoryUsage > 0 &&
-		float64(parentStats.MemoryUsage)/float64(parentStats.MemoryLimit) >= memoryThreshold {
+		float64(parentStats.MemoryUsage-parentStats.InactiveFile)/float64(parentStats.MemoryLimit) >= memoryThreshold {
 		return &limiter.BackoffEvent{
 			WatcherName:   c.Name(),
 			ShouldBackoff: true,
-			Reason:        fmt.Sprintf("cgroup memory exceeds limit: %d/%d", parentStats.MemoryUsage, parentStats.MemoryLimit),
+			Reason:        "cgroup memory exceeds threshold",
+			Stats: map[string]any{
+				"memory_usage":     parentStats.MemoryUsage,
+				"inactive_file":    parentStats.InactiveFile,
+				"memory_limit":     parentStats.MemoryLimit,
+				"memory_threshold": memoryThreshold,
+			},
 		}, nil
 	}
 
