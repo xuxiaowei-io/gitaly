@@ -314,6 +314,15 @@ func (m *mockUpgrader) HasParent() bool {
 	return m.hasParent
 }
 
+func (m *mockUpgrader) WaitForParent(ctx context.Context) error {
+	if !m.hasParent {
+		return nil
+	}
+
+	// TODO actual checks here
+	return nil
+}
+
 func (m *mockUpgrader) Ready() error {
 	return <-m.readyCh
 }

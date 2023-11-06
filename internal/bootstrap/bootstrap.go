@@ -1,6 +1,7 @@
 package bootstrap
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"os"
@@ -46,6 +47,7 @@ type Bootstrap struct {
 type upgrader interface {
 	Exit() <-chan struct{}
 	HasParent() bool
+	WaitForParent(context.Context) error
 	Ready() error
 	Upgrade() error
 	Stop()
@@ -161,6 +163,13 @@ func (b *Bootstrap) Start() error {
 	}
 
 	return nil
+}
+
+// WaitForParent blocks until the parent process has exited.
+// Returns an error if the parent misbehaved during shutdown or
+// if the context was canceled.
+func (b *Bootstrap) WaitForParent(ctx context.Context) error {
+	return b.upgrader.WaitForParent(ctx)
 }
 
 // Wait will signal process readiness to the parent and than wait for an exit condition
