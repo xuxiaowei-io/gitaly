@@ -12,6 +12,8 @@ import (
 )
 
 const (
+	// ProtocolV1 is the special value used by Git clients to request protocol v1
+	ProtocolV1 = "version=1"
 	// ProtocolV2 is the special value used by Git clients to request protocol v2
 	ProtocolV2 = "version=2"
 )
@@ -46,6 +48,9 @@ func gitProtocolEnv(ctx context.Context, logger log.Logger, req RequestWithGitPr
 	case ProtocolV2:
 		env = append(env, fmt.Sprintf("GIT_PROTOCOL=%s", ProtocolV2))
 		protocol = "v2"
+	case ProtocolV1:
+		env = append(env, fmt.Sprintf("GIT_PROTOCOL=%s", ProtocolV1))
+		protocol = "v1"
 	case "":
 		protocol = "v0"
 	default:
