@@ -499,6 +499,10 @@ func run(cfg config.Cfg, logger log.Logger) error {
 		}
 	}
 
+	if err := b.WaitForParent(ctx); err != nil {
+		return fmt.Errorf("failed to wait for parent Gitaly process to exit: %w", err)
+	}
+
 	if err := b.Start(); err != nil {
 		return fmt.Errorf("unable to start the bootstrap: %w", err)
 	}
