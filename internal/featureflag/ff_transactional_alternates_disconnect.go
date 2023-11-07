@@ -7,5 +7,5 @@ var TransactionalAlternatesDisconnect = NewFeatureFlag(
 	"transactional_alternates_disconnect",
 	"v16.4.0",
 	"https://gitlab.com/gitlab-org/gitaly/-/issues/5540",
-	false,
+	true,
 )
