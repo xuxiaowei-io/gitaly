@@ -21,7 +21,7 @@ import (
 
 func TestReplicateRepositoryHandler(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.InterceptReplicateRepository, featureflag.ReplicateRepositoryObjectPool).
+	testhelper.NewFeatureSets(featureflag.InterceptReplicateRepository).
 		Run(t, testReplicateRepositoryHandler)
 }
 
@@ -111,11 +111,8 @@ func testReplicateRepositoryHandler(t *testing.T, ctx context.Context) {
 					RelativePath: gittest.NewRepositoryName(t),
 				}
 
-				// If the RPC is not intercepted, the default behavior RPC handler is invoked. When
-				// object pool replication is also enabled this will lead to an object pool being
-				// created on the target storage. This is problematic because Praefect is not aware
-				// of the object pool.
-				if featureflag.InterceptReplicateRepository.IsDisabled(ctx) && featureflag.ReplicateRepositoryObjectPool.IsEnabled(ctx) {
+				// If the RPC is not intercepted, the default behavior RPC handler is invoked.
+				if featureflag.InterceptReplicateRepository.IsDisabled(ctx) {
 					return setupData{
 						source: sourceProto,
 						target: target,

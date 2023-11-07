@@ -11,7 +11,6 @@ import (
 	"strings"
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/command"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/objectpool"
@@ -102,7 +101,7 @@ func (s *server) replicateRepository(ctx context.Context, source, target *gitaly
 		return fmt.Errorf("synchronizing gitattributes: %w", err)
 	}
 
-	if featureflag.ReplicateRepositoryObjectPool.IsEnabled(ctx) && replicateObjectDeduplicationNetworkMembership {
+	if replicateObjectDeduplicationNetworkMembership {
 		// Sync the repository object pool before fetching the repository to avoid additional
 		// duplication. If the object pool already exists on the target node, this will potentially
 		// reduce the amount of time it takes to fetch the repository.
