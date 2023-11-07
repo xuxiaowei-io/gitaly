@@ -313,6 +313,32 @@ func testDefaultReplicatorReplicate(t *testing.T, ctx context.Context) {
 				}
 			},
 		},
+		{
+			desc: "target disconnected from alternate to match source",
+			setup: func(t *testing.T) setupData {
+				// Create repository on source Gitaly that does not have a link to
+				// an object pool.
+				sourceRepo, _ := gittest.CreateRepository(t, ctx, sourceCfg)
+
+				// Create repository on target Gitaly with the same relative path as
+				// the source repository and link it to an object pool.
+				targetRepo, _ := gittest.CreateRepository(t, ctx, targetCfg, gittest.CreateRepositoryConfig{
+					RelativePath: sourceRepo.RelativePath,
+				})
+				gittest.CreateObjectPool(t, ctx, targetCfg, targetRepo, gittest.CreateObjectPoolConfig{
+					LinkRepositoryToObjectPool: true,
+				})
+
+				return setupData{
+					job: datastore.ReplicationJob{
+						ReplicaPath:       sourceRepo.RelativePath,
+						TargetNodeStorage: targetStorage,
+						SourceNodeStorage: sourceStorage,
+					},
+					expectedPool: nil,
+				}
+			},
+		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			testSetup := tc.setup(t)
