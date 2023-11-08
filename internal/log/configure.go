@@ -127,7 +127,7 @@ func mapGRPCLogLevel(level string) string {
 
 	// grpc-go is too verbose at level 'info'. So when config.toml requests
 	// level info, we tell grpc-go to log at 'warn' instead.
-	if level == "info" {
+	if level == "info" || level == "" {
 		return "warning"
 	}
 
