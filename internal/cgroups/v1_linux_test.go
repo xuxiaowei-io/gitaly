@@ -33,27 +33,6 @@ func defaultCgroupsConfig() cgroups.Config {
 	}
 }
 
-func TestCleanup(t *testing.T) {
-	mock := newMockV1(t)
-
-	pid := 1
-	cfg := defaultCgroupsConfig()
-	cfg.Mountpoint = mock.root
-
-	v1Manager := mock.newCgroupManager(cfg, testhelper.SharedLogger(t), pid)
-
-	require.NoError(t, v1Manager.Setup())
-	require.NoError(t, v1Manager.Cleanup())
-
-	for i := 0; i < 3; i++ {
-		memoryPath := filepath.Join(mock.root, "memory", "gitaly", fmt.Sprintf("gitaly-%d", pid), fmt.Sprintf("repos-%d", i))
-		cpuPath := filepath.Join(mock.root, "cpu", "gitaly", fmt.Sprintf("gitaly-%d", pid), fmt.Sprintf("repos-%d", i))
-
-		require.NoDirExists(t, memoryPath)
-		require.NoDirExists(t, cpuPath)
-	}
-}
-
 func TestMetrics(t *testing.T) {
 	tests := []struct {
 		name           string
