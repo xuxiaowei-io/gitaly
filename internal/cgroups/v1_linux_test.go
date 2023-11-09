@@ -33,64 +33,6 @@ func defaultCgroupsConfig() cgroups.Config {
 	}
 }
 
-func TestAddCommand(t *testing.T) {
-	mock := newMockV1(t)
-
-	config := defaultCgroupsConfig()
-	config.Repositories.Count = 10
-	config.Repositories.MemoryBytes = 1024
-	config.Repositories.CPUShares = 16
-	config.HierarchyRoot = "gitaly"
-	config.Mountpoint = mock.root
-
-	pid := 1
-	groupID := calcGroupID(cmdArgs, config.Repositories.Count)
-
-	v1Manager1 := mock.newCgroupManager(config, testhelper.SharedLogger(t), pid)
-	require.NoError(t, v1Manager1.Setup())
-	ctx := testhelper.Context(t)
-
-	cmd2 := exec.CommandContext(ctx, cmdArgs[0], cmdArgs[1:]...)
-	require.NoError(t, cmd2.Run())
-
-	v1Manager2 := mock.newCgroupManager(config, testhelper.SharedLogger(t), pid)
-
-	t.Run("without overridden key", func(t *testing.T) {
-		_, err := v1Manager2.AddCommand(cmd2)
-		require.NoError(t, err)
-		requireShardsV1(t, mock, v1Manager2, pid, groupID)
-
-		for _, s := range mock.subsystems {
-			path := filepath.Join(mock.root, string(s.Name()), "gitaly",
-				fmt.Sprintf("gitaly-%d", pid), fmt.Sprintf("repos-%d", groupID), "cgroup.procs")
-			content := readCgroupFile(t, path)
-
-			cmdPid, err := strconv.Atoi(string(content))
-			require.NoError(t, err)
-
-			require.Equal(t, cmd2.Process.Pid, cmdPid)
-		}
-	})
-
-	t.Run("with overridden key", func(t *testing.T) {
-		overridenGroupID := calcGroupID([]string{"foobar"}, config.Repositories.Count)
-
-		_, err := v1Manager2.AddCommand(cmd2, WithCgroupKey("foobar"))
-		require.NoError(t, err)
-
-		for _, s := range mock.subsystems {
-			path := filepath.Join(mock.root, string(s.Name()), "gitaly",
-				fmt.Sprintf("gitaly-%d", pid), fmt.Sprintf("repos-%d", overridenGroupID), "cgroup.procs")
-			content := readCgroupFile(t, path)
-
-			cmdPid, err := strconv.Atoi(string(content))
-			require.NoError(t, err)
-
-			require.Equal(t, cmd2.Process.Pid, cmdPid)
-		}
-	})
-}
-
 func TestCleanup(t *testing.T) {
 	mock := newMockV1(t)
 

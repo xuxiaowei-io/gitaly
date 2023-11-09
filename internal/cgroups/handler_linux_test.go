@@ -265,6 +265,69 @@ func TestRepoCgroups(t *testing.T) {
 	}
 }
 
+func TestAddCommand(t *testing.T) {
+	for _, version := range []int{1, 2} {
+		t.Run("cgroups-v"+strconv.Itoa(version), func(t *testing.T) {
+			mock := newMock(t, version)
+
+			config := defaultCgroupsConfig()
+			config.Repositories.Count = 10
+			config.Repositories.MemoryBytes = 1024
+			config.Repositories.CPUShares = 16
+			config.HierarchyRoot = "gitaly"
+			config.Mountpoint = mock.rootPath()
+
+			pid := 1
+			manager1 := mock.newCgroupManager(config, testhelper.SharedLogger(t), pid)
+			mock.setupMockCgroupFiles(t, manager1, []uint{})
+			require.NoError(t, manager1.Setup())
+
+			ctx := testhelper.Context(t)
+
+			cmd2 := exec.CommandContext(ctx, cmdArgs[0], cmdArgs[1:]...)
+			require.NoError(t, cmd2.Run())
+
+			groupID := calcGroupID(cmd2.Args, config.Repositories.Count)
+
+			manager2 := mock.newCgroupManager(config, testhelper.SharedLogger(t), pid)
+
+			t.Run("without overridden key", func(t *testing.T) {
+				_, err := manager2.AddCommand(cmd2)
+				require.NoError(t, err)
+				requireShards(t, version, mock, manager2, pid, groupID)
+
+				for _, path := range mock.repoPaths(pid, groupID) {
+					procsPath := filepath.Join(path, "cgroup.procs")
+					content := readCgroupFile(t, procsPath)
+
+					cmdPid, err := strconv.Atoi(string(content))
+					require.NoError(t, err)
+
+					require.Equal(t, cmd2.Process.Pid, cmdPid)
+				}
+			})
+
+			t.Run("with overridden key", func(t *testing.T) {
+				overriddenGroupID := calcGroupID([]string{"foobar"}, config.Repositories.Count)
+
+				_, err := manager2.AddCommand(cmd2, WithCgroupKey("foobar"))
+				require.NoError(t, err)
+				requireShards(t, version, mock, manager2, pid, groupID, overriddenGroupID)
+
+				for _, path := range mock.repoPaths(pid, overriddenGroupID) {
+					procsPath := filepath.Join(path, "cgroup.procs")
+					content := readCgroupFile(t, procsPath)
+
+					cmdPid, err := strconv.Atoi(string(content))
+					require.NoError(t, err)
+
+					require.Equal(t, cmd2.Process.Pid, cmdPid)
+				}
+			})
+		})
+	}
+}
+
 func requireCgroupComponents(t *testing.T, version int, root string, cgroupPath string, expected expectedCgroup) {
 	t.Helper()
 

@@ -33,64 +33,6 @@ func defaultCgroupsV2Config() cgroups.Config {
 	}
 }
 
-func TestAddCommandV2(t *testing.T) {
-	mock := newMockV2(t)
-
-	config := defaultCgroupsV2Config()
-	config.Repositories.Count = 10
-	config.Repositories.MemoryBytes = 1024
-	config.Repositories.CPUShares = 16
-	config.Mountpoint = mock.root
-
-	pid := 1
-	groupID := calcGroupID(cmdArgs, config.Repositories.Count)
-
-	v2Manager1 := mock.newCgroupManager(config, testhelper.SharedLogger(t), pid)
-	mock.setupMockCgroupFiles(t, v2Manager1, []uint{})
-
-	require.NoError(t, v2Manager1.Setup())
-	ctx := testhelper.Context(t)
-
-	cmd2 := exec.CommandContext(ctx, cmdArgs[0], cmdArgs[1:]...)
-	require.NoError(t, cmd2.Run())
-
-	v2Manager2 := mock.newCgroupManager(config, testhelper.SharedLogger(t), pid)
-
-	t.Run("without overridden key", func(t *testing.T) {
-		groupID := calcGroupID(cmd2.Args, config.Repositories.Count)
-
-		_, err := v2Manager2.AddCommand(cmd2)
-		require.NoError(t, err)
-		requireShardsV2(t, mock, v2Manager2, pid, groupID)
-
-		path := filepath.Join(mock.root, "gitaly",
-			fmt.Sprintf("gitaly-%d", pid), fmt.Sprintf("repos-%d", groupID), "cgroup.procs")
-		content := readCgroupFile(t, path)
-
-		cmdPid, err := strconv.Atoi(string(content))
-		require.NoError(t, err)
-
-		require.Equal(t, cmd2.Process.Pid, cmdPid)
-	})
-
-	t.Run("with overridden key", func(t *testing.T) {
-		overriddenGroupID := calcGroupID([]string{"foobar"}, config.Repositories.Count)
-
-		_, err := v2Manager2.AddCommand(cmd2, WithCgroupKey("foobar"))
-		require.NoError(t, err)
-		requireShardsV2(t, mock, v2Manager2, pid, groupID, overriddenGroupID)
-
-		path := filepath.Join(mock.root, "gitaly",
-			fmt.Sprintf("gitaly-%d", pid), fmt.Sprintf("repos-%d", overriddenGroupID), "cgroup.procs")
-		content := readCgroupFile(t, path)
-
-		cmdPid, err := strconv.Atoi(string(content))
-		require.NoError(t, err)
-
-		require.Equal(t, cmd2.Process.Pid, cmdPid)
-	})
-}
-
 func TestCleanupV2(t *testing.T) {
 	mock := newMockV2(t)
 
