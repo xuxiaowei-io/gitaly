@@ -35,6 +35,35 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 )
 
+type mockCgroup interface {
+	setupMockCgroupFiles(
+		t *testing.T,
+		manager *CGroupManager,
+		shards []uint,
+		inputContent ...mockCgroupFile,
+	)
+	newCgroupManager(cfg cgroupscfg.Config, logger log.Logger, pid int) *CGroupManager
+	pruneOldCgroups(cfg cgroupscfg.Config, logger log.Logger)
+	// rootPath returns the mock's root directory.
+	rootPath() string
+	// repoPaths returns the full disk path for each subcomponent, e.g. memory, cpu, of
+	// a repository cgroup. On v2 this is a single path.
+	repoPaths(pid int, repoID uint) []string
+	// version returns the cgroup version number, 1 or 2.
+	version() int
+}
+
+func newMock(t *testing.T, version int) mockCgroup {
+	var mock mockCgroup
+	if version == 1 {
+		mock = newMockV1(t)
+	} else {
+		mock = newMockV2(t)
+	}
+
+	return mock
+}
+
 type mockCgroupV1 struct {
 	root       string
 	subsystems []cgroup1.Subsystem
@@ -150,6 +179,26 @@ func (m *mockCgroupV1) pruneOldCgroups(cfg cgroupscfg.Config, logger log.Logger)
 	pruneOldCgroupsWithMode(cfg, logger, cgrps.Legacy)
 }
 
+func (m *mockCgroupV1) rootPath() string {
+	return m.root
+}
+
+func (m *mockCgroupV1) repoPaths(pid int, repoID uint) []string {
+	paths := make([]string, 0, len(m.subsystems))
+
+	for _, s := range m.subsystems {
+		path := filepath.Join(m.root, string(s.Name()), "gitaly",
+			fmt.Sprintf("gitaly-%d", pid), fmt.Sprintf("repos-%d", repoID))
+		paths = append(paths, path)
+	}
+
+	return paths
+}
+
+func (m *mockCgroupV1) version() int {
+	return 1
+}
+
 type mockCgroupV2 struct {
 	root string
 }
@@ -220,4 +269,19 @@ func (m *mockCgroupV2) newCgroupManager(cfg cgroupscfg.Config, logger log.Logger
 
 func (m *mockCgroupV2) pruneOldCgroups(cfg cgroupscfg.Config, logger log.Logger) {
 	pruneOldCgroupsWithMode(cfg, logger, cgrps.Unified)
+}
+
+func (m *mockCgroupV2) rootPath() string {
+	return m.root
+}
+
+func (m *mockCgroupV2) repoPaths(pid int, repoID uint) []string {
+	path := filepath.Join(m.root, "gitaly",
+		fmt.Sprintf("gitaly-%d", pid), fmt.Sprintf("repos-%d", repoID))
+
+	return []string{path}
+}
+
+func (m *mockCgroupV2) version() int {
+	return 2
 }
