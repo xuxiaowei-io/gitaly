@@ -5,6 +5,7 @@ package cgroups
 import (
 	"errors"
 	"fmt"
+	"io/fs"
 	"path/filepath"
 	"strings"
 	"time"
@@ -347,6 +348,45 @@ func v2Collect(control *cgroup2.Manager, m *cgroupsMetrics, repoPath string, log
 			procsMetric := m.procs.WithLabelValues(repoPath, subsystem)
 			procsMetric.Set(float64(len(processes)))
 			ch <- procsMetric
+		}
+	}
+}
+
+func defaultSubsystems(root string) ([]cgroup1.Subsystem, error) {
+	subsystems := []cgroup1.Subsystem{
+		cgroup1.NewMemory(root, cgroup1.OptionalSwap()),
+		cgroup1.NewCpu(root),
+	}
+
+	return subsystems, nil
+}
+
+func pruneOldCgroupsV1(cfg cgroupscfg.Config, logger log.Logger) {
+	if err := config.PruneOldGitalyProcessDirectories(
+		logger,
+		filepath.Join(cfg.Mountpoint, "memory",
+			cfg.HierarchyRoot),
+	); err != nil {
+		logger.WithError(err).Error("failed to clean up memory cgroups")
+	}
+
+	if err := config.PruneOldGitalyProcessDirectories(
+		logger,
+		filepath.Join(cfg.Mountpoint, "cpu",
+			cfg.HierarchyRoot),
+	); err != nil {
+		logger.WithError(err).Error("failed to clean up cpu cgroups")
+	}
+}
+
+func pruneOldCgroupsV2(cfg cgroupscfg.Config, logger log.Logger) {
+	if err := config.PruneOldGitalyProcessDirectories(
+		logger,
+		filepath.Join(cfg.Mountpoint, cfg.HierarchyRoot),
+	); err != nil {
+		var pathError *fs.PathError
+		if !errors.As(err, &pathError) {
+			logger.WithError(err).Error("failed to clean up cpu cgroups")
 		}
 	}
 }
