@@ -12,6 +12,7 @@ import (
 	"github.com/containerd/cgroups/v3/cgroup1"
 	"github.com/containerd/cgroups/v3/cgroup2"
 	"github.com/opencontainers/runtime-spec/specs-go"
+	"github.com/prometheus/client_golang/prometheus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	cgroupscfg "gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config/cgroups"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
@@ -187,6 +188,22 @@ func (cvh *genericHandler[T, H]) stats() (Stats, error) {
 	}
 }
 
+func (cvh *genericHandler[T, H]) collect(repoPath string, ch chan<- prometheus.Metric) {
+	logger := cvh.logger.WithField("cgroup_path", repoPath)
+	control, err := cvh.loadFunc(cvh.hierarchy, repoPath)
+	if err != nil {
+		logger.WithError(err).Warn("unable to load cgroup controller")
+		return
+	}
+
+	switch c := any(control).(type) {
+	case cgroup1.Cgroup:
+		v1Collect(c, any(cvh.hierarchy).(cgroup1.Hierarchy), cvh.metrics, repoPath, cvh.logger, ch)
+	case *cgroup2.Manager:
+		v2Collect(c, cvh.metrics, repoPath, cvh.logger, ch)
+	}
+}
+
 func v1Stats(control cgroup1.Cgroup, processCgroupPath string) (Stats, error) {
 	metrics, err := control.Stat()
 	if err != nil {
@@ -223,4 +240,113 @@ func v2stats(control *cgroup2.Manager, processCgroupPath string) (Stats, error) 
 		stats.ParentStats.OOMKills = metrics.MemoryEvents.OomKill
 	}
 	return stats, nil
+}
+
+func v1Collect(control cgroup1.Cgroup, hierarchy cgroup1.Hierarchy, m *cgroupsMetrics, repoPath string, logger log.Logger, ch chan<- prometheus.Metric) {
+	if metrics, err := control.Stat(); err != nil {
+		logger.WithError(err).Warn("unable to get cgroup stats")
+	} else {
+		memoryMetric := m.memoryReclaimAttemptsTotal.WithLabelValues(repoPath)
+		memoryMetric.Set(float64(metrics.Memory.Usage.Failcnt))
+		ch <- memoryMetric
+
+		cpuUserMetric := m.cpuUsage.WithLabelValues(repoPath, "user")
+		cpuUserMetric.Set(float64(metrics.CPU.Usage.User))
+		ch <- cpuUserMetric
+
+		ch <- prometheus.MustNewConstMetric(
+			m.cpuCFSPeriods,
+			prometheus.CounterValue,
+			float64(metrics.CPU.Throttling.Periods),
+			repoPath,
+		)
+
+		ch <- prometheus.MustNewConstMetric(
+			m.cpuCFSThrottledPeriods,
+			prometheus.CounterValue,
+			float64(metrics.CPU.Throttling.ThrottledPeriods),
+			repoPath,
+		)
+
+		ch <- prometheus.MustNewConstMetric(
+			m.cpuCFSThrottledTime,
+			prometheus.CounterValue,
+			float64(metrics.CPU.Throttling.ThrottledTime)/float64(time.Second),
+			repoPath,
+		)
+
+		cpuKernelMetric := m.cpuUsage.WithLabelValues(repoPath, "kernel")
+		cpuKernelMetric.Set(float64(metrics.CPU.Usage.Kernel))
+		ch <- cpuKernelMetric
+	}
+
+	if subsystems, err := hierarchy(); err != nil {
+		logger.WithError(err).Warn("unable to get cgroup hierarchy")
+	} else {
+		for _, subsystem := range subsystems {
+			processes, err := control.Processes(subsystem.Name(), true)
+			if err != nil {
+				logger.WithField("subsystem", subsystem.Name()).
+					WithError(err).
+					Warn("unable to get process list")
+				continue
+			}
+
+			procsMetric := m.procs.WithLabelValues(repoPath, string(subsystem.Name()))
+			procsMetric.Set(float64(len(processes)))
+			ch <- procsMetric
+		}
+	}
+}
+
+func v2Collect(control *cgroup2.Manager, m *cgroupsMetrics, repoPath string, logger log.Logger, ch chan<- prometheus.Metric) {
+	if metrics, err := control.Stat(); err != nil {
+		logger.WithError(err).Warn("unable to get cgroup stats")
+	} else {
+		cpuUserMetric := m.cpuUsage.WithLabelValues(repoPath, "user")
+		cpuUserMetric.Set(float64(metrics.CPU.UserUsec))
+		ch <- cpuUserMetric
+
+		ch <- prometheus.MustNewConstMetric(
+			m.cpuCFSPeriods,
+			prometheus.CounterValue,
+			float64(metrics.CPU.NrPeriods),
+			repoPath,
+		)
+
+		ch <- prometheus.MustNewConstMetric(
+			m.cpuCFSThrottledPeriods,
+			prometheus.CounterValue,
+			float64(metrics.CPU.NrThrottled),
+			repoPath,
+		)
+
+		ch <- prometheus.MustNewConstMetric(
+			m.cpuCFSThrottledTime,
+			prometheus.CounterValue,
+			float64(metrics.CPU.ThrottledUsec)/float64(time.Second),
+			repoPath,
+		)
+
+		cpuKernelMetric := m.cpuUsage.WithLabelValues(repoPath, "kernel")
+		cpuKernelMetric.Set(float64(metrics.CPU.SystemUsec))
+		ch <- cpuKernelMetric
+	}
+
+	if subsystems, err := control.Controllers(); err != nil {
+		logger.WithError(err).Warn("unable to get cgroup hierarchy")
+	} else {
+		processes, err := control.Procs(true)
+		if err != nil {
+			logger.WithError(err).
+				Warn("unable to get process list")
+			return
+		}
+
+		for _, subsystem := range subsystems {
+			procsMetric := m.procs.WithLabelValues(repoPath, subsystem)
+			procsMetric.Set(float64(len(processes)))
+			ch <- procsMetric
+		}
+	}
 }
