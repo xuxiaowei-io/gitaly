@@ -4,6 +4,7 @@ package cgroups
 
 import (
 	"fmt"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"testing"
@@ -12,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config/cgroups"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
+	"golang.org/x/exp/slices"
 )
 
 func TestNewManager(t *testing.T) {
@@ -136,6 +138,133 @@ func TestSetup_ParentCgroups(t *testing.T) {
 	}
 }
 
+func TestRepoCgroups(t *testing.T) {
+	tests := []struct {
+		name       string
+		cfg        cgroups.Repositories
+		expectedV1 expectedCgroup
+		expectedV2 expectedCgroup
+	}{
+		{
+			name: "all config specified",
+			cfg:  defaultCgroupsConfig().Repositories,
+			expectedV1: expectedCgroup{
+				wantMemoryBytes: 1024000,
+				wantCPUShares:   256,
+				wantCPUQuotaUs:  200,
+				wantCFSPeriod:   int(cfsPeriodUs),
+			},
+			expectedV2: expectedCgroup{
+				wantMemoryBytes: 1024000,
+				wantCPUWeight:   256,
+				wantCPUMax:      "200 100000",
+			},
+		},
+		{
+			name: "only memory limit set",
+			cfg: cgroups.Repositories{
+				MemoryBytes: 1024000,
+			},
+			expectedV1: expectedCgroup{
+				wantMemoryBytes: 1024000,
+			},
+			expectedV2: expectedCgroup{
+				wantMemoryBytes: 1024000,
+			},
+		},
+		{
+			name: "only cpu shares set",
+			cfg: cgroups.Repositories{
+				CPUShares: 512,
+			},
+			expectedV1: expectedCgroup{
+				wantCPUShares: 512,
+			},
+			expectedV2: expectedCgroup{
+				wantCPUWeight: 512,
+			},
+		},
+		{
+			name: "only cpu quota set",
+			cfg: cgroups.Repositories{
+				CPUQuotaUs: 100,
+			},
+			expectedV1: expectedCgroup{
+				wantCPUQuotaUs: 100,
+				wantCFSPeriod:  int(cfsPeriodUs),
+			},
+			expectedV2: expectedCgroup{
+				wantCPUMax: "100 100000",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			for _, version := range []int{1, 2} {
+				version := version
+				t.Run("cgroups-v"+strconv.Itoa(version), func(t *testing.T) {
+					t.Parallel()
+
+					mock := newMock(t, version)
+
+					pid := 1
+					cfg := defaultCgroupsConfig()
+					cfg.Repositories = tt.cfg
+					cfg.Repositories.Count = 3
+					cfg.HierarchyRoot = "gitaly"
+					cfg.Mountpoint = mock.rootPath()
+
+					manager := mock.newCgroupManager(cfg, testhelper.SharedLogger(t), pid)
+
+					// Validate no shards have been created. We deliberately do not call
+					// `setupMockCgroupFiles()` here to confirm that the cgroup controller
+					// is creating repository directories in the correct location.
+					requireShards(t, version, mock, manager, pid)
+
+					groupID := calcGroupID(cmdArgs, cfg.Repositories.Count)
+
+					mock.setupMockCgroupFiles(t, manager, []uint{groupID})
+
+					require.False(t, manager.Ready())
+					require.NoError(t, manager.Setup())
+					require.True(t, manager.Ready())
+
+					ctx := testhelper.Context(t)
+
+					// Create a command to force Gitaly to create the repo cgroup.
+					cmd := exec.CommandContext(ctx, cmdArgs[0], cmdArgs[1:]...)
+					require.NoError(t, cmd.Run())
+					_, err := manager.AddCommand(cmd)
+					require.NoError(t, err)
+
+					requireShards(t, version, mock, manager, pid, groupID)
+
+					var expected expectedCgroup
+					if version == 1 {
+						expected = tt.expectedV1
+					} else {
+						expected = tt.expectedV2
+					}
+
+					for shard := uint(0); shard < cfg.Repositories.Count; shard++ {
+						// The negative case where no directory should exist is asserted
+						// by `requireShards()`.
+						if shard == groupID {
+							cgRelPath := filepath.Join(
+								"gitaly", fmt.Sprintf("gitaly-%d", pid), fmt.Sprintf("repos-%d", shard),
+							)
+
+							requireCgroupComponents(t, version, mock.rootPath(), cgRelPath, expected)
+						}
+					}
+				})
+			}
+		})
+	}
+}
+
 func requireCgroupComponents(t *testing.T, version int, root string, cgroupPath string, expected expectedCgroup) {
 	t.Helper()
 
@@ -160,5 +289,24 @@ func requireCgroupComponents(t *testing.T, version int, root string, cgroupPath 
 
 		cpuMaxPath := filepath.Join(root, cgroupPath, "cpu.max")
 		requireCgroupWithString(t, cpuMaxPath, expected.wantCPUMax)
+	}
+}
+
+func requireShards(t *testing.T, version int, mock mockCgroup, mgr *CGroupManager, pid int, expectedShards ...uint) {
+	for shard := uint(0); shard < mgr.cfg.Repositories.Count; shard++ {
+		shouldExist := slices.Contains(expectedShards, shard)
+
+		cgroupPath := filepath.Join("gitaly",
+			fmt.Sprintf("gitaly-%d", pid), fmt.Sprintf("repos-%d", shard))
+		cgLock := mgr.status.getLock(cgroupPath)
+		require.Equal(t, shouldExist, cgLock.isCreated())
+
+		for _, diskPath := range mock.repoPaths(pid, shard) {
+			if shouldExist {
+				require.DirExists(t, diskPath)
+			} else {
+				require.NoDirExists(t, diskPath)
+			}
+		}
 	}
 }
