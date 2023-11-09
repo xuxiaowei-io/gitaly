@@ -10,7 +10,7 @@ import (
 
 const (
 	cgroupMemoryWatcherName = "CgroupMemory"
-	memoryThreshold         = 0.9
+	defaultMemoryThreshold  = 0.9
 )
 
 // CgroupMemoryWatcher implements ResourceWatcher interface. This watcher polls
@@ -19,13 +19,18 @@ const (
 // * The current memory usage exceeds a soft threshold (90%).
 // * The cgroup is under OOM.
 type CgroupMemoryWatcher struct {
-	manager cgroups.Manager
+	manager         cgroups.Manager
+	memoryThreshold float64
 }
 
 // NewCgroupMemoryWatcher is the initializer of CgroupMemoryWatcher
-func NewCgroupMemoryWatcher(manager cgroups.Manager) *CgroupMemoryWatcher {
+func NewCgroupMemoryWatcher(manager cgroups.Manager, memoryThreshold float64) *CgroupMemoryWatcher {
+	if memoryThreshold == 0 {
+		memoryThreshold = defaultMemoryThreshold
+	}
 	return &CgroupMemoryWatcher{
-		manager: manager,
+		manager:         manager,
+		memoryThreshold: memoryThreshold,
 	}
 }
 
@@ -68,7 +73,7 @@ func (c *CgroupMemoryWatcher) Poll(context.Context) (*limiter.BackoffEvent, erro
 	// for some special insignificant cases (LazyFree for example). A portion of the Page Caches, noted by `inactive_file`,
 	// is the target for the eviction first. So, it makes sense to exclude the easy evictable memory from the threshold.
 	if parentStats.MemoryLimit > 0 && parentStats.MemoryUsage > 0 &&
-		float64(parentStats.MemoryUsage-parentStats.InactiveFile)/float64(parentStats.MemoryLimit) >= memoryThreshold {
+		float64(parentStats.MemoryUsage-parentStats.InactiveFile)/float64(parentStats.MemoryLimit) >= c.memoryThreshold {
 		return &limiter.BackoffEvent{
 			WatcherName:   c.Name(),
 			ShouldBackoff: true,
@@ -77,7 +82,7 @@ func (c *CgroupMemoryWatcher) Poll(context.Context) (*limiter.BackoffEvent, erro
 				"memory_usage":     parentStats.MemoryUsage,
 				"inactive_file":    parentStats.InactiveFile,
 				"memory_limit":     parentStats.MemoryLimit,
-				"memory_threshold": memoryThreshold,
+				"memory_threshold": c.memoryThreshold,
 			},
 		}, nil
 	}

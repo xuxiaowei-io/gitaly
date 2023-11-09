@@ -496,12 +496,17 @@ type AdaptiveLimiting struct {
 	// compares the recorded total throttled time between two polls. If the throttled time exceeds this threshold of
 	// the observation window, it returns a backoff event. By default, the threshold is 0.5 (50%).
 	CPUThrottledThreshold float64 `toml:"cpu_throttled_threshold" json:"cpu_throttled_threshold"`
+	// MemoryThreshold defines the memory threshold for a backoff event. The memory watcher compares the recorded
+	// memory usage (excluding high evictable page caches) to the defined limit. If the ratio exceeds this
+	// threshold, a backoff event is fired. By default, the threshold is 0.9 (90%).
+	MemoryThreshold float64 `toml:"memory_threshold" json:"memory_threshold"`
 }
 
 // Validate runs validation on all fields and compose all found errors.
 func (c AdaptiveLimiting) Validate() error {
 	return cfgerror.New().
 		Append(cfgerror.Comparable(c.CPUThrottledThreshold).GreaterOrEqual(0), "cpu_throttled_threshold").
+		Append(cfgerror.Comparable(c.MemoryThreshold).GreaterOrEqual(0), "memory_threshold").
 		AsError()
 }
 

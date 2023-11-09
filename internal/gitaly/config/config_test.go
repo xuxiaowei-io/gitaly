@@ -1997,6 +1997,11 @@ func TestAdaptiveLimiting_Validate(t *testing.T) {
 	require.NoError(t, AdaptiveLimiting{CPUThrottledThreshold: 0.9}.Validate())
 	require.NoError(t, AdaptiveLimiting{CPUThrottledThreshold: 2.0}.Validate())
 
+	require.NoError(t, AdaptiveLimiting{MemoryThreshold: 0}.Validate())
+	require.NoError(t, AdaptiveLimiting{MemoryThreshold: 0.1}.Validate())
+	require.NoError(t, AdaptiveLimiting{MemoryThreshold: 0.9}.Validate())
+	require.NoError(t, AdaptiveLimiting{MemoryThreshold: 2.0}.Validate())
+
 	require.Equal(
 		t,
 		cfgerror.ValidationErrors{
@@ -2006,6 +2011,17 @@ func TestAdaptiveLimiting_Validate(t *testing.T) {
 			),
 		},
 		AdaptiveLimiting{CPUThrottledThreshold: -0.1}.Validate(),
+	)
+
+	require.Equal(
+		t,
+		cfgerror.ValidationErrors{
+			cfgerror.NewValidationError(
+				fmt.Errorf("%w: -0.1 is not greater than or equal to 0", cfgerror.ErrNotInRange),
+				"memory_threshold",
+			),
+		},
+		AdaptiveLimiting{MemoryThreshold: -0.1}.Validate(),
 	)
 }
 
