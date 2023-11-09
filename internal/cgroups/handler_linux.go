@@ -3,9 +3,11 @@
 package cgroups
 
 import (
+	"errors"
 	"fmt"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/containerd/cgroups/v3/cgroup1"
 	"github.com/containerd/cgroups/v3/cgroup2"
@@ -165,4 +167,60 @@ func (cvh *genericHandler[T, H]) repoPath(groupID int) string {
 
 func (cvh *genericHandler[T, H]) supportsCloneIntoCgroup() bool {
 	return cvh.supportsClone
+}
+
+func (cvh *genericHandler[T, H]) stats() (Stats, error) {
+	processCgroupPath := cvh.currentProcessCgroup()
+
+	control, err := cvh.loadFunc(cvh.hierarchy, processCgroupPath)
+	if err != nil {
+		return Stats{}, err
+	}
+
+	switch c := any(control).(type) {
+	case cgroup1.Cgroup:
+		return v1Stats(c, processCgroupPath)
+	case *cgroup2.Manager:
+		return v2stats(c, processCgroupPath)
+	default:
+		return Stats{}, errors.New("unknown cgroup type")
+	}
+}
+
+func v1Stats(control cgroup1.Cgroup, processCgroupPath string) (Stats, error) {
+	metrics, err := control.Stat()
+	if err != nil {
+		return Stats{}, fmt.Errorf("failed to fetch metrics %s: %w", processCgroupPath, err)
+	}
+
+	return Stats{
+		ParentStats: CgroupStats{
+			CPUThrottledCount:    metrics.CPU.Throttling.ThrottledPeriods,
+			CPUThrottledDuration: float64(metrics.CPU.Throttling.ThrottledTime) / float64(time.Second),
+			MemoryUsage:          metrics.Memory.Usage.Usage,
+			MemoryLimit:          metrics.Memory.Usage.Limit,
+			OOMKills:             metrics.MemoryOomControl.OomKill,
+			UnderOOM:             metrics.MemoryOomControl.UnderOom != 0,
+		},
+	}, nil
+}
+
+func v2stats(control *cgroup2.Manager, processCgroupPath string) (Stats, error) {
+	metrics, err := control.Stat()
+	if err != nil {
+		return Stats{}, fmt.Errorf("failed to fetch metrics %s: %w", processCgroupPath, err)
+	}
+
+	stats := Stats{
+		ParentStats: CgroupStats{
+			CPUThrottledCount:    metrics.CPU.NrThrottled,
+			CPUThrottledDuration: float64(metrics.CPU.ThrottledUsec) / float64(time.Second),
+			MemoryUsage:          metrics.Memory.Usage,
+			MemoryLimit:          metrics.Memory.UsageLimit,
+		},
+	}
+	if metrics.MemoryEvents != nil {
+		stats.ParentStats.OOMKills = metrics.MemoryEvents.OomKill
+	}
+	return stats, nil
 }
