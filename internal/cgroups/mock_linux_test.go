@@ -35,12 +35,12 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 )
 
-type mockCgroup struct {
+type mockCgroupV1 struct {
 	root       string
 	subsystems []cgroup1.Subsystem
 }
 
-func newMock(t *testing.T) *mockCgroup {
+func newMockV1(t *testing.T) *mockCgroupV1 {
 	t.Helper()
 
 	root := testhelper.TempDir(t)
@@ -52,7 +52,7 @@ func newMock(t *testing.T) *mockCgroup {
 		require.NoError(t, os.MkdirAll(filepath.Join(root, string(s.Name())), perm.SharedDir))
 	}
 
-	return &mockCgroup{
+	return &mockCgroupV1{
 		root:       root,
 		subsystems: subsystems,
 	}
@@ -93,7 +93,7 @@ nr_throttled 20
 throttled_time 1000000`,
 }
 
-func (m *mockCgroup) setupMockCgroupFiles(
+func (m *mockCgroupV1) setupMockCgroupFiles(
 	t *testing.T,
 	manager *CGroupManager,
 	shards []uint,
@@ -142,11 +142,11 @@ func (m *mockCgroup) setupMockCgroupFiles(
 	}
 }
 
-func (m *mockCgroup) newCgroupManager(cfg cgroupscfg.Config, logger log.Logger, pid int) *CGroupManager {
+func (m *mockCgroupV1) newCgroupManager(cfg cgroupscfg.Config, logger log.Logger, pid int) *CGroupManager {
 	return newCgroupManagerWithMode(cfg, logger, pid, cgrps.Legacy)
 }
 
-func (m *mockCgroup) pruneOldCgroups(cfg cgroupscfg.Config, logger log.Logger) {
+func (m *mockCgroupV1) pruneOldCgroups(cfg cgroupscfg.Config, logger log.Logger) {
 	pruneOldCgroupsWithMode(cfg, logger, cgrps.Legacy)
 }
 

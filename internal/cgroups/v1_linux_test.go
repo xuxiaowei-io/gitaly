@@ -95,7 +95,7 @@ func TestSetup_ParentCgroups(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			mock := newMock(t)
+			mock := newMockV1(t)
 			pid := 1
 			tt.cfg.HierarchyRoot = "gitaly"
 			tt.cfg.Mountpoint = mock.root
@@ -174,7 +174,7 @@ func TestSetup_RepoCgroups(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			mock := newMock(t)
+			mock := newMockV1(t)
 
 			pid := 1
 			cfg := defaultCgroupsConfig()
@@ -249,7 +249,7 @@ func TestSetup_RepoCgroups(t *testing.T) {
 }
 
 func TestAddCommand(t *testing.T) {
-	mock := newMock(t)
+	mock := newMockV1(t)
 
 	config := defaultCgroupsConfig()
 	config.Repositories.Count = 10
@@ -307,7 +307,7 @@ func TestAddCommand(t *testing.T) {
 }
 
 func TestCleanup(t *testing.T) {
-	mock := newMock(t)
+	mock := newMockV1(t)
 
 	pid := 1
 	cfg := defaultCgroupsConfig()
@@ -371,7 +371,7 @@ gitaly_cgroup_cpu_cfs_throttled_seconds_total{path="%s"} 0.001
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			mock := newMock(t)
+			mock := newMockV1(t)
 
 			config := defaultCgroupsConfig()
 			config.Repositories.Count = 1
@@ -429,7 +429,7 @@ func TestPruneOldCgroups(t *testing.T) {
 		cfg            cgroups.Config
 		expectedPruned bool
 		// setup returns a pid
-		setup func(t *testing.T, cfg cgroups.Config, mock *mockCgroup) int
+		setup func(t *testing.T, cfg cgroups.Config, mock *mockCgroupV1) int
 	}{
 		{
 			desc: "process belongs to another user",
@@ -441,7 +441,7 @@ func TestPruneOldCgroups(t *testing.T) {
 					CPUShares:   1024,
 				},
 			},
-			setup: func(t *testing.T, cfg cgroups.Config, mock *mockCgroup) int {
+			setup: func(t *testing.T, cfg cgroups.Config, mock *mockCgroupV1) int {
 				pid := 1
 				cgroupManager := mock.newCgroupManager(cfg, testhelper.SharedLogger(t), pid)
 				require.NoError(t, cgroupManager.Setup())
@@ -460,7 +460,7 @@ func TestPruneOldCgroups(t *testing.T) {
 					CPUShares:   1024,
 				},
 			},
-			setup: func(t *testing.T, cfg cgroups.Config, mock *mockCgroup) int {
+			setup: func(t *testing.T, cfg cgroups.Config, mock *mockCgroupV1) int {
 				pid := 1
 				cgroupManager := mock.newCgroupManager(cfg, testhelper.SharedLogger(t), pid)
 				require.NoError(t, cgroupManager.Setup())
@@ -478,7 +478,7 @@ func TestPruneOldCgroups(t *testing.T) {
 					CPUShares:   1024,
 				},
 			},
-			setup: func(t *testing.T, cfg cgroups.Config, mock *mockCgroup) int {
+			setup: func(t *testing.T, cfg cgroups.Config, mock *mockCgroupV1) int {
 				cmd := exec.Command("ls")
 				require.NoError(t, cmd.Run())
 				pid := cmd.Process.Pid
@@ -508,7 +508,7 @@ func TestPruneOldCgroups(t *testing.T) {
 					CPUShares:   1024,
 				},
 			},
-			setup: func(t *testing.T, cfg cgroups.Config, mock *mockCgroup) int {
+			setup: func(t *testing.T, cfg cgroups.Config, mock *mockCgroupV1) int {
 				pid := os.Getpid()
 
 				cgroupManager := mock.newCgroupManager(cfg, testhelper.SharedLogger(t), pid)
@@ -528,7 +528,7 @@ func TestPruneOldCgroups(t *testing.T) {
 					CPUShares:   1024,
 				},
 			},
-			setup: func(t *testing.T, cfg cgroups.Config, mock *mockCgroup) int {
+			setup: func(t *testing.T, cfg cgroups.Config, mock *mockCgroupV1) int {
 				cgroupManager := mock.newCgroupManager(cfg, testhelper.SharedLogger(t), 0)
 				require.NoError(t, cgroupManager.Setup())
 
@@ -540,7 +540,7 @@ func TestPruneOldCgroups(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			mock := newMock(t)
+			mock := newMockV1(t)
 			tc.cfg.Mountpoint = mock.root
 
 			memoryRoot := filepath.Join(
@@ -641,7 +641,7 @@ active_file 135000000`},
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			mock := newMock(t)
+			mock := newMockV1(t)
 
 			config := defaultCgroupsConfig()
 			config.Repositories.Count = 1
@@ -661,7 +661,7 @@ active_file 135000000`},
 	}
 }
 
-func requireShardsV1(t *testing.T, mock *mockCgroup, mgr *CGroupManager, pid int, expectedShards ...uint) {
+func requireShardsV1(t *testing.T, mock *mockCgroupV1, mgr *CGroupManager, pid int, expectedShards ...uint) {
 	t.Helper()
 
 	for shard := uint(0); shard < mgr.cfg.Repositories.Count; shard++ {
