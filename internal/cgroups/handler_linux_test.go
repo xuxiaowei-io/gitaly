@@ -7,9 +7,12 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"testing"
 
 	cgrps "github.com/containerd/cgroups/v3"
+	"github.com/prometheus/client_golang/prometheus/testutil"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config/cgroups"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
@@ -347,6 +350,129 @@ func TestCleanup(t *testing.T) {
 				for _, path := range mock.repoPaths(pid, i) {
 					require.NoDirExists(t, path)
 				}
+			}
+		})
+	}
+}
+
+func TestMetrics(t *testing.T) {
+	tests := []struct {
+		name           string
+		metricsEnabled bool
+		pid            int
+		expectV1       string
+		expectV2       string
+	}{
+		{
+			name:           "metrics enabled: true",
+			metricsEnabled: true,
+			pid:            1,
+			expectV1: `# HELP gitaly_cgroup_cpu_usage_total CPU Usage of Cgroup
+# TYPE gitaly_cgroup_cpu_usage_total gauge
+gitaly_cgroup_cpu_usage_total{path="%s",type="kernel"} 0
+gitaly_cgroup_cpu_usage_total{path="%s",type="user"} 0
+# HELP gitaly_cgroup_memory_reclaim_attempts_total Number of memory usage hits limits
+# TYPE gitaly_cgroup_memory_reclaim_attempts_total gauge
+gitaly_cgroup_memory_reclaim_attempts_total{path="%s"} 2
+# HELP gitaly_cgroup_procs_total Total number of procs
+# TYPE gitaly_cgroup_procs_total gauge
+gitaly_cgroup_procs_total{path="%s",subsystem="cpu"} 1
+gitaly_cgroup_procs_total{path="%s",subsystem="memory"} 1
+# HELP gitaly_cgroup_cpu_cfs_periods_total Number of elapsed enforcement period intervals
+# TYPE gitaly_cgroup_cpu_cfs_periods_total counter
+gitaly_cgroup_cpu_cfs_periods_total{path="%s"} 10
+# HELP gitaly_cgroup_cpu_cfs_throttled_periods_total Number of throttled period intervals
+# TYPE gitaly_cgroup_cpu_cfs_throttled_periods_total counter
+gitaly_cgroup_cpu_cfs_throttled_periods_total{path="%s"} 20
+# HELP gitaly_cgroup_cpu_cfs_throttled_seconds_total Total time duration the Cgroup has been throttled
+# TYPE gitaly_cgroup_cpu_cfs_throttled_seconds_total counter
+gitaly_cgroup_cpu_cfs_throttled_seconds_total{path="%s"} 0.001
+`,
+			expectV2: `# HELP gitaly_cgroup_cpu_cfs_periods_total Number of elapsed enforcement period intervals
+# TYPE gitaly_cgroup_cpu_cfs_periods_total counter
+gitaly_cgroup_cpu_cfs_periods_total{path="%s"} 10
+# HELP gitaly_cgroup_cpu_cfs_throttled_periods_total Number of throttled period intervals
+# TYPE gitaly_cgroup_cpu_cfs_throttled_periods_total counter
+gitaly_cgroup_cpu_cfs_throttled_periods_total{path="%s"} 20
+# HELP gitaly_cgroup_cpu_cfs_throttled_seconds_total Total time duration the Cgroup has been throttled
+# TYPE gitaly_cgroup_cpu_cfs_throttled_seconds_total counter
+gitaly_cgroup_cpu_cfs_throttled_seconds_total{path="%s"} 0.001
+# HELP gitaly_cgroup_cpu_usage_total CPU Usage of Cgroup
+# TYPE gitaly_cgroup_cpu_usage_total gauge
+gitaly_cgroup_cpu_usage_total{path="%s",type="kernel"} 0
+gitaly_cgroup_cpu_usage_total{path="%s",type="user"} 0
+# HELP gitaly_cgroup_procs_total Total number of procs
+# TYPE gitaly_cgroup_procs_total gauge
+gitaly_cgroup_procs_total{path="%s",subsystem="cpu"} 1
+gitaly_cgroup_procs_total{path="%s",subsystem="cpuset"} 1
+gitaly_cgroup_procs_total{path="%s",subsystem="memory"} 1
+`,
+		},
+		{
+			name:           "metrics enabled: false",
+			metricsEnabled: false,
+			pid:            2,
+		},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			for _, version := range []int{1, 2} {
+				version := version
+				t.Run("cgroups-v"+strconv.Itoa(version), func(t *testing.T) {
+					t.Parallel()
+					mock := newMock(t, version)
+
+					config := defaultCgroupsConfig()
+					config.Repositories.Count = 1
+					config.Repositories.MemoryBytes = 1048576
+					config.Repositories.CPUShares = 16
+					config.Mountpoint = mock.rootPath()
+					config.MetricsEnabled = tt.metricsEnabled
+
+					manager1 := mock.newCgroupManager(config, testhelper.SharedLogger(t), tt.pid)
+
+					var mockFiles []mockCgroupFile
+					if version == 1 {
+						mockFiles = append(mockFiles, mockCgroupFile{"memory.failcnt", "2"})
+					}
+					mock.setupMockCgroupFiles(t, manager1, []uint{0}, mockFiles...)
+					require.NoError(t, manager1.Setup())
+
+					ctx := testhelper.Context(t)
+
+					cmd := exec.CommandContext(ctx, cmdArgs[0], cmdArgs[1:]...)
+					require.NoError(t, cmd.Start())
+					_, err := manager1.AddCommand(cmd)
+					require.NoError(t, err)
+
+					gitCmd1 := exec.CommandContext(ctx, cmdArgs[0], cmdArgs[1:]...)
+					require.NoError(t, gitCmd1.Start())
+					_, err = manager1.AddCommand(gitCmd1)
+					require.NoError(t, err)
+
+					gitCmd2 := exec.CommandContext(ctx, cmdArgs[0], cmdArgs[1:]...)
+					require.NoError(t, gitCmd2.Start())
+					_, err = manager1.AddCommand(gitCmd2)
+					require.NoError(t, err)
+					defer func() {
+						require.NoError(t, gitCmd2.Wait())
+					}()
+
+					require.NoError(t, cmd.Wait())
+					require.NoError(t, gitCmd1.Wait())
+
+					repoCgroupPath := filepath.Join(manager1.currentProcessCgroup(), "repos-0")
+
+					var expected *strings.Reader
+					if version == 1 {
+						expected = strings.NewReader(strings.ReplaceAll(tt.expectV1, "%s", repoCgroupPath))
+					} else {
+						expected = strings.NewReader(strings.ReplaceAll(tt.expectV2, "%s", repoCgroupPath))
+					}
+					assert.NoError(t, testutil.CollectAndCompare(manager1, expected))
+				})
 			}
 		})
 	}
