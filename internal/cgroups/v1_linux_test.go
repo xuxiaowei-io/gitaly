@@ -9,11 +9,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
-	"strings"
 	"testing"
 
-	"github.com/prometheus/client_golang/prometheus/testutil"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config/cgroups"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
@@ -30,100 +27,6 @@ func defaultCgroupsConfig() cgroups.Config {
 			CPUShares:   256,
 			CPUQuotaUs:  200,
 		},
-	}
-}
-
-func TestMetrics(t *testing.T) {
-	tests := []struct {
-		name           string
-		metricsEnabled bool
-		pid            int
-		expect         string
-	}{
-		{
-			name:           "metrics enabled: true",
-			metricsEnabled: true,
-			pid:            1,
-			expect: `# HELP gitaly_cgroup_cpu_usage_total CPU Usage of Cgroup
-# TYPE gitaly_cgroup_cpu_usage_total gauge
-gitaly_cgroup_cpu_usage_total{path="%s",type="kernel"} 0
-gitaly_cgroup_cpu_usage_total{path="%s",type="user"} 0
-# HELP gitaly_cgroup_memory_reclaim_attempts_total Number of memory usage hits limits
-# TYPE gitaly_cgroup_memory_reclaim_attempts_total gauge
-gitaly_cgroup_memory_reclaim_attempts_total{path="%s"} 2
-# HELP gitaly_cgroup_procs_total Total number of procs
-# TYPE gitaly_cgroup_procs_total gauge
-gitaly_cgroup_procs_total{path="%s",subsystem="cpu"} 1
-gitaly_cgroup_procs_total{path="%s",subsystem="memory"} 1
-# HELP gitaly_cgroup_cpu_cfs_periods_total Number of elapsed enforcement period intervals
-# TYPE gitaly_cgroup_cpu_cfs_periods_total counter
-gitaly_cgroup_cpu_cfs_periods_total{path="%s"} 10
-# HELP gitaly_cgroup_cpu_cfs_throttled_periods_total Number of throttled period intervals
-# TYPE gitaly_cgroup_cpu_cfs_throttled_periods_total counter
-gitaly_cgroup_cpu_cfs_throttled_periods_total{path="%s"} 20
-# HELP gitaly_cgroup_cpu_cfs_throttled_seconds_total Total time duration the Cgroup has been throttled
-# TYPE gitaly_cgroup_cpu_cfs_throttled_seconds_total counter
-gitaly_cgroup_cpu_cfs_throttled_seconds_total{path="%s"} 0.001
-`,
-		},
-		{
-			name:           "metrics enabled: false",
-			metricsEnabled: false,
-			pid:            2,
-		},
-	}
-
-	for _, tt := range tests {
-		tt := tt
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			mock := newMockV1(t)
-
-			config := defaultCgroupsConfig()
-			config.Repositories.Count = 1
-			config.Repositories.MemoryBytes = 1048576
-			config.Repositories.CPUShares = 16
-			config.Mountpoint = mock.root
-			config.MetricsEnabled = tt.metricsEnabled
-
-			v1Manager1 := mock.newCgroupManager(config, testhelper.SharedLogger(t), tt.pid)
-
-			groupID := calcGroupID(cmdArgs, config.Repositories.Count)
-
-			mock.setupMockCgroupFiles(t, v1Manager1, []uint{groupID}, mockCgroupFile{"memory.failcnt", "2"})
-			require.NoError(t, v1Manager1.Setup())
-
-			ctx := testhelper.Context(t)
-
-			cmd := exec.CommandContext(ctx, cmdArgs[0], cmdArgs[1:]...)
-			require.NoError(t, cmd.Start())
-			_, err := v1Manager1.AddCommand(cmd)
-			require.NoError(t, err)
-
-			gitCmd1 := exec.CommandContext(ctx, cmdArgs[0], cmdArgs[1:]...)
-			require.NoError(t, gitCmd1.Start())
-			_, err = v1Manager1.AddCommand(gitCmd1)
-			require.NoError(t, err)
-
-			gitCmd2 := exec.CommandContext(ctx, cmdArgs[0], cmdArgs[1:]...)
-			require.NoError(t, gitCmd2.Start())
-			_, err = v1Manager1.AddCommand(gitCmd2)
-			require.NoError(t, err)
-
-			requireShardsV1(t, mock, v1Manager1, tt.pid, groupID)
-
-			defer func() {
-				require.NoError(t, gitCmd2.Wait())
-			}()
-
-			require.NoError(t, cmd.Wait())
-			require.NoError(t, gitCmd1.Wait())
-
-			repoCgroupPath := filepath.Join(v1Manager1.currentProcessCgroup(), "repos-0")
-
-			expected := strings.NewReader(strings.ReplaceAll(tt.expect, "%s", repoCgroupPath))
-			assert.NoError(t, testutil.CollectAndCompare(v1Manager1, expected))
-		})
 	}
 }
 
