@@ -10,6 +10,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 )
 
-func TestNewManager(t *testing.T) {
+func TestNewManagerNoop(t *testing.T) {
 	require.IsType(t, &NoopManager{}, NewManager(cgroups.Config{}, testhelper.SharedLogger(t), 1))
 }
