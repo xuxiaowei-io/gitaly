@@ -691,6 +691,109 @@ func TestPruneOldCgroups(t *testing.T) {
 	}
 }
 
+func TestStats(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		desc          string
+		version       int
+		mockFiles     []mockCgroupFile
+		expectedStats Stats
+	}{
+		{
+			desc:    "empty statistics",
+			version: 1,
+			mockFiles: []mockCgroupFile{
+				{"memory.limit_in_bytes", "0"},
+				{"memory.usage_in_bytes", "0"},
+				{"memory.oom_control", ""},
+				{"cpu.stat", ""},
+			},
+			expectedStats: Stats{},
+		},
+		{
+			desc:    "cgroupfs recorded some stats",
+			version: 1,
+			mockFiles: []mockCgroupFile{
+				{"memory.limit_in_bytes", "2000000000"},
+				{"memory.usage_in_bytes", "1234000000"},
+				{"memory.oom_control", `oom_kill_disable 1
+under_oom 1
+oom_kill 3`},
+				{"cpu.stat", `nr_periods 10
+nr_throttled 50
+throttled_time 1000000`}, // 0.001 seconds
+			},
+			expectedStats: Stats{
+				ParentStats: CgroupStats{
+					CPUThrottledCount:    50,
+					CPUThrottledDuration: 0.001,
+					MemoryUsage:          1234000000,
+					MemoryLimit:          2000000000,
+					OOMKills:             3,
+					UnderOOM:             true,
+				},
+			},
+		},
+		{
+			desc:    "empty statistics",
+			version: 2,
+			mockFiles: []mockCgroupFile{
+				{"memory.current", "0"},
+				{"memory.max", "0"},
+				{"cpu.stat", ""},
+			},
+			expectedStats: Stats{},
+		},
+		{
+			desc:    "cgroupfs recorded some stats",
+			version: 2,
+			mockFiles: []mockCgroupFile{
+				{"memory.max", "2000000000"},
+				{"memory.current", "1234000000"},
+				{"memory.events", `low 1
+high 2
+max 3
+oom 4
+oom_kill 5`},
+				{"nr_throttled", "50"},
+				{"throttled_usec", "1000000"},
+				{"cpu.stat", `nr_periods 10
+nr_throttled 50
+throttled_usec 1000000`}, // 0.001 seconds
+			},
+			expectedStats: Stats{
+				ParentStats: CgroupStats{
+					CPUThrottledCount:    50,
+					CPUThrottledDuration: 0.001,
+					MemoryUsage:          1234000000,
+					MemoryLimit:          2000000000,
+					OOMKills:             5,
+				},
+			},
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			mock := newMock(t, tc.version)
+
+			config := defaultCgroupsConfig()
+			config.Repositories.Count = 1
+			config.Repositories.MemoryBytes = 2000000000
+			config.Repositories.CPUShares = 16
+			config.Mountpoint = mock.rootPath()
+
+			manager := mock.newCgroupManager(config, testhelper.SharedLogger(t), 1)
+
+			mock.setupMockCgroupFiles(t, manager, []uint{0}, tc.mockFiles...)
+			require.NoError(t, manager.Setup())
+
+			stats, err := manager.Stats()
+			require.NoError(t, err)
+			require.Equal(t, tc.expectedStats, stats)
+		})
+	}
+}
+
 func requireCgroupComponents(t *testing.T, version int, root string, cgroupPath string, expected expectedCgroup) {
 	t.Helper()
 
