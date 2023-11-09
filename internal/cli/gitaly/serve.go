@@ -353,7 +353,7 @@ func run(cfg config.Cfg, logger log.Logger) error {
 			logger,
 			adaptiveLimits,
 			[]limiter.ResourceWatcher{
-				watchers.NewCgroupCPUWatcher(cgroupMgr),
+				watchers.NewCgroupCPUWatcher(cgroupMgr, cfg.AdaptiveLimiting.CPUThrottledThreshold),
 				watchers.NewCgroupMemoryWatcher(cgroupMgr),
 			},
 		)

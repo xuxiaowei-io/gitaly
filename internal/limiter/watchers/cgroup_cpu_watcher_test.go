@@ -14,7 +14,7 @@ import (
 func TestCgroupCPUWatcher_Name(t *testing.T) {
 	t.Parallel()
 
-	manager := NewCgroupCPUWatcher(&testCgroupManager{})
+	manager := NewCgroupCPUWatcher(&testCgroupManager{}, 0.5)
 	require.Equal(t, cgroupCPUWatcherName, manager.Name())
 }
 
@@ -27,6 +27,7 @@ func TestCgroupCPUWatcher_Poll(t *testing.T) {
 		desc           string
 		manager        *testCgroupManager
 		pollTimes      []recentTimeFunc
+		cpuThreshold   float64
 		expectedEvents []*limiter.BackoffEvent
 		expectedErrs   []error
 	}{
@@ -395,9 +396,52 @@ func TestCgroupCPUWatcher_Poll(t *testing.T) {
 				},
 			},
 		},
+		{
+			desc: "customized CPU threshold",
+			manager: &testCgroupManager{
+				ready: true,
+				statsList: []cgroups.Stats{
+					testCPUStat(1, 100),
+					testCPUStat(2, 108), // 8 seconds - okay
+					testCPUStat(3, 123), // 15 seconds - 15 over 15, exceeding 90%
+					testCPUStat(4, 136), // 13 seconds - fine
+				},
+			},
+			cpuThreshold: 0.9,
+			pollTimes: []recentTimeFunc{
+				mockRecentTime(t, "2023-01-01T11:00:00Z"),
+				mockRecentTime(t, "2023-01-01T11:00:15Z"),
+				mockRecentTime(t, "2023-01-01T11:00:30Z"),
+				mockRecentTime(t, "2023-01-01T11:00:45Z"),
+			},
+			expectedEvents: []*limiter.BackoffEvent{
+				{
+					WatcherName:   cgroupCPUWatcherName,
+					ShouldBackoff: false,
+				},
+				{
+					WatcherName:   cgroupCPUWatcherName,
+					ShouldBackoff: false,
+				},
+				{
+					WatcherName:   cgroupCPUWatcherName,
+					ShouldBackoff: true,
+					Reason:        "cgroup CPU throttled too much",
+					Stats: map[string]any{
+						"time_diff":           15.0,
+						"throttled_duration":  15.0,
+						"throttled_threshold": 0.9,
+					},
+				},
+				{
+					WatcherName:   cgroupCPUWatcherName,
+					ShouldBackoff: false,
+				},
+			},
+		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			watcher := NewCgroupCPUWatcher(tc.manager)
+			watcher := NewCgroupCPUWatcher(tc.manager, tc.cpuThreshold)
 
 			if tc.pollTimes != nil {
 				require.Equal(t, len(tc.expectedEvents), len(tc.pollTimes), "poll times set up incorrectly")

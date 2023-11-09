@@ -1989,6 +1989,26 @@ func TestConcurrency_Validate(t *testing.T) {
 	)
 }
 
+func TestAdaptiveLimiting_Validate(t *testing.T) {
+	t.Parallel()
+
+	require.NoError(t, AdaptiveLimiting{CPUThrottledThreshold: 0}.Validate())
+	require.NoError(t, AdaptiveLimiting{CPUThrottledThreshold: 0.1}.Validate())
+	require.NoError(t, AdaptiveLimiting{CPUThrottledThreshold: 0.9}.Validate())
+	require.NoError(t, AdaptiveLimiting{CPUThrottledThreshold: 2.0}.Validate())
+
+	require.Equal(
+		t,
+		cfgerror.ValidationErrors{
+			cfgerror.NewValidationError(
+				fmt.Errorf("%w: -0.1 is not greater than or equal to 0", cfgerror.ErrNotInRange),
+				"cpu_throttled_threshold",
+			),
+		},
+		AdaptiveLimiting{CPUThrottledThreshold: -0.1}.Validate(),
+	)
+}
+
 func TestStorage_Validate(t *testing.T) {
 	t.Parallel()
 

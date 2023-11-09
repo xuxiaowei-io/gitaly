@@ -10,8 +10,8 @@ import (
 )
 
 const (
-	cgroupCPUWatcherName  = "CgroupCpu"
-	cpuThrottledThreshold = 0.5
+	cgroupCPUWatcherName         = "CgroupCpu"
+	defaultCPUThrottledThreshold = 0.5
 )
 
 // CgroupCPUWatcher implements ResourceWatcher interface for watching CPU throttling of cgroup. Cgroup doesn't have an
@@ -19,9 +19,10 @@ const (
 // between two polls. If the throttled time exceeds 50% of the observation window, it returns a backoff event. The
 // watcher uses `throttled_time` (CgroupV1) or `throttled_usec` (CgroupV2) stats from the cgroup manager.
 type CgroupCPUWatcher struct {
-	manager         cgroups.Manager
-	lastPoll        time.Time
-	lastParentStats cgroups.CgroupStats
+	manager               cgroups.Manager
+	cpuThrottledThreshold float64
+	lastPoll              time.Time
+	lastParentStats       cgroups.CgroupStats
 
 	// currentTime is the function that returns the current time. If it's not set, time.Now() is used
 	// instead. It's used for tests only.
@@ -29,9 +30,13 @@ type CgroupCPUWatcher struct {
 }
 
 // NewCgroupCPUWatcher is the initializer of CgroupCPUWatcher
-func NewCgroupCPUWatcher(manager cgroups.Manager) *CgroupCPUWatcher {
+func NewCgroupCPUWatcher(manager cgroups.Manager, cpuThrottledThreshold float64) *CgroupCPUWatcher {
+	if cpuThrottledThreshold == 0 {
+		cpuThrottledThreshold = defaultCPUThrottledThreshold
+	}
 	return &CgroupCPUWatcher{
-		manager: manager,
+		manager:               manager,
+		cpuThrottledThreshold: cpuThrottledThreshold,
 	}
 }
 
@@ -81,7 +86,7 @@ func (c *CgroupCPUWatcher) Poll(ctx context.Context) (*limiter.BackoffEvent, err
 	timeDiff := currentPoll.Sub(c.lastPoll).Abs().Seconds()
 
 	// If the total throttled duration since the last poll exceeds 50%.
-	if timeDiff > 0 && throttledDuration/timeDiff > cpuThrottledThreshold {
+	if timeDiff > 0 && throttledDuration/timeDiff > c.cpuThrottledThreshold {
 		return &limiter.BackoffEvent{
 			WatcherName:   c.Name(),
 			ShouldBackoff: true,
@@ -89,7 +94,7 @@ func (c *CgroupCPUWatcher) Poll(ctx context.Context) (*limiter.BackoffEvent, err
 			Stats: map[string]any{
 				"time_diff":           timeDiff,
 				"throttled_duration":  throttledDuration,
-				"throttled_threshold": cpuThrottledThreshold,
+				"throttled_threshold": c.cpuThrottledThreshold,
 			},
 		}, nil
 	}
