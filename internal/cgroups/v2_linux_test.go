@@ -4,16 +4,12 @@ package cgroups
 
 import (
 	"fmt"
-	"io/fs"
-	"os"
-	"os/exec"
 	"path/filepath"
 	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config/cgroups"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"golang.org/x/exp/slices"
 )
@@ -27,160 +23,6 @@ func defaultCgroupsV2Config() cgroups.Config {
 			CPUShares:   256,
 			CPUQuotaUs:  2000,
 		},
-	}
-}
-
-func TestPruneOldCgroupsV2(t *testing.T) {
-	t.Parallel()
-
-	testCases := []struct {
-		desc           string
-		cfg            cgroups.Config
-		expectedPruned bool
-		// setup returns a pid
-		setup func(*testing.T, cgroups.Config, *mockCgroupV2) int
-	}{
-		{
-			desc: "process belongs to another user",
-			cfg: cgroups.Config{
-				HierarchyRoot: "gitaly",
-				Repositories: cgroups.Repositories{
-					Count:       10,
-					MemoryBytes: 10 * 1024 * 1024,
-					CPUShares:   1024,
-				},
-			},
-			setup: func(t *testing.T, cfg cgroups.Config, mock *mockCgroupV2) int {
-				pid := 1
-
-				cgroupManager := mock.newCgroupManager(cfg, testhelper.SharedLogger(t), pid)
-				mock.setupMockCgroupFiles(t, cgroupManager, []uint{0, 1, 2})
-				require.NoError(t, cgroupManager.Setup())
-
-				return pid
-			},
-			expectedPruned: true,
-		},
-		{
-			desc: "no hierarchy root",
-			cfg: cgroups.Config{
-				HierarchyRoot: "",
-				Repositories: cgroups.Repositories{
-					Count:       10,
-					MemoryBytes: 10 * 1024 * 1024,
-					CPUShares:   1024,
-				},
-			},
-			setup: func(t *testing.T, cfg cgroups.Config, mock *mockCgroupV2) int {
-				pid := 1
-
-				cgroupManager := mock.newCgroupManager(cfg, testhelper.SharedLogger(t), pid)
-				mock.setupMockCgroupFiles(t, cgroupManager, []uint{0, 1, 2})
-				require.NoError(t, cgroupManager.Setup())
-				return 1
-			},
-			expectedPruned: false,
-		},
-		{
-			desc: "pid of finished process",
-			cfg: cgroups.Config{
-				HierarchyRoot: "gitaly",
-				Repositories: cgroups.Repositories{
-					Count:       10,
-					MemoryBytes: 10 * 1024 * 1024,
-					CPUShares:   1024,
-				},
-			},
-			setup: func(t *testing.T, cfg cgroups.Config, mock *mockCgroupV2) int {
-				cmd := exec.Command("ls")
-				require.NoError(t, cmd.Run())
-				pid := cmd.Process.Pid
-
-				cgroupManager := mock.newCgroupManager(cfg, testhelper.SharedLogger(t), pid)
-				mock.setupMockCgroupFiles(t, cgroupManager, []uint{0, 1, 2})
-				require.NoError(t, cgroupManager.Setup())
-
-				memoryFile := filepath.Join(
-					cfg.Mountpoint,
-					cfg.HierarchyRoot,
-					"memory.limit_in_bytes",
-				)
-				require.NoError(t, os.WriteFile(memoryFile, []byte{}, fs.ModeAppend))
-
-				return pid
-			},
-			expectedPruned: true,
-		},
-		{
-			desc: "pid of running process",
-			cfg: cgroups.Config{
-				HierarchyRoot: "gitaly",
-				Repositories: cgroups.Repositories{
-					Count:       10,
-					MemoryBytes: 10 * 1024 * 1024,
-					CPUShares:   1024,
-				},
-			},
-			setup: func(t *testing.T, cfg cgroups.Config, mock *mockCgroupV2) int {
-				pid := os.Getpid()
-
-				cgroupManager := mock.newCgroupManager(cfg, testhelper.SharedLogger(t), pid)
-				mock.setupMockCgroupFiles(t, cgroupManager, []uint{0, 1, 2})
-				require.NoError(t, cgroupManager.Setup())
-
-				return pid
-			},
-			expectedPruned: false,
-		},
-		{
-			desc: "gitaly-0 directory is deleted",
-			cfg: cgroups.Config{
-				HierarchyRoot: "gitaly",
-				Repositories: cgroups.Repositories{
-					Count:       10,
-					MemoryBytes: 10 * 1024 * 1024,
-					CPUShares:   1024,
-				},
-			},
-			setup: func(t *testing.T, cfg cgroups.Config, mock *mockCgroupV2) int {
-				cgroupManager := mock.newCgroupManager(cfg, testhelper.SharedLogger(t), 0)
-				mock.setupMockCgroupFiles(t, cgroupManager, []uint{0, 1, 2})
-				require.NoError(t, cgroupManager.Setup())
-
-				return 0
-			},
-			expectedPruned: true,
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.desc, func(t *testing.T) {
-			mock := newMockV2(t)
-			tc.cfg.Mountpoint = mock.root
-
-			root := filepath.Join(
-				tc.cfg.Mountpoint,
-				tc.cfg.HierarchyRoot,
-			)
-			require.NoError(t, os.MkdirAll(root, perm.PublicDir))
-
-			pid := tc.setup(t, tc.cfg, mock)
-
-			logger := testhelper.NewLogger(t)
-			mock.pruneOldCgroups(tc.cfg, logger)
-
-			// create cgroups directories with a different pid
-			oldGitalyProcessDir := filepath.Join(
-				root,
-				fmt.Sprintf("gitaly-%d", pid),
-			)
-
-			if tc.expectedPruned {
-				require.NoDirExists(t, oldGitalyProcessDir)
-			} else {
-				require.DirExists(t, oldGitalyProcessDir)
-			}
-		})
 	}
 }
 
