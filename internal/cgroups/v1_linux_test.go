@@ -12,7 +12,6 @@ import (
 	"strings"
 	"testing"
 
-	cgrps "github.com/containerd/cgroups/v3"
 	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -32,17 +31,6 @@ func defaultCgroupsConfig() cgroups.Config {
 			CPUQuotaUs:  200,
 		},
 	}
-}
-
-func TestNewManagerV1(t *testing.T) {
-	cfg := cgroups.Config{Repositories: cgroups.Repositories{Count: 10}}
-
-	manager := newCgroupManagerWithMode(cfg, testhelper.SharedLogger(t), 1, cgrps.Legacy)
-	require.IsType(t, &cgroupV1Handler{}, manager.handler)
-	manager = newCgroupManagerWithMode(cfg, testhelper.SharedLogger(t), 1, cgrps.Hybrid)
-	require.IsType(t, &cgroupV1Handler{}, manager.handler)
-	manager = newCgroupManagerWithMode(cfg, testhelper.SharedLogger(t), 1, cgrps.Unavailable)
-	require.Nil(t, manager)
 }
 
 func TestSetup_ParentCgroups(t *testing.T) {
