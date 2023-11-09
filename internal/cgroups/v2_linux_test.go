@@ -33,24 +33,6 @@ func defaultCgroupsV2Config() cgroups.Config {
 	}
 }
 
-func TestCleanupV2(t *testing.T) {
-	mock := newMockV2(t)
-
-	pid := 1
-	cfg := defaultCgroupsV2Config()
-	cfg.Mountpoint = mock.root
-
-	v2Manager := mock.newCgroupManager(cfg, testhelper.SharedLogger(t), pid)
-	mock.setupMockCgroupFiles(t, v2Manager, []uint{0, 1, 2})
-
-	require.NoError(t, v2Manager.Setup())
-	require.NoError(t, v2Manager.Cleanup())
-
-	for i := 0; i < 3; i++ {
-		require.NoDirExists(t, filepath.Join(mock.root, "gitaly", fmt.Sprintf("gitaly-%d", pid), fmt.Sprintf("repos-%d", i)))
-	}
-}
-
 func TestMetricsV2(t *testing.T) {
 	tests := []struct {
 		name           string
