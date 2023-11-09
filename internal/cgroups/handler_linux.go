@@ -3,9 +3,14 @@
 package cgroups
 
 import (
+	"fmt"
+	"path/filepath"
+	"strings"
+
 	"github.com/containerd/cgroups/v3/cgroup1"
 	"github.com/containerd/cgroups/v3/cgroup2"
 	"github.com/opencontainers/runtime-spec/specs-go"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	cgroupscfg "gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config/cgroups"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 )
@@ -103,4 +108,61 @@ func newV2GenericHandler(
 			return control.Delete()
 		},
 	}
+}
+
+func (cvh *genericHandler[T, H]) currentProcessCgroup() string {
+	return config.GetGitalyProcessTempDir(cvh.cfg.HierarchyRoot, cvh.pid)
+}
+
+func (cvh *genericHandler[T, H]) createCgroup(repoResources *specs.LinuxResources, cgroupPath string) error {
+	_, err := cvh.createFunc(cvh.hierarchy, repoResources, cgroupPath)
+	return err
+}
+
+func (cvh *genericHandler[T, H]) addToCgroup(pid int, cgroupPath string) error {
+	control, err := cvh.loadFunc(cvh.hierarchy, cgroupPath)
+	if err != nil {
+		return err
+	}
+
+	if err := cvh.addFunc(control, pid); err != nil {
+		// Command could finish so quickly before we can add it to a cgroup, so
+		// we don't consider it an error.
+		if strings.Contains(err.Error(), "no such process") {
+			return nil
+		}
+		return fmt.Errorf("failed adding process to cgroup: %w", err)
+	}
+
+	return nil
+}
+
+func (cvh *genericHandler[T, H]) setupParent(parentResources *specs.LinuxResources) error {
+	if _, err := cvh.createFunc(cvh.hierarchy, parentResources, cvh.currentProcessCgroup()); err != nil {
+		return fmt.Errorf("failed creating parent cgroup: %w", err)
+	}
+	return nil
+}
+
+func (cvh *genericHandler[T, H]) cleanup() error {
+	processCgroupPath := cvh.currentProcessCgroup()
+
+	control, err := cvh.loadFunc(cvh.hierarchy, processCgroupPath)
+	if err != nil {
+		return err
+	}
+
+	if err := cvh.deleteFunc(control); err != nil {
+		return fmt.Errorf("failed cleaning up cgroup %s: %w", processCgroupPath, err)
+	}
+
+	return nil
+}
+
+func (cvh *genericHandler[T, H]) repoPath(groupID int) string {
+	return filepath.Join(cvh.currentProcessCgroup(), fmt.Sprintf("repos-%d", groupID))
+}
+
+func (cvh *genericHandler[T, H]) supportsCloneIntoCgroup() bool {
+	return cvh.supportsClone
 }
