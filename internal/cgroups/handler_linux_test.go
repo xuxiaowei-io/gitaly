@@ -22,6 +22,18 @@ import (
 	"golang.org/x/exp/slices"
 )
 
+func defaultCgroupsConfig() cgroups.Config {
+	return cgroups.Config{
+		HierarchyRoot: "gitaly",
+		Repositories: cgroups.Repositories{
+			Count:       3,
+			MemoryBytes: 1024000,
+			CPUShares:   256,
+			CPUQuotaUs:  200,
+		},
+	}
+}
+
 func TestNewManager(t *testing.T) {
 	cfg := cgroups.Config{Repositories: cgroups.Repositories{Count: 10}}
 
@@ -819,6 +831,49 @@ func requireCgroupComponents(t *testing.T, version int, root string, cgroupPath 
 		cpuMaxPath := filepath.Join(root, cgroupPath, "cpu.max")
 		requireCgroupWithString(t, cpuMaxPath, expected.wantCPUMax)
 	}
+}
+
+func readCgroupFile(t *testing.T, path string) []byte {
+	t.Helper()
+
+	// The cgroups package defaults to permission 0 as it expects the file to be existing (the kernel creates the file)
+	// and its testing override the permission private variable to something sensible, hence we have to chmod ourselves
+	// so we can read the file.
+	require.NoError(t, os.Chmod(path, perm.PublicFile))
+
+	return testhelper.MustReadFile(t, path)
+}
+
+func requireCgroupWithInt(t *testing.T, cgroupFile string, want int) {
+	t.Helper()
+
+	if want <= 0 {
+		return
+	}
+
+	require.Equal(t,
+		string(readCgroupFile(t, cgroupFile)),
+		strconv.Itoa(want),
+	)
+}
+
+func requireCgroupWithString(t *testing.T, cgroupFile string, want string) {
+	t.Helper()
+
+	if want == "" {
+		return
+	}
+	require.Equal(t,
+		string(readCgroupFile(t, cgroupFile)),
+		want,
+	)
+}
+
+func calculateWantCPUWeight(wantCPUWeight int) int {
+	if wantCPUWeight == 0 {
+		return 0
+	}
+	return 1 + ((wantCPUWeight-2)*9999)/262142
 }
 
 func requireShards(t *testing.T, version int, mock mockCgroup, mgr *CGroupManager, pid int, expectedShards ...uint) {
