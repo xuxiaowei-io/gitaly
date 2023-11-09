@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strings"
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/catfile"
@@ -255,8 +256,10 @@ func (mgr *Manager) Create(ctx context.Context, req *CreateRequest) error {
 	if err := mgr.writeRefs(ctx, step.RefPath, refs); err != nil {
 		return fmt.Errorf("manager: %w", err)
 	}
-	if err := mgr.writeBundle(ctx, repo, step, refs); err != nil {
-		return fmt.Errorf("manager: %w", err)
+	if len(refs) > 0 {
+		if err := mgr.writeBundle(ctx, repo, step); err != nil {
+			return fmt.Errorf("manager: %w", err)
+		}
 	}
 	if err := mgr.writeCustomHooks(ctx, repo, step.CustomHooksPath); err != nil {
 		return fmt.Errorf("manager: %w", err)
@@ -361,14 +364,10 @@ func setContextServerInfo(ctx context.Context, server *storage.ServerInfo, stora
 	return nil
 }
 
-func (mgr *Manager) writeBundle(ctx context.Context, repo Repository, step *Step, refs []git.Reference) (returnErr error) {
-	if len(refs) == 0 {
-		return nil
-	}
-
+func (mgr *Manager) writeBundle(ctx context.Context, repo Repository, step *Step) (returnErr error) {
 	var patterns io.Reader
-	// Full backup, no need to check for known refs.
 	if len(step.PreviousRefPath) > 0 {
+		// If there is a previous ref path, then we are creating an increment
 		negatedRefs, err := mgr.negatedKnownRefs(ctx, step)
 		if err != nil {
 			return fmt.Errorf("write bundle: %w", err)
@@ -379,25 +378,7 @@ func (mgr *Manager) writeBundle(ctx context.Context, repo Repository, step *Step
 			}
 		}()
 
-		patternReader, patternWriter := io.Pipe()
-		defer func() {
-			if err := patternReader.Close(); err != nil && returnErr == nil {
-				returnErr = fmt.Errorf("write bundle: %w", err)
-			}
-		}()
-		go func() {
-			defer patternWriter.Close()
-
-			for _, ref := range refs {
-				_, err := fmt.Fprintln(patternWriter, ref.Name)
-				if err != nil {
-					_ = patternWriter.CloseWithError(err)
-					return
-				}
-			}
-		}()
-
-		patterns = io.MultiReader(negatedRefs, patternReader)
+		patterns = io.MultiReader(strings.NewReader("--all\n"), negatedRefs)
 	}
 
 	w := NewLazyWriter(func() (io.WriteCloser, error) {
