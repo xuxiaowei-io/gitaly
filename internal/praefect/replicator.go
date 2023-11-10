@@ -102,8 +102,19 @@ func (dr defaultReplicator) Replicate(ctx context.Context, event datastore.Repli
 
 	sourceObjectPool := resp.GetObjectPool()
 
-	if sourceObjectPool != nil {
-		targetObjectPoolClient := gitalypb.NewObjectPoolServiceClient(targetCC)
+	targetObjectPoolClient := gitalypb.NewObjectPoolServiceClient(targetCC)
+
+	if sourceObjectPool == nil {
+		// If the source repository is not linked to an object pool, the target repository
+		// should also not be linked to any object pool to ensure consistency.
+		if _, err := targetObjectPoolClient.DisconnectGitAlternates(ctx, &gitalypb.DisconnectGitAlternatesRequest{
+			Repository: targetRepository,
+		}); err != nil {
+			return err
+		}
+	} else {
+		// If the source repository is linked to an object pool, the target repository
+		// should link to the same object pool.
 		targetObjectPool := proto.Clone(sourceObjectPool).(*gitalypb.ObjectPool)
 		targetObjectPool.GetRepository().StorageName = targetRepository.GetStorageName()
 		if _, err := targetObjectPoolClient.LinkRepositoryToObjectPool(ctx, &gitalypb.LinkRepositoryToObjectPoolRequest{
