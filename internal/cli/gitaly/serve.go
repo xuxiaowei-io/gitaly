@@ -353,8 +353,8 @@ func run(cfg config.Cfg, logger log.Logger) error {
 			logger,
 			adaptiveLimits,
 			[]limiter.ResourceWatcher{
-				watchers.NewCgroupCPUWatcher(cgroupMgr),
-				watchers.NewCgroupMemoryWatcher(cgroupMgr),
+				watchers.NewCgroupCPUWatcher(cgroupMgr, cfg.AdaptiveLimiting.CPUThrottledThreshold),
+				watchers.NewCgroupMemoryWatcher(cgroupMgr, cfg.AdaptiveLimiting.MemoryThreshold),
 			},
 		)
 		prometheus.MustRegister(adaptiveCalculator)

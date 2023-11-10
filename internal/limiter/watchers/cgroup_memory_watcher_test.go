@@ -13,7 +13,7 @@ import (
 func TestCgroupMemoryWatcher_Name(t *testing.T) {
 	t.Parallel()
 
-	manager := NewCgroupMemoryWatcher(&testCgroupManager{})
+	manager := NewCgroupMemoryWatcher(&testCgroupManager{}, 0.9)
 	require.Equal(t, cgroupMemoryWatcherName, manager.Name())
 }
 
@@ -21,10 +21,11 @@ func TestCgroupMemoryWatcher_Poll(t *testing.T) {
 	t.Parallel()
 
 	for _, tc := range []struct {
-		desc          string
-		manager       *testCgroupManager
-		expectedEvent *limiter.BackoffEvent
-		expectedErr   error
+		desc            string
+		manager         *testCgroupManager
+		memoryThreshold float64
+		expectedEvent   *limiter.BackoffEvent
+		expectedErr     error
 	}{
 		{
 			desc:    "disabled watcher",
@@ -168,9 +169,37 @@ func TestCgroupMemoryWatcher_Poll(t *testing.T) {
 			},
 			expectedErr: nil,
 		},
+		{
+			desc: "customized memory threshold",
+			manager: &testCgroupManager{
+				ready: true,
+				statsList: []cgroups.Stats{
+					{
+						ParentStats: cgroups.CgroupStats{
+							MemoryUsage:  1200000000,
+							InactiveFile: 100000000,
+							MemoryLimit:  2000000000,
+						},
+					},
+				},
+			},
+			memoryThreshold: 0.5,
+			expectedEvent: &limiter.BackoffEvent{
+				WatcherName:   cgroupMemoryWatcherName,
+				ShouldBackoff: true,
+				Reason:        "cgroup memory exceeds threshold",
+				Stats: map[string]any{
+					"memory_usage":     uint64(1200000000),
+					"inactive_file":    uint64(100000000),
+					"memory_limit":     uint64(2000000000),
+					"memory_threshold": 0.5,
+				},
+			},
+			expectedErr: nil,
+		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			watcher := NewCgroupMemoryWatcher(tc.manager)
+			watcher := NewCgroupMemoryWatcher(tc.manager, tc.memoryThreshold)
 			event, err := watcher.Poll(testhelper.Context(t))
 
 			if tc.expectedErr != nil {

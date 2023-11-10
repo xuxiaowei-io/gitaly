@@ -123,6 +123,7 @@ type Cfg struct {
 	Backup                 BackupConfig        `toml:"backup,omitempty" json:"backup"`
 	Timeout                TimeoutConfig       `toml:"timeout,omitempty" json:"timeout"`
 	Transactions           Transactions        `toml:"transactions,omitempty" json:"transactions,omitempty"`
+	AdaptiveLimiting       AdaptiveLimiting    `toml:"adaptive_limiting,omitempty" json:"adaptive_limiting,omitempty"`
 }
 
 // Transactions configures transaction related options.
@@ -485,6 +486,28 @@ func (c Concurrency) Validate() error {
 			Append(cfgerror.Comparable(c.InitialLimit).GreaterOrEqual(c.MinLimit), "initial_limit")
 	}
 	return errs.AsError()
+}
+
+// AdaptiveLimiting defines a set of global config for the adaptive limiter. This config customizes how the resource
+// watchers and calculator works. Specific limits for each RPC or pack-objects operation should be configured
+// individually using the Concurrency and PackObjectsLimiting structs respectively.
+type AdaptiveLimiting struct {
+	// CPUThrottledThreshold defines the CPU throttling ratio threshold for a backoff event. The resource watcher
+	// compares the recorded total throttled time between two polls. If the throttled time exceeds this threshold of
+	// the observation window, it returns a backoff event. By default, the threshold is 0.5 (50%).
+	CPUThrottledThreshold float64 `toml:"cpu_throttled_threshold" json:"cpu_throttled_threshold"`
+	// MemoryThreshold defines the memory threshold for a backoff event. The memory watcher compares the recorded
+	// memory usage (excluding high evictable page caches) to the defined limit. If the ratio exceeds this
+	// threshold, a backoff event is fired. By default, the threshold is 0.9 (90%).
+	MemoryThreshold float64 `toml:"memory_threshold" json:"memory_threshold"`
+}
+
+// Validate runs validation on all fields and compose all found errors.
+func (c AdaptiveLimiting) Validate() error {
+	return cfgerror.New().
+		Append(cfgerror.Comparable(c.CPUThrottledThreshold).GreaterOrEqual(0), "cpu_throttled_threshold").
+		Append(cfgerror.Comparable(c.MemoryThreshold).GreaterOrEqual(0), "memory_threshold").
+		AsError()
 }
 
 // RateLimiting allows endpoints to be limited to a maximum request rate per
