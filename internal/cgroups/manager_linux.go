@@ -92,9 +92,9 @@ func newCgroupManagerWithMode(cfg cgroupscfg.Config, logger log.Logger, pid int,
 	var handler cgroupHandler
 	switch mode {
 	case cgrps.Legacy, cgrps.Hybrid:
-		handler = newV1Handler(cfg, logger, pid)
+		handler = newV1GenericHandler(cfg, logger, pid)
 	case cgrps.Unified:
-		handler = newV2Handler(cfg, logger, pid)
+		handler = newV2GenericHandler(cfg, logger, pid)
 		logger.Warn("Gitaly now includes experimental support for CgroupV2. Please proceed with caution and use this experimental feature at your own risk")
 	default:
 		logger.Warn("Gitaly has encountered an issue while trying to detect the version of the system's cgroup. As a result, all subsequent commands will be executed without cgroup support. Please check the system's cgroup configuration and try again")

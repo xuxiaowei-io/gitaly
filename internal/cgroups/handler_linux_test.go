@@ -13,6 +13,8 @@ import (
 	"testing"
 
 	cgrps "github.com/containerd/cgroups/v3"
+	"github.com/containerd/cgroups/v3/cgroup1"
+	"github.com/containerd/cgroups/v3/cgroup2"
 	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -38,11 +40,11 @@ func TestNewManager(t *testing.T) {
 	cfg := cgroups.Config{Repositories: cgroups.Repositories{Count: 10}}
 
 	manager := newCgroupManagerWithMode(cfg, testhelper.SharedLogger(t), 1, cgrps.Legacy)
-	require.IsType(t, &cgroupV1Handler{}, manager.handler)
+	require.IsType(t, &genericHandler[cgroup1.Cgroup, cgroup1.Hierarchy]{}, manager.handler)
 	manager = newCgroupManagerWithMode(cfg, testhelper.SharedLogger(t), 1, cgrps.Hybrid)
-	require.IsType(t, &cgroupV1Handler{}, manager.handler)
+	require.IsType(t, &genericHandler[cgroup1.Cgroup, cgroup1.Hierarchy]{}, manager.handler)
 	manager = newCgroupManagerWithMode(cfg, testhelper.SharedLogger(t), 1, cgrps.Unified)
-	require.IsType(t, &cgroupV2Handler{}, manager.handler)
+	require.IsType(t, &genericHandler[*cgroup2.Manager, string]{}, manager.handler)
 	manager = newCgroupManagerWithMode(cfg, testhelper.SharedLogger(t), 1, cgrps.Unavailable)
 	require.Nil(t, manager)
 }
