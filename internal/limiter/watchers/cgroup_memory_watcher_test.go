@@ -89,9 +89,9 @@ func TestCgroupMemoryWatcher_Poll(t *testing.T) {
 				statsList: []cgroups.Stats{
 					{
 						ParentStats: cgroups.CgroupStats{
-							MemoryUsage:  1900000000,
-							InactiveFile: 100000000,
-							MemoryLimit:  2000000000,
+							MemoryUsage:       1900000000,
+							TotalInactiveFile: 100000000,
+							MemoryLimit:       2000000000,
 						},
 					},
 				},
@@ -156,9 +156,9 @@ func TestCgroupMemoryWatcher_Poll(t *testing.T) {
 				statsList: []cgroups.Stats{
 					{
 						ParentStats: cgroups.CgroupStats{
-							MemoryUsage:  1900000000,
-							InactiveFile: 200000000,
-							MemoryLimit:  2000000000,
+							MemoryUsage:       1900000000,
+							TotalInactiveFile: 200000000,
+							MemoryLimit:       2000000000,
 						},
 					},
 				},
@@ -176,9 +176,9 @@ func TestCgroupMemoryWatcher_Poll(t *testing.T) {
 				statsList: []cgroups.Stats{
 					{
 						ParentStats: cgroups.CgroupStats{
-							MemoryUsage:  1200000000,
-							InactiveFile: 100000000,
-							MemoryLimit:  2000000000,
+							MemoryUsage:       1200000000,
+							TotalInactiveFile: 100000000,
+							MemoryLimit:       2000000000,
 						},
 					},
 				},
