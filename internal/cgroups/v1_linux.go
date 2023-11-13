@@ -48,17 +48,14 @@ func (cvh *cgroupV1Handler) setupParent(parentResources *specs.LinuxResources) e
 	return nil
 }
 
-func (cvh *cgroupV1Handler) setupRepository(reposResources *specs.LinuxResources) error {
-	for i := 0; i < int(cvh.cfg.Repositories.Count); i++ {
-		if _, err := cgroup1.New(
-			cgroup1.StaticPath(cvh.repoPath(i)),
-			reposResources,
-			cgroup1.WithHiearchy(cvh.hierarchy),
-		); err != nil {
-			return fmt.Errorf("failed creating repository cgroup: %w", err)
-		}
-	}
-	return nil
+func (cvh *cgroupV1Handler) createCgroup(reposResources *specs.LinuxResources, cgroupPath string) error {
+	_, err := cgroup1.New(
+		cgroup1.StaticPath(cgroupPath),
+		reposResources,
+		cgroup1.WithHiearchy(cvh.hierarchy),
+	)
+
+	return err
 }
 
 func (cvh *cgroupV1Handler) addToCgroup(pid int, cgroupPath string) error {
@@ -90,73 +87,66 @@ func (cvh *cgroupV1Handler) loadCgroup(cgroupPath string) (cgroup1.Cgroup, error
 	return control, nil
 }
 
-func (cvh *cgroupV1Handler) collect(ch chan<- prometheus.Metric) {
-	if !cvh.cfg.MetricsEnabled {
+func (cvh *cgroupV1Handler) collect(repoPath string, ch chan<- prometheus.Metric) {
+	logger := cvh.logger.WithField("cgroup_path", repoPath)
+	control, err := cvh.loadCgroup(repoPath)
+	if err != nil {
+		logger.WithError(err).Warn("unable to load cgroup controller")
 		return
 	}
 
-	for i := 0; i < int(cvh.cfg.Repositories.Count); i++ {
-		repoPath := cvh.repoPath(i)
-		logger := cvh.logger.WithField("cgroup_path", repoPath)
-		control, err := cvh.loadCgroup(repoPath)
-		if err != nil {
-			logger.WithError(err).Warn("unable to load cgroup controller")
-			return
-		}
+	if metrics, err := control.Stat(); err != nil {
+		logger.WithError(err).Warn("unable to get cgroup stats")
+	} else {
+		memoryMetric := cvh.memoryReclaimAttemptsTotal.WithLabelValues(repoPath)
+		memoryMetric.Set(float64(metrics.Memory.Usage.Failcnt))
+		ch <- memoryMetric
 
-		if metrics, err := control.Stat(); err != nil {
-			logger.WithError(err).Warn("unable to get cgroup stats")
-		} else {
-			memoryMetric := cvh.memoryReclaimAttemptsTotal.WithLabelValues(repoPath)
-			memoryMetric.Set(float64(metrics.Memory.Usage.Failcnt))
-			ch <- memoryMetric
+		cpuUserMetric := cvh.cpuUsage.WithLabelValues(repoPath, "user")
+		cpuUserMetric.Set(float64(metrics.CPU.Usage.User))
+		ch <- cpuUserMetric
 
-			cpuUserMetric := cvh.cpuUsage.WithLabelValues(repoPath, "user")
-			cpuUserMetric.Set(float64(metrics.CPU.Usage.User))
-			ch <- cpuUserMetric
+		ch <- prometheus.MustNewConstMetric(
+			cvh.cpuCFSPeriods,
+			prometheus.CounterValue,
+			float64(metrics.CPU.Throttling.Periods),
+			repoPath,
+		)
 
-			ch <- prometheus.MustNewConstMetric(
-				cvh.cpuCFSPeriods,
-				prometheus.CounterValue,
-				float64(metrics.CPU.Throttling.Periods),
-				repoPath,
-			)
+		ch <- prometheus.MustNewConstMetric(
+			cvh.cpuCFSThrottledPeriods,
+			prometheus.CounterValue,
+			float64(metrics.CPU.Throttling.ThrottledPeriods),
+			repoPath,
+		)
 
-			ch <- prometheus.MustNewConstMetric(
-				cvh.cpuCFSThrottledPeriods,
-				prometheus.CounterValue,
-				float64(metrics.CPU.Throttling.ThrottledPeriods),
-				repoPath,
-			)
+		ch <- prometheus.MustNewConstMetric(
+			cvh.cpuCFSThrottledTime,
+			prometheus.CounterValue,
+			float64(metrics.CPU.Throttling.ThrottledTime)/float64(time.Second),
+			repoPath,
+		)
 
-			ch <- prometheus.MustNewConstMetric(
-				cvh.cpuCFSThrottledTime,
-				prometheus.CounterValue,
-				float64(metrics.CPU.Throttling.ThrottledTime)/float64(time.Second),
-				repoPath,
-			)
+		cpuKernelMetric := cvh.cpuUsage.WithLabelValues(repoPath, "kernel")
+		cpuKernelMetric.Set(float64(metrics.CPU.Usage.Kernel))
+		ch <- cpuKernelMetric
+	}
 
-			cpuKernelMetric := cvh.cpuUsage.WithLabelValues(repoPath, "kernel")
-			cpuKernelMetric.Set(float64(metrics.CPU.Usage.Kernel))
-			ch <- cpuKernelMetric
-		}
-
-		if subsystems, err := cvh.hierarchy(); err != nil {
-			logger.WithError(err).Warn("unable to get cgroup hierarchy")
-		} else {
-			for _, subsystem := range subsystems {
-				processes, err := control.Processes(subsystem.Name(), true)
-				if err != nil {
-					logger.WithField("subsystem", subsystem.Name()).
-						WithError(err).
-						Warn("unable to get process list")
-					continue
-				}
-
-				procsMetric := cvh.procs.WithLabelValues(repoPath, string(subsystem.Name()))
-				procsMetric.Set(float64(len(processes)))
-				ch <- procsMetric
+	if subsystems, err := cvh.hierarchy(); err != nil {
+		logger.WithError(err).Warn("unable to get cgroup hierarchy")
+	} else {
+		for _, subsystem := range subsystems {
+			processes, err := control.Processes(subsystem.Name(), true)
+			if err != nil {
+				logger.WithField("subsystem", subsystem.Name()).
+					WithError(err).
+					Warn("unable to get process list")
+				continue
 			}
+
+			procsMetric := cvh.procs.WithLabelValues(repoPath, string(subsystem.Name()))
+			procsMetric.Set(float64(len(processes)))
+			ch <- procsMetric
 		}
 	}
 }

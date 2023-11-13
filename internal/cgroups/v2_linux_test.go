@@ -19,6 +19,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config/cgroups"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
+	"golang.org/x/exp/slices"
 )
 
 func defaultCgroupsV2Config() cgroups.Config {
@@ -94,7 +95,7 @@ func TestSetup_ParentCgroupsV2(t *testing.T) {
 			tt.cfg.Mountpoint = mock.root
 
 			v2Manager := mock.newCgroupManager(tt.cfg, testhelper.SharedLogger(t), pid)
-			mock.setupMockCgroupFiles(t, v2Manager)
+			mock.setupMockCgroupFiles(t, v2Manager, []uint{})
 
 			require.False(t, v2Manager.Ready())
 			require.NoError(t, v2Manager.Setup())
@@ -172,28 +173,63 @@ func TestSetup_RepoCgroupsV2(t *testing.T) {
 			cfg.Mountpoint = mock.root
 			cfg.Repositories = tt.cfg
 
+			groupID := calcGroupID(cmdArgs, cfg.Repositories.Count)
+
 			v2Manager := mock.newCgroupManager(cfg, testhelper.SharedLogger(t), pid)
-			mock.setupMockCgroupFiles(t, v2Manager)
+
+			// Validate no shards have been created. We deliberately do not call
+			// `setupMockCgroupFiles()` here to confirm that the cgroup controller
+			// is creating repository directories in the correct location.
+			requireShardsV2(t, mock, v2Manager, pid)
+
+			mock.setupMockCgroupFiles(t, v2Manager, []uint{groupID})
 
 			require.False(t, v2Manager.Ready())
 			require.NoError(t, v2Manager.Setup())
 			require.True(t, v2Manager.Ready())
 
+			ctx := testhelper.Context(t)
+
+			// Create a command to force Gitaly to create the repo cgroup.
+			cmd := exec.CommandContext(ctx, cmdArgs[0], cmdArgs[1:]...)
+			require.NoError(t, cmd.Run())
+			_, err := v2Manager.AddCommand(cmd)
+			require.NoError(t, err)
+
+			requireShardsV2(t, mock, v2Manager, pid, groupID)
+
 			for i := 0; i < 3; i++ {
+				cgroupExists := uint(i) == groupID
+
 				memoryMaxPath := filepath.Join(
 					mock.root, "gitaly", fmt.Sprintf("gitaly-%d", pid), fmt.Sprintf("repos-%d", i), "memory.max",
 				)
-				requireCgroupWithInt(t, memoryMaxPath, tt.wantMemoryBytes)
+
+				if cgroupExists {
+					requireCgroupWithInt(t, memoryMaxPath, tt.wantMemoryBytes)
+				} else {
+					require.NoFileExists(t, memoryMaxPath)
+				}
 
 				cpuWeightPath := filepath.Join(
 					mock.root, "gitaly", fmt.Sprintf("gitaly-%d", pid), fmt.Sprintf("repos-%d", i), "cpu.weight",
 				)
-				requireCgroupWithInt(t, cpuWeightPath, calculateWantCPUWeight(tt.wantCPUWeight))
+
+				if cgroupExists {
+					requireCgroupWithInt(t, cpuWeightPath, calculateWantCPUWeight(tt.wantCPUWeight))
+				} else {
+					require.NoFileExists(t, cpuWeightPath)
+				}
 
 				cpuMaxPath := filepath.Join(
 					mock.root, "gitaly", fmt.Sprintf("gitaly-%d", pid), fmt.Sprintf("repos-%d", i), "cpu.max",
 				)
-				requireCgroupWithString(t, cpuMaxPath, tt.wantCPUMax)
+
+				if cgroupExists {
+					requireCgroupWithString(t, cpuMaxPath, tt.wantCPUMax)
+				} else {
+					require.NoFileExists(t, cpuMaxPath)
+				}
 			}
 		})
 	}
@@ -209,9 +245,10 @@ func TestAddCommandV2(t *testing.T) {
 	config.Mountpoint = mock.root
 
 	pid := 1
+	groupID := calcGroupID(cmdArgs, config.Repositories.Count)
 
 	v2Manager1 := mock.newCgroupManager(config, testhelper.SharedLogger(t), pid)
-	mock.setupMockCgroupFiles(t, v2Manager1)
+	mock.setupMockCgroupFiles(t, v2Manager1, []uint{})
 
 	require.NoError(t, v2Manager1.Setup())
 	ctx := testhelper.Context(t)
@@ -226,6 +263,7 @@ func TestAddCommandV2(t *testing.T) {
 
 		_, err := v2Manager2.AddCommand(cmd2)
 		require.NoError(t, err)
+		requireShardsV2(t, mock, v2Manager2, pid, groupID)
 
 		path := filepath.Join(mock.root, "gitaly",
 			fmt.Sprintf("gitaly-%d", pid), fmt.Sprintf("repos-%d", groupID), "cgroup.procs")
@@ -242,6 +280,7 @@ func TestAddCommandV2(t *testing.T) {
 
 		_, err := v2Manager2.AddCommand(cmd2, WithCgroupKey("foobar"))
 		require.NoError(t, err)
+		requireShardsV2(t, mock, v2Manager2, pid, groupID, overriddenGroupID)
 
 		path := filepath.Join(mock.root, "gitaly",
 			fmt.Sprintf("gitaly-%d", pid), fmt.Sprintf("repos-%d", overriddenGroupID), "cgroup.procs")
@@ -262,7 +301,7 @@ func TestCleanupV2(t *testing.T) {
 	cfg.Mountpoint = mock.root
 
 	v2Manager := mock.newCgroupManager(cfg, testhelper.SharedLogger(t), pid)
-	mock.setupMockCgroupFiles(t, v2Manager)
+	mock.setupMockCgroupFiles(t, v2Manager, []uint{0, 1, 2})
 
 	require.NoError(t, v2Manager.Setup())
 	require.NoError(t, v2Manager.Cleanup())
@@ -323,9 +362,10 @@ gitaly_cgroup_procs_total{path="%s",subsystem="memory"} 1
 			config.Mountpoint = mock.root
 			config.MetricsEnabled = tt.metricsEnabled
 
+			groupID := calcGroupID(cmdArgs, config.Repositories.Count)
 			v2Manager1 := mock.newCgroupManager(config, testhelper.SharedLogger(t), tt.pid)
 
-			mock.setupMockCgroupFiles(t, v2Manager1)
+			mock.setupMockCgroupFiles(t, v2Manager1, []uint{groupID})
 			require.NoError(t, v2Manager1.Setup())
 
 			ctx := testhelper.Context(t)
@@ -344,6 +384,9 @@ gitaly_cgroup_procs_total{path="%s",subsystem="memory"} 1
 			require.NoError(t, gitCmd2.Start())
 			_, err = v2Manager1.AddCommand(gitCmd2)
 			require.NoError(t, err)
+
+			requireShardsV2(t, mock, v2Manager1, tt.pid, groupID)
+
 			defer func() {
 				require.NoError(t, gitCmd2.Wait())
 			}()
@@ -384,7 +427,7 @@ func TestPruneOldCgroupsV2(t *testing.T) {
 				pid := 1
 
 				cgroupManager := mock.newCgroupManager(cfg, testhelper.SharedLogger(t), pid)
-				mock.setupMockCgroupFiles(t, cgroupManager)
+				mock.setupMockCgroupFiles(t, cgroupManager, []uint{0, 1, 2})
 				require.NoError(t, cgroupManager.Setup())
 
 				return pid
@@ -405,7 +448,7 @@ func TestPruneOldCgroupsV2(t *testing.T) {
 				pid := 1
 
 				cgroupManager := mock.newCgroupManager(cfg, testhelper.SharedLogger(t), pid)
-				mock.setupMockCgroupFiles(t, cgroupManager)
+				mock.setupMockCgroupFiles(t, cgroupManager, []uint{0, 1, 2})
 				require.NoError(t, cgroupManager.Setup())
 				return 1
 			},
@@ -427,7 +470,7 @@ func TestPruneOldCgroupsV2(t *testing.T) {
 				pid := cmd.Process.Pid
 
 				cgroupManager := mock.newCgroupManager(cfg, testhelper.SharedLogger(t), pid)
-				mock.setupMockCgroupFiles(t, cgroupManager)
+				mock.setupMockCgroupFiles(t, cgroupManager, []uint{0, 1, 2})
 				require.NoError(t, cgroupManager.Setup())
 
 				memoryFile := filepath.Join(
@@ -455,7 +498,7 @@ func TestPruneOldCgroupsV2(t *testing.T) {
 				pid := os.Getpid()
 
 				cgroupManager := mock.newCgroupManager(cfg, testhelper.SharedLogger(t), pid)
-				mock.setupMockCgroupFiles(t, cgroupManager)
+				mock.setupMockCgroupFiles(t, cgroupManager, []uint{0, 1, 2})
 				require.NoError(t, cgroupManager.Setup())
 
 				return pid
@@ -474,7 +517,7 @@ func TestPruneOldCgroupsV2(t *testing.T) {
 			},
 			setup: func(t *testing.T, cfg cgroups.Config, mock *mockCgroupV2) int {
 				cgroupManager := mock.newCgroupManager(cfg, testhelper.SharedLogger(t), 0)
-				mock.setupMockCgroupFiles(t, cgroupManager)
+				mock.setupMockCgroupFiles(t, cgroupManager, []uint{0, 1, 2})
 				require.NoError(t, cgroupManager.Setup())
 
 				return 0
@@ -581,7 +624,7 @@ active_file 135000000`},
 
 			v2Manager := mock.newCgroupManager(config, testhelper.SharedLogger(t), 1)
 
-			mock.setupMockCgroupFiles(t, v2Manager, tc.mockFiles...)
+			mock.setupMockCgroupFiles(t, v2Manager, []uint{0}, tc.mockFiles...)
 			require.NoError(t, v2Manager.Setup())
 
 			stats, err := v2Manager.Stats()
@@ -596,6 +639,28 @@ func calculateWantCPUWeight(wantCPUWeight int) int {
 		return 0
 	}
 	return 1 + ((wantCPUWeight-2)*9999)/262142
+}
+
+func requireShardsV2(t *testing.T, mock *mockCgroupV2, mgr *CGroupManager, pid int, expectedShards ...uint) {
+	t.Helper()
+
+	for shard := uint(0); shard < mgr.cfg.Repositories.Count; shard++ {
+		cgroupPath := filepath.Join("gitaly", fmt.Sprintf("gitaly-%d", pid), fmt.Sprintf("repos-%d", shard))
+		diskPath := filepath.Join(mock.root, cgroupPath)
+
+		if slices.Contains(expectedShards, shard) {
+			require.DirExists(t, diskPath)
+
+			cgLock := mgr.status.getLock(cgroupPath)
+			require.True(t, cgLock.isCreated())
+		} else {
+			require.NoDirExists(t, diskPath)
+
+			// Confirm we pre-populated this map entry.
+			_, lockInserted := mgr.status.m[cgroupPath]
+			require.True(t, lockInserted)
+		}
+	}
 }
 
 func requireCgroupWithString(t *testing.T, cgroupFile string, want string) {

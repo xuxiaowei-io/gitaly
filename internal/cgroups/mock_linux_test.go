@@ -96,6 +96,7 @@ throttled_time 1000000`,
 func (m *mockCgroup) setupMockCgroupFiles(
 	t *testing.T,
 	manager *CGroupManager,
+	shards []uint,
 	inputContent ...mockCgroupFile,
 ) {
 	for _, s := range m.subsystems {
@@ -129,7 +130,7 @@ func (m *mockCgroup) setupMockCgroupFiles(
 			require.NoError(t, os.WriteFile(controlFilePath, []byte(content), perm.SharedFile))
 		}
 
-		for shard := uint(0); shard < manager.cfg.Repositories.Count; shard++ {
+		for _, shard := range shards {
 			shardPath := filepath.Join(cgroupPath, fmt.Sprintf("repos-%d", shard))
 			require.NoError(t, os.MkdirAll(shardPath, perm.SharedDir))
 
@@ -176,6 +177,7 @@ var defaultV2MockFiles = map[string]string{
 func (m *mockCgroupV2) setupMockCgroupFiles(
 	t *testing.T,
 	manager *CGroupManager,
+	shards []uint,
 	inputContent ...mockCgroupFile,
 ) {
 	content := map[string]string{}
@@ -201,7 +203,7 @@ func (m *mockCgroupV2) setupMockCgroupFiles(
 		require.NoError(t, os.WriteFile(controlFilePath, []byte(content), perm.SharedFile))
 	}
 
-	for shard := uint(0); shard < manager.cfg.Repositories.Count; shard++ {
+	for _, shard := range shards {
 		shardPath := filepath.Join(cgroupPath, fmt.Sprintf("repos-%d", shard))
 		require.NoError(t, os.MkdirAll(shardPath, perm.SharedDir))
 

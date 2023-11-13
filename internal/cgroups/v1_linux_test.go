@@ -19,6 +19,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config/cgroups"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
+	"golang.org/x/exp/slices"
 )
 
 func defaultCgroupsConfig() cgroups.Config {
@@ -188,26 +189,60 @@ func TestSetup_RepoCgroups(t *testing.T) {
 			require.NoError(t, v1Manager.Setup())
 			require.True(t, v1Manager.Ready())
 
+			ctx := testhelper.Context(t)
+
+			// Validate no shards have been created. We deliberately do not call
+			// `setupMockCgroupFiles()` here to confirm that the cgroup controller
+			// is creating repository directories in the correct location.
+			requireShardsV1(t, mock, v1Manager, pid)
+
+			// Create a command to force Gitaly to create the repo cgroup.
+			cmd := exec.CommandContext(ctx, cmdArgs[0], cmdArgs[1:]...)
+			require.NoError(t, cmd.Run())
+			_, err := v1Manager.AddCommand(cmd)
+			require.NoError(t, err)
+
+			groupID := calcGroupID(cmd.Args, cfg.Repositories.Count)
+			requireShardsV1(t, mock, v1Manager, pid, groupID)
+
 			for i := 0; i < 3; i++ {
+				cgroupExists := uint(i) == groupID
+
 				memoryLimitPath := filepath.Join(
 					mock.root, "memory", "gitaly", fmt.Sprintf("gitaly-%d", pid), fmt.Sprintf("repos-%d", i), "memory.limit_in_bytes",
 				)
-				requireCgroup(t, memoryLimitPath, tt.wantMemoryBytes)
+				if cgroupExists {
+					requireCgroup(t, memoryLimitPath, tt.wantMemoryBytes)
+				} else {
+					require.NoFileExists(t, memoryLimitPath)
+				}
 
 				cpuSharesPath := filepath.Join(
 					mock.root, "cpu", "gitaly", fmt.Sprintf("gitaly-%d", pid), fmt.Sprintf("repos-%d", i), "cpu.shares",
 				)
-				requireCgroup(t, cpuSharesPath, tt.wantCPUShares)
+				if cgroupExists {
+					requireCgroup(t, cpuSharesPath, tt.wantCPUShares)
+				} else {
+					require.NoFileExists(t, cpuSharesPath)
+				}
 
 				cpuCFSQuotaPath := filepath.Join(
 					mock.root, "cpu", "gitaly", fmt.Sprintf("gitaly-%d", pid), fmt.Sprintf("repos-%d", i), "cpu.cfs_quota_us",
 				)
-				requireCgroup(t, cpuCFSQuotaPath, tt.wantCPUQuotaUs)
+				if cgroupExists {
+					requireCgroup(t, cpuCFSQuotaPath, tt.wantCPUQuotaUs)
+				} else {
+					require.NoFileExists(t, cpuCFSQuotaPath)
+				}
 
 				cpuCFSPeriodPath := filepath.Join(
 					mock.root, "cpu", "gitaly", fmt.Sprintf("gitaly-%d", pid), fmt.Sprintf("repos-%d", i), "cpu.cfs_period_us",
 				)
-				requireCgroup(t, cpuCFSPeriodPath, tt.wantCFSPeriod)
+				if cgroupExists {
+					requireCgroup(t, cpuCFSPeriodPath, tt.wantCFSPeriod)
+				} else {
+					require.NoFileExists(t, cpuCFSPeriodPath)
+				}
 			}
 		})
 	}
@@ -224,6 +259,8 @@ func TestAddCommand(t *testing.T) {
 	config.Mountpoint = mock.root
 
 	pid := 1
+	groupID := calcGroupID(cmdArgs, config.Repositories.Count)
+
 	v1Manager1 := mock.newCgroupManager(config, testhelper.SharedLogger(t), pid)
 	require.NoError(t, v1Manager1.Setup())
 	ctx := testhelper.Context(t)
@@ -234,10 +271,9 @@ func TestAddCommand(t *testing.T) {
 	v1Manager2 := mock.newCgroupManager(config, testhelper.SharedLogger(t), pid)
 
 	t.Run("without overridden key", func(t *testing.T) {
-		groupID := calcGroupID(cmd2.Args, config.Repositories.Count)
-
 		_, err := v1Manager2.AddCommand(cmd2)
 		require.NoError(t, err)
+		requireShardsV1(t, mock, v1Manager2, pid, groupID)
 
 		for _, s := range mock.subsystems {
 			path := filepath.Join(mock.root, string(s.Name()), "gitaly",
@@ -346,7 +382,9 @@ gitaly_cgroup_cpu_cfs_throttled_seconds_total{path="%s"} 0.001
 
 			v1Manager1 := mock.newCgroupManager(config, testhelper.SharedLogger(t), tt.pid)
 
-			mock.setupMockCgroupFiles(t, v1Manager1, mockCgroupFile{"memory.failcnt", "2"})
+			groupID := calcGroupID(cmdArgs, config.Repositories.Count)
+
+			mock.setupMockCgroupFiles(t, v1Manager1, []uint{groupID}, mockCgroupFile{"memory.failcnt", "2"})
 			require.NoError(t, v1Manager1.Setup())
 
 			ctx := testhelper.Context(t)
@@ -365,6 +403,9 @@ gitaly_cgroup_cpu_cfs_throttled_seconds_total{path="%s"} 0.001
 			require.NoError(t, gitCmd2.Start())
 			_, err = v1Manager1.AddCommand(gitCmd2)
 			require.NoError(t, err)
+
+			requireShardsV1(t, mock, v1Manager1, tt.pid, groupID)
+
 			defer func() {
 				require.NoError(t, gitCmd2.Wait())
 			}()
@@ -610,13 +651,38 @@ active_file 135000000`},
 
 			v1Manager := mock.newCgroupManager(config, testhelper.SharedLogger(t), 1)
 
-			mock.setupMockCgroupFiles(t, v1Manager, tc.mockFiles...)
+			mock.setupMockCgroupFiles(t, v1Manager, []uint{}, tc.mockFiles...)
 			require.NoError(t, v1Manager.Setup())
 
 			stats, err := v1Manager.Stats()
 			require.NoError(t, err)
 			require.Equal(t, tc.expectedStats, stats)
 		})
+	}
+}
+
+func requireShardsV1(t *testing.T, mock *mockCgroup, mgr *CGroupManager, pid int, expectedShards ...uint) {
+	t.Helper()
+
+	for shard := uint(0); shard < mgr.cfg.Repositories.Count; shard++ {
+		for _, s := range mock.subsystems {
+			cgroupPath := filepath.Join("gitaly",
+				fmt.Sprintf("gitaly-%d", pid), fmt.Sprintf("repos-%d", shard))
+			diskPath := filepath.Join(mock.root, string(s.Name()), cgroupPath)
+
+			if slices.Contains(expectedShards, shard) {
+				require.DirExists(t, diskPath)
+
+				cgLock := mgr.status.getLock(cgroupPath)
+				require.True(t, cgLock.isCreated())
+			} else {
+				require.NoDirExists(t, diskPath)
+
+				// Confirm we pre-populated this map entry.
+				_, lockInserted := mgr.status.m[cgroupPath]
+				require.True(t, lockInserted)
+			}
+		}
 	}
 }
 

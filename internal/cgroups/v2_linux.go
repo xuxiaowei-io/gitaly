@@ -52,17 +52,14 @@ func (cvh *cgroupV2Handler) setupParent(parentResources *specs.LinuxResources) e
 	return nil
 }
 
-func (cvh *cgroupV2Handler) setupRepository(reposResources *specs.LinuxResources) error {
-	for i := 0; i < int(cvh.cfg.Repositories.Count); i++ {
-		if _, err := cgroup2.NewManager(
-			cvh.cfg.Mountpoint,
-			"/"+cvh.repoPath(i),
-			cgroup2.ToResources(reposResources),
-		); err != nil {
-			return fmt.Errorf("failed creating repository cgroup: %w", err)
-		}
-	}
-	return nil
+func (cvh *cgroupV2Handler) createCgroup(reposResources *specs.LinuxResources, cgroupPath string) error {
+	_, err := cgroup2.NewManager(
+		cvh.cfg.Mountpoint,
+		"/"+cgroupPath,
+		cgroup2.ToResources(reposResources),
+	)
+
+	return err
 }
 
 func (cvh *cgroupV2Handler) addToCgroup(pid int, cgroupPath string) error {
@@ -91,68 +88,61 @@ func (cvh *cgroupV2Handler) loadCgroup(cgroupPath string) (*cgroup2.Manager, err
 	return control, nil
 }
 
-func (cvh *cgroupV2Handler) collect(ch chan<- prometheus.Metric) {
-	if !cvh.cfg.MetricsEnabled {
+func (cvh *cgroupV2Handler) collect(repoPath string, ch chan<- prometheus.Metric) {
+	logger := cvh.logger.WithField("cgroup_path", repoPath)
+	control, err := cvh.loadCgroup(repoPath)
+	if err != nil {
+		logger.WithError(err).Warn("unable to load cgroup controller")
 		return
 	}
 
-	for i := 0; i < int(cvh.cfg.Repositories.Count); i++ {
-		repoPath := cvh.repoPath(i)
-		logger := cvh.logger.WithField("cgroup_path", repoPath)
-		control, err := cvh.loadCgroup(repoPath)
+	if metrics, err := control.Stat(); err != nil {
+		logger.WithError(err).Warn("unable to get cgroup stats")
+	} else {
+		cpuUserMetric := cvh.cpuUsage.WithLabelValues(repoPath, "user")
+		cpuUserMetric.Set(float64(metrics.CPU.UserUsec))
+		ch <- cpuUserMetric
+
+		ch <- prometheus.MustNewConstMetric(
+			cvh.cpuCFSPeriods,
+			prometheus.CounterValue,
+			float64(metrics.CPU.NrPeriods),
+			repoPath,
+		)
+
+		ch <- prometheus.MustNewConstMetric(
+			cvh.cpuCFSThrottledPeriods,
+			prometheus.CounterValue,
+			float64(metrics.CPU.NrThrottled),
+			repoPath,
+		)
+
+		ch <- prometheus.MustNewConstMetric(
+			cvh.cpuCFSThrottledTime,
+			prometheus.CounterValue,
+			float64(metrics.CPU.ThrottledUsec)/float64(time.Second),
+			repoPath,
+		)
+
+		cpuKernelMetric := cvh.cpuUsage.WithLabelValues(repoPath, "kernel")
+		cpuKernelMetric.Set(float64(metrics.CPU.SystemUsec))
+		ch <- cpuKernelMetric
+	}
+
+	if subsystems, err := control.Controllers(); err != nil {
+		logger.WithError(err).Warn("unable to get cgroup hierarchy")
+	} else {
+		processes, err := control.Procs(true)
 		if err != nil {
-			logger.WithError(err).Warn("unable to load cgroup controller")
+			logger.WithError(err).
+				Warn("unable to get process list")
 			return
 		}
 
-		if metrics, err := control.Stat(); err != nil {
-			logger.WithError(err).Warn("unable to get cgroup stats")
-		} else {
-			cpuUserMetric := cvh.cpuUsage.WithLabelValues(repoPath, "user")
-			cpuUserMetric.Set(float64(metrics.CPU.UserUsec))
-			ch <- cpuUserMetric
-
-			ch <- prometheus.MustNewConstMetric(
-				cvh.cpuCFSPeriods,
-				prometheus.CounterValue,
-				float64(metrics.CPU.NrPeriods),
-				repoPath,
-			)
-
-			ch <- prometheus.MustNewConstMetric(
-				cvh.cpuCFSThrottledPeriods,
-				prometheus.CounterValue,
-				float64(metrics.CPU.NrThrottled),
-				repoPath,
-			)
-
-			ch <- prometheus.MustNewConstMetric(
-				cvh.cpuCFSThrottledTime,
-				prometheus.CounterValue,
-				float64(metrics.CPU.ThrottledUsec)/float64(time.Second),
-				repoPath,
-			)
-
-			cpuKernelMetric := cvh.cpuUsage.WithLabelValues(repoPath, "kernel")
-			cpuKernelMetric.Set(float64(metrics.CPU.SystemUsec))
-			ch <- cpuKernelMetric
-		}
-
-		if subsystems, err := control.Controllers(); err != nil {
-			logger.WithError(err).Warn("unable to get cgroup hierarchy")
-		} else {
-			processes, err := control.Procs(true)
-			if err != nil {
-				logger.WithError(err).
-					Warn("unable to get process list")
-				continue
-			}
-
-			for _, subsystem := range subsystems {
-				procsMetric := cvh.procs.WithLabelValues(repoPath, subsystem)
-				procsMetric.Set(float64(len(processes)))
-				ch <- procsMetric
-			}
+		for _, subsystem := range subsystems {
+			procsMetric := cvh.procs.WithLabelValues(repoPath, subsystem)
+			procsMetric.Set(float64(len(processes)))
+			ch <- procsMetric
 		}
 	}
 }

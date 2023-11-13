@@ -11,6 +11,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"syscall"
 
 	cgrps "github.com/containerd/cgroups/v3"
@@ -25,9 +27,9 @@ const cfsPeriodUs uint64 = 100000
 
 type cgroupHandler interface {
 	setupParent(parentResources *specs.LinuxResources) error
-	setupRepository(reposResources *specs.LinuxResources) error
+	createCgroup(repoResources *specs.LinuxResources, cgroupPath string) error
 	addToCgroup(pid int, cgroupPath string) error
-	collect(ch chan<- prometheus.Metric)
+	collect(repoPath string, ch chan<- prometheus.Metric)
 	cleanup() error
 	currentProcessCgroup() string
 	repoPath(groupID int) string
@@ -35,11 +37,49 @@ type cgroupHandler interface {
 	supportsCloneIntoCgroup() bool
 }
 
+type cgroupLock struct {
+	created       atomic.Bool
+	creationError error
+	once          sync.Once
+}
+
+func (l *cgroupLock) isCreated() bool {
+	return l.created.Load()
+}
+
+type cgroupStatus struct {
+	m map[string]*cgroupLock
+}
+
+func newCgroupStatus(cfg cgroupscfg.Config, repoPath func(int) string) *cgroupStatus {
+	status := &cgroupStatus{
+		m: make(map[string]*cgroupLock, cfg.Repositories.Count),
+	}
+
+	// Pre-fill the map with all possible values.
+	for i := 0; i < int(cfg.Repositories.Count); i++ {
+		cgroupPath := repoPath(i)
+		cgLock := &cgroupLock{}
+		status.m[cgroupPath] = cgLock
+	}
+
+	return status
+}
+
+func (s *cgroupStatus) getLock(cgroupPath string) *cgroupLock {
+	// We initialized all locks during construction.
+	cgLock := s.m[cgroupPath]
+
+	return cgLock
+}
+
 // CGroupManager is a manager class that implements specific methods related to cgroups
 type CGroupManager struct {
 	cfg     cgroupscfg.Config
 	pid     int
 	enabled bool
+	repoRes *specs.LinuxResources
+	status  *cgroupStatus
 
 	handler cgroupHandler
 }
@@ -65,15 +105,14 @@ func newCgroupManagerWithMode(cfg cgroupscfg.Config, logger log.Logger, pid int,
 		cfg:     cfg,
 		pid:     pid,
 		handler: handler,
+		repoRes: configRepositoryResources(cfg),
+		status:  newCgroupStatus(cfg, handler.repoPath),
 	}
 }
 
 // Setup parent cgroups and repository sub cgroups
 func (cgm *CGroupManager) Setup() error {
 	if err := cgm.handler.setupParent(cgm.configParentResources()); err != nil {
-		return err
-	}
-	if err := cgm.handler.setupRepository(cgm.configRepositoryResources()); err != nil {
 		return err
 	}
 	cgm.enabled = true
@@ -94,6 +133,10 @@ func (cgm *CGroupManager) AddCommand(cmd *exec.Cmd, opts ...AddCommandOption) (s
 
 	cgroupPath := cgm.cgroupPathForCommand(cmd, opts)
 
+	if err := cgm.maybeCreateCgroup(cgroupPath); err != nil {
+		return "", fmt.Errorf("setup cgroup: %w", err)
+	}
+
 	return cgroupPath, cgm.handler.addToCgroup(cmd.Process.Pid, cgroupPath)
 }
 
@@ -104,13 +147,34 @@ func (cgm *CGroupManager) SupportsCloneIntoCgroup() bool {
 	return cgm.handler.supportsCloneIntoCgroup()
 }
 
+// maybeCreateCgroup creates a cgroup if it yet hasn't been created.
+func (cgm *CGroupManager) maybeCreateCgroup(cgroupPath string) error {
+	lock := cgm.status.getLock(cgroupPath)
+
+	lock.once.Do(func() {
+		if err := cgm.handler.createCgroup(cgm.repoRes, cgroupPath); err != nil {
+			lock.creationError = err
+			return
+		}
+
+		lock.created.Store(true)
+	})
+
+	return lock.creationError
+}
+
 // CloneIntoCgroup configures the cgroup parameters UseCgroupFD and CgroupFD in SysProcAttr
 // to start the command directly in the correct cgroup. On success, the function returns an io.Closer
 // that must be closed after the command has been started to close the cgroup's file descriptor.
 func (cgm *CGroupManager) CloneIntoCgroup(cmd *exec.Cmd, opts ...AddCommandOption) (string, io.Closer, error) {
-	cgroupPath := filepath.Join(cgm.cfg.Mountpoint, cgm.cgroupPathForCommand(cmd, opts))
+	cgroupPath := cgm.cgroupPathForCommand(cmd, opts)
 
-	file, err := os.Open(cgroupPath)
+	if err := cgm.maybeCreateCgroup(cgroupPath); err != nil {
+		return "", nil, fmt.Errorf("setup cgroup: %w", err)
+	}
+
+	cgroupDirPath := filepath.Join(cgm.cfg.Mountpoint, cgroupPath)
+	dir, err := os.Open(cgroupDirPath)
 	if err != nil {
 		return "", nil, fmt.Errorf("open file: %w", err)
 	}
@@ -120,9 +184,9 @@ func (cgm *CGroupManager) CloneIntoCgroup(cmd *exec.Cmd, opts ...AddCommandOptio
 	}
 
 	cmd.SysProcAttr.UseCgroupFD = true
-	cmd.SysProcAttr.CgroupFD = int(file.Fd())
+	cmd.SysProcAttr.CgroupFD = int(dir.Fd())
 
-	return cgroupPath, file, nil
+	return cgroupDirPath, dir, nil
 }
 
 // cgroupPathForCommand returns the path of the cgroup a given command should go in.
@@ -157,7 +221,20 @@ func (cgm *CGroupManager) Describe(ch chan<- *prometheus.Desc) {
 
 // Collect is used to collect the current values of all CGroupManager prometheus metrics
 func (cgm *CGroupManager) Collect(ch chan<- prometheus.Metric) {
-	cgm.handler.collect(ch)
+	if !cgm.cfg.MetricsEnabled {
+		return
+	}
+
+	for i := 0; i < int(cgm.cfg.Repositories.Count); i++ {
+		repoPath := cgm.handler.repoPath(i)
+
+		cgLock := cgm.status.getLock(repoPath)
+		if !cgLock.isCreated() {
+			continue
+		}
+
+		cgm.handler.collect(repoPath, ch)
+	}
 }
 
 // Stats returns cgroup accounting statistics collected by reading
@@ -191,23 +268,23 @@ func (cgm *CGroupManager) configParentResources() *specs.LinuxResources {
 	return &parentResources
 }
 
-func (cgm *CGroupManager) configRepositoryResources() *specs.LinuxResources {
+func configRepositoryResources(cfg cgroupscfg.Config) *specs.LinuxResources {
 	cfsPeriodUs := cfsPeriodUs
 	var reposResources specs.LinuxResources
 	// Leave them `nil` so it takes kernel default unless cfg value above `0`.
 	reposResources.CPU = &specs.LinuxCPU{}
 
-	if cgm.cfg.Repositories.CPUShares > 0 {
-		reposResources.CPU.Shares = &cgm.cfg.Repositories.CPUShares
+	if cfg.Repositories.CPUShares > 0 {
+		reposResources.CPU.Shares = &cfg.Repositories.CPUShares
 	}
 
-	if cgm.cfg.Repositories.CPUQuotaUs > 0 {
-		reposResources.CPU.Quota = &cgm.cfg.Repositories.CPUQuotaUs
+	if cfg.Repositories.CPUQuotaUs > 0 {
+		reposResources.CPU.Quota = &cfg.Repositories.CPUQuotaUs
 		reposResources.CPU.Period = &cfsPeriodUs
 	}
 
-	if cgm.cfg.Repositories.MemoryBytes > 0 {
-		reposResources.Memory = &specs.LinuxMemory{Limit: &cgm.cfg.Repositories.MemoryBytes}
+	if cfg.Repositories.MemoryBytes > 0 {
+		reposResources.Memory = &specs.LinuxMemory{Limit: &cfg.Repositories.MemoryBytes}
 	}
 	return &reposResources
 }
