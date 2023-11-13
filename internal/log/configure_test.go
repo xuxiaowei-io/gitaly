@@ -161,6 +161,11 @@ func TestMapGRPCLogLevel(t *testing.T) {
 			expectedLevel: "warning",
 		},
 		{
+			desc:          "empty level gets mapped",
+			level:         "",
+			expectedLevel: "warning",
+		},
+		{
 			desc:             "environment overrides value",
 			environmentLevel: "ERROR",
 			level:            "info",
