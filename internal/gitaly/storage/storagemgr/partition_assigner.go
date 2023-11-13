@@ -19,8 +19,7 @@ var (
 	// errPartitionAssignmentNotFound is returned when attempting to access a
 	// partition assignment in the database that doesn't yet exist.
 	errPartitionAssignmentNotFound = errors.New("partition assignment not found")
-	// errNoAlternate is used internally by partitionAssigner to signal a repository
-	// has no alternates.
+	// errNoAlternate is returned when a repository has no alternate.
 	errNoAlternate = errors.New("repository has no alternate")
 	// errMultipleAlternates is returned when a repository has multiple alternates
 	// configured.
@@ -247,26 +246,16 @@ func (pa *partitionAssigner) assignPartitionID(ctx context.Context, relativePath
 }
 
 func (pa *partitionAssigner) getAlternatePartitionID(ctx context.Context, relativePath string, recursiveCall bool) (partitionID, error) {
-	alternates, err := stats.ReadAlternatesFile(filepath.Join(pa.storagePath, relativePath))
+	alternate, err := readAlternatesFile(filepath.Join(pa.storagePath, relativePath))
 	if err != nil {
-		if errors.Is(err, fs.ErrNotExist) {
-			return 0, errNoAlternate
-		}
-
 		return 0, fmt.Errorf("read alternates file: %w", err)
 	}
 
-	if len(alternates) == 0 {
-		return 0, errNoAlternate
-	} else if recursiveCall {
+	if recursiveCall {
 		// recursive being true indicates we've arrived here through another repository's alternate.
 		// Repositories in Gitaly should only have a single alternate that points to the repository's
 		// pool. Chains of alternates are unexpected and could go arbitrarily long, so fail the operation.
 		return 0, errAlternateHasAlternate
-	} else if len(alternates) > 1 {
-		// Repositories shouldn't have more than one alternate given they should only be
-		// linked to a single pool at most.
-		return 0, errMultipleAlternates
 	}
 
 	// The relative path should point somewhere within the same storage.
@@ -276,7 +265,7 @@ func (pa *partitionAssigner) getAlternatePartitionID(ctx context.Context, relati
 		filepath.Dir(
 			// The path in alternates file points to the object directory of the alternate
 			// repository. The path is relative to the repository's own object directory.
-			filepath.Join(relativePath, "objects", alternates[0]),
+			filepath.Join(relativePath, "objects", alternate),
 		),
 	)
 	if err != nil {
@@ -304,4 +293,25 @@ func (pa *partitionAssigner) getAlternatePartitionID(ctx context.Context, relati
 	}
 
 	return ptnID, nil
+}
+
+func readAlternatesFile(repositoryPath string) (string, error) {
+	alternates, err := stats.ReadAlternatesFile(repositoryPath)
+	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return "", errNoAlternate
+		}
+
+		return "", fmt.Errorf("read alternates file: %w", err)
+	}
+
+	if len(alternates) == 0 {
+		return "", errNoAlternate
+	} else if len(alternates) > 1 {
+		// Repositories shouldn't have more than one alternate given they should only be
+		// linked to a single pool at most.
+		return "", errMultipleAlternates
+	}
+
+	return alternates[0], nil
 }

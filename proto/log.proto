@@ -47,6 +47,13 @@ message LogEntry {
   message RepositoryDeletion {
   }
 
+  // AlternateUpdate models an update to the 'objects/info/alternates' file.
+  message AlternateUpdate {
+    // path is the path to set in the alternates file. If the path is empty,
+    // the alternate file is removed.
+    string path = 1;
+  }
+
   // relative_path is the relative path of the repository the changes in the
   // log entry are targeting.
   string relative_path = 1;
@@ -66,6 +73,8 @@ message LogEntry {
   RepositoryDeletion repository_deletion = 6;
   // repository_creation is set if this log entry creates a repository.
   RepositoryCreation repository_creation = 7;
+  // alternate_update records a change to the repository's 'objects/info/alternates' file.
+  AlternateUpdate alternate_update = 8;
 }
 
 // LSN serializes a log sequence number. It's used for storing a partition's

@@ -20,6 +20,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/housekeeping"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/repoutil"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
@@ -52,6 +53,9 @@ var (
 	// errRelativePathNotSet is returned when a transaction is begun without providing a relative path
 	// of the target repository.
 	errRelativePathNotSet = errors.New("relative path not set")
+	// errAlternateAlreadyLinked is returned when attempting to set an alternate on a repository that
+	// already has one.
+	errAlternateAlreadyLinked = errors.New("repository already has an alternate")
 )
 
 // InvalidReferenceFormatError is returned when a reference name was invalid.
@@ -125,6 +129,13 @@ type repositoryCreation struct {
 // ReferenceUpdates contains references to update. Reference name is used as the key and the value
 // is the expected old tip and the desired new tip.
 type ReferenceUpdates map[git.ReferenceName]ReferenceUpdate
+
+// alternateUpdate models an update to the repository's alternates file.
+type alternateUpdate struct {
+	// relativePath is the relative path of the repository to link the transasction's target repository to.
+	// If not set, the transaction's target repository is disconnected from its current alternate.
+	relativePath string
+}
 
 type transactionState int
 
@@ -201,6 +212,7 @@ type Transaction struct {
 	repositoryCreation       *repositoryCreation
 	deleteRepository         bool
 	includedObjects          map[git.ObjectID]struct{}
+	alternateUpdate          *alternateUpdate
 }
 
 // Begin opens a new transaction. The caller must call either Commit or Rollback to release
@@ -285,11 +297,30 @@ func (mgr *TransactionManager) Begin(ctx context.Context, relativePath string, r
 			return nil, fmt.Errorf("snapshot root relative path: %w", err)
 		}
 
+		snapshotRepositoryPath := mgr.getAbsolutePath(txn.snapshotRelativePath(txn.relativePath))
 		if err := mgr.createRepositorySnapshot(ctx,
 			mgr.getAbsolutePath(txn.relativePath),
-			mgr.getAbsolutePath(txn.snapshotRelativePath(txn.relativePath)),
+			snapshotRepositoryPath,
 		); err != nil {
 			return nil, fmt.Errorf("create snapshot: %w", err)
+		}
+
+		// Read the repository's 'objects/info/alternates' file to figure out whether it is connected
+		// to an alternate. If so, we need to include the alternate repository in the snapshot along
+		// with the repository itself to ensure the objects from the alternate are also available.
+		if alternate, err := readAlternatesFile(snapshotRepositoryPath); err != nil && !errors.Is(err, errNoAlternate) {
+			return nil, fmt.Errorf("get alternate path: %w", err)
+		} else if alternate != "" {
+			// The repository had an alternate. The path is a relative from the repository's 'objects' directory
+			// to the alternates 'objects' directory. Build the relative path of the alternate repository.
+			alternateRelativePath := filepath.Dir(filepath.Join(txn.relativePath, "objects", alternate))
+			// Include the alternate repository in the snapshot as well.
+			if err := mgr.createRepositorySnapshot(ctx,
+				mgr.getAbsolutePath(alternateRelativePath),
+				mgr.getAbsolutePath(txn.snapshotRelativePath(alternateRelativePath)),
+			); err != nil {
+				return nil, fmt.Errorf("create alternate snapshot: %w", err)
+			}
 		}
 
 		txn.repositoryExists, err = mgr.doesRepositoryExist(txn.snapshotRelativePath(txn.relativePath))
@@ -615,6 +646,13 @@ func (txn *Transaction) IncludeObject(oid git.ObjectID) {
 	txn.includedObjects[oid] = struct{}{}
 }
 
+// UpdateAlternate stages an update for the transaction's target repository's 'objects/info/alternates' file.
+// If a relative path is provided, the target repository is linked to the given repository when the
+// transaction commits. If the relative path is an empty string, the target is unlinked from the current alternate.
+func (txn *Transaction) UpdateAlternate(relativePath string) {
+	txn.alternateUpdate = &alternateUpdate{relativePath}
+}
+
 // walFilesPath returns the path to the directory where this transaction is staging the files that will
 // be logged alongside the transaction's log entry.
 func (txn *Transaction) walFilesPath() string {
@@ -866,6 +904,26 @@ func (mgr *TransactionManager) stageRepositoryCreation(ctx context.Context, tran
 
 	if customHooks.Len() > 0 {
 		transaction.SetCustomHooks(customHooks.Bytes())
+	}
+
+	if alternate, err := readAlternatesFile(mgr.getAbsolutePath(transaction.snapshotRepository.GetRelativePath())); err != nil {
+		if !errors.Is(err, errNoAlternate) {
+			return fmt.Errorf("read alternates file: %w", err)
+		}
+
+		// Repository had no alternate.
+	} else {
+		alternateObjectsDir, err := filepath.Rel(
+			mgr.getAbsolutePath(transaction.snapshotBaseRelativePath),
+			mgr.getAbsolutePath(
+				filepath.Join(transaction.snapshotBaseRelativePath, transaction.relativePath, "objects", alternate),
+			),
+		)
+		if err != nil {
+			return fmt.Errorf("rel alternate relative path: %w", err)
+		}
+
+		transaction.UpdateAlternate(filepath.Dir(alternateObjectsDir))
 	}
 
 	return nil
@@ -1174,6 +1232,10 @@ func (mgr *TransactionManager) processTransaction() (returnedErr error) {
 			return ErrRepositoryNotFound
 		}
 
+		if logEntry.AlternateUpdate, err = mgr.verifyAlternateUpdate(transaction); err != nil {
+			return fmt.Errorf("verify alternate update: %w", err)
+		}
+
 		logEntry.ReferenceUpdates, err = mgr.verifyReferences(mgr.ctx, transaction)
 		if err != nil {
 			return fmt.Errorf("verify references: %w", err)
@@ -1443,6 +1505,69 @@ func packFilePath(walFiles string) string {
 	return filepath.Join(walFiles, "transaction.pack")
 }
 
+// verifyAlternateUpdate verifies the staged alternate update.
+func (mgr *TransactionManager) verifyAlternateUpdate(transaction *Transaction) (*gitalypb.LogEntry_AlternateUpdate, error) {
+	if transaction.alternateUpdate == nil {
+		return nil, nil
+	}
+
+	repositoryPath := mgr.getAbsolutePath(transaction.relativePath)
+	alternates, err := stats.ReadAlternatesFile(repositoryPath)
+	if err != nil {
+		if !errors.Is(err, fs.ErrNotExist) {
+			return nil, fmt.Errorf("read alternates file: %w", err)
+		}
+
+		// No alternates file existed.
+	}
+
+	if transaction.alternateUpdate.relativePath == "" {
+		if len(alternates) == 0 {
+			return nil, errNoAlternate
+		}
+
+		return &gitalypb.LogEntry_AlternateUpdate{}, nil
+	}
+
+	if len(alternates) > 0 {
+		return nil, errAlternateAlreadyLinked
+	}
+
+	alternateRelativePath, err := storage.ValidateRelativePath(mgr.storagePath, transaction.alternateUpdate.relativePath)
+	if err != nil {
+		return nil, fmt.Errorf("validate relative path: %w", err)
+	}
+
+	if alternateRelativePath == transaction.relativePath {
+		return nil, errAlternatePointsToSelf
+	}
+
+	alternateRepositoryPath := mgr.getAbsolutePath(alternateRelativePath)
+	if err := storage.ValidateGitDirectory(alternateRepositoryPath); err != nil {
+		return nil, fmt.Errorf("validate git directory: %w", err)
+	}
+
+	if _, err := readAlternatesFile(alternateRepositoryPath); !errors.Is(err, errNoAlternate) {
+		if err == nil {
+			return nil, errAlternateHasAlternate
+		}
+
+		return nil, fmt.Errorf("read alternates file: %w", err)
+	}
+
+	alternatePath, err := filepath.Rel(
+		filepath.Join(transaction.relativePath, "objects"),
+		filepath.Join(alternateRelativePath, "objects"),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("rel: %w", err)
+	}
+
+	return &gitalypb.LogEntry_AlternateUpdate{
+		Path: alternatePath,
+	}, nil
+}
+
 // verifyReferences verifies that the references in the transaction apply on top of the already accepted
 // reference changes. The old tips in the transaction are verified against the current actual tips.
 // It returns the write-ahead log entry for the transaction if it was successfully verified.
@@ -1671,6 +1796,10 @@ func (mgr *TransactionManager) applyLogEntry(ctx context.Context, lsn LSN) error
 			return fmt.Errorf("apply repository creation: %w", err)
 		}
 
+		if err := mgr.applyAlternateUpdate(logEntry); err != nil {
+			return fmt.Errorf("apply alternate update: %w", err)
+		}
+
 		if logEntry.PackPrefix != "" {
 			if err := mgr.applyPackFile(ctx, lsn, logEntry); err != nil {
 				return fmt.Errorf("apply pack file: %w", err)
@@ -1710,6 +1839,139 @@ func (mgr *TransactionManager) applyLogEntry(ctx context.Context, lsn LSN) error
 	// Notify the transactions waiting for this log entry to be applied prior to take their
 	// snapshot.
 	close(mgr.snapshotLocks[lsn].applied)
+
+	return nil
+}
+
+// applyAlternateUpdate applies the logged update to the 'objects/info/alternates' file.
+func (mgr *TransactionManager) applyAlternateUpdate(entry *gitalypb.LogEntry) error {
+	switch {
+	case entry.AlternateUpdate == nil:
+		return nil
+	case entry.AlternateUpdate.Path == "":
+		return mgr.applyAlternateUnlink(entry)
+	default:
+		return mgr.applyAlternateLink(entry)
+	}
+}
+
+// applyAlternateUnlink unlinks a repository from its alternate. Prior to doing so, it links
+// object and pack files from the alternate into the repository.
+func (mgr *TransactionManager) applyAlternateUnlink(entry *gitalypb.LogEntry) error {
+	repositoryPath := mgr.getAbsolutePath(entry.RelativePath)
+	alternatePath, err := readAlternatesFile(repositoryPath)
+	if err != nil {
+		if errors.Is(err, errNoAlternate) {
+			// Partial application of this log entry has already deleted the alternate link.
+			return nil
+		}
+
+		return fmt.Errorf("read alternates file: %w", err)
+	}
+
+	repositoryObjectsDir := filepath.Join(repositoryPath, "objects")
+	alternateObjectsDir := filepath.Join(repositoryObjectsDir, alternatePath)
+
+	entries, err := os.ReadDir(alternateObjectsDir)
+	if err != nil {
+		return fmt.Errorf("read alternate objects dir: %w", err)
+	}
+
+	syncer := safe.NewSyncer()
+	for _, subDir := range entries {
+		if !subDir.IsDir() || !(len(subDir.Name()) == 2 || subDir.Name() == "pack") {
+			// Only look in objects/<xx> and objects/pack for files.
+			continue
+		}
+
+		sourceDir := filepath.Join(alternateObjectsDir, subDir.Name())
+		objects, err := os.ReadDir(sourceDir)
+		if err != nil {
+			return fmt.Errorf("read subdirectory: %w", err)
+		}
+
+		if len(objects) == 0 {
+			// Don't create empty directories
+			continue
+		}
+
+		destinationDir := filepath.Join(repositoryObjectsDir, subDir.Name())
+
+		info, err := subDir.Info()
+		if err != nil {
+			return fmt.Errorf("subdirectory info: %w", err)
+		}
+
+		if err := os.Mkdir(destinationDir, info.Mode().Perm()); err != nil && !errors.Is(err, fs.ErrExist) {
+			return fmt.Errorf("create subdirectory: %w", err)
+		}
+
+		for _, objectFile := range objects {
+			if !objectFile.Type().IsRegular() {
+				continue
+			}
+
+			if err := os.Link(
+				filepath.Join(sourceDir, objectFile.Name()),
+				filepath.Join(destinationDir, objectFile.Name()),
+			); err != nil && !errors.Is(err, fs.ErrExist) {
+				return fmt.Errorf("link object: %w", err)
+			}
+		}
+
+		if err := syncer.Sync(destinationDir); err != nil {
+			return fmt.Errorf("sync subdirectory: %w", err)
+		}
+	}
+
+	if err := syncer.Sync(repositoryObjectsDir); err != nil {
+		return fmt.Errorf("sync object directory: %w", err)
+	}
+
+	alternatesFilePath := stats.AlternatesFilePath(repositoryPath)
+	if err := os.Remove(alternatesFilePath); err != nil {
+		return fmt.Errorf("remove: %w", err)
+	}
+
+	if err := syncer.SyncParent(alternatesFilePath); err != nil {
+		return fmt.Errorf("sync parent: %w", err)
+	}
+
+	return nil
+}
+
+func (mgr *TransactionManager) applyAlternateLink(entry *gitalypb.LogEntry) error {
+	alternatesFilePath := stats.AlternatesFilePath(mgr.getAbsolutePath(entry.RelativePath))
+
+	// When we apply the log entry here, we'd create the file. If we then crash before explicitly
+	// syncing the file or the directory, it could be that the directory entry was synced to the
+	// disk but not the contents of the file. This could lead to the file existing after a crash
+	// with invalid contents. Reapplying the log entry could then fail as the the file already exists.
+	// Remove the possible file before proceeding.
+	if err := os.Remove(alternatesFilePath); err != nil {
+		if !errors.Is(err, fs.ErrNotExist) {
+			return fmt.Errorf("remove: %w", err)
+		}
+
+		// The alternates file did not exist.
+	}
+
+	if err := os.WriteFile(
+		alternatesFilePath,
+		[]byte(entry.AlternateUpdate.Path),
+		perm.PrivateFile,
+	); err != nil {
+		return fmt.Errorf("write file: %w", err)
+	}
+
+	syncer := safe.NewSyncer()
+	if err := syncer.Sync(alternatesFilePath); err != nil {
+		return fmt.Errorf("sync: %w", err)
+	}
+
+	if err := syncer.SyncParent(alternatesFilePath); err != nil {
+		return fmt.Errorf("sync parent: %w", err)
+	}
 
 	return nil
 }

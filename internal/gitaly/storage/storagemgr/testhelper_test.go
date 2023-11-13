@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io/fs"
+	"os"
 	"path/filepath"
 	"reflect"
 	"sort"
@@ -14,6 +15,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/repoutil"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
@@ -35,6 +37,8 @@ type RepositoryState struct {
 	CustomHooks testhelper.DirectoryState
 	// Objects are the objects that are expected to exist.
 	Objects []git.ObjectID
+	// Alternate is the content of 'objects/info/alternates'.
+	Alternate string
 }
 
 // RequireRepositoryState asserts the given repository matches the expected state.
@@ -63,6 +67,11 @@ func RequireRepositoryState(tb testing.TB, ctx context.Context, cfg config.Cfg, 
 		})
 	}
 
+	alternate, err := os.ReadFile(stats.AlternatesFilePath(repoPath))
+	if err != nil {
+		require.ErrorIs(tb, err, fs.ErrNotExist)
+	}
+
 	sortObjects(expectedObjects)
 	sortObjects(actualObjects)
 
@@ -71,11 +80,13 @@ func RequireRepositoryState(tb testing.TB, ctx context.Context, cfg config.Cfg, 
 			DefaultBranch: expected.DefaultBranch,
 			References:    expected.References,
 			Objects:       expectedObjects,
+			Alternate:     expected.Alternate,
 		},
 		RepositoryState{
 			DefaultBranch: headReference,
 			References:    actualReferences,
 			Objects:       actualObjects,
+			Alternate:     string(alternate),
 		},
 	)
 	testhelper.RequireDirectoryState(tb, filepath.Join(repoPath, repoutil.CustomHooksDir), "", expected.CustomHooks)

@@ -27,7 +27,7 @@ func TestFsck(t *testing.T) {
 
 	type setupData struct {
 		repo            *gitalypb.Repository
-		expectedErr     error
+		requireError    func(error)
 		requireResponse func(*gitalypb.FsckResponse)
 	}
 
@@ -39,8 +39,10 @@ func TestFsck(t *testing.T) {
 			desc: "request is missing repository",
 			setup: func(t *testing.T) setupData {
 				return setupData{
-					repo:        nil,
-					expectedErr: structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
+					repo: nil,
+					requireError: func(actual error) {
+						testhelper.RequireGrpcError(t, structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet), actual)
+					},
 				}
 			},
 		},
@@ -77,12 +79,21 @@ func TestFsck(t *testing.T) {
 				require.NoError(t, os.RemoveAll(filepath.Join(repoPath, "objects")))
 				require.NoError(t, os.WriteFile(filepath.Join(repoPath, "objects"), nil, perm.SharedFile))
 
-				return setupData{
+				setupData := setupData{
 					repo: repo,
 					requireResponse: func(actual *gitalypb.FsckResponse) {
 						require.Regexp(t, "^fatal: not a git repository: '.+'\n$", string(actual.Error))
 					},
 				}
+
+				if testhelper.IsWALEnabled() {
+					setupData.requireResponse = nil
+					setupData.requireError = func(actual error) {
+						require.Regexp(t, "begin transaction: .+/objects/info/alternates: not a directory$", actual.Error())
+					}
+				}
+
+				return setupData
 			},
 		},
 		{
@@ -169,8 +180,8 @@ func TestFsck(t *testing.T) {
 			response, err := client.Fsck(ctx, &gitalypb.FsckRequest{
 				Repository: setupData.repo,
 			})
-			if setupData.expectedErr != nil {
-				testhelper.RequireGrpcError(t, setupData.expectedErr, err)
+			if setupData.requireError != nil {
+				setupData.requireError(err)
 				return
 			}
 
