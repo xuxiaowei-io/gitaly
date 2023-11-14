@@ -90,32 +90,49 @@ func (dr defaultReplicator) Replicate(ctx context.Context, event datastore.Repli
 		return fmt.Errorf("failed to create repository: %w", err)
 	}
 
-	// check if the repository has an object pool
+	// Object pool state between the source and target repository should match. Get object pool
+	// information for the source and target repository and reconcile any detected differences.
 	sourceObjectPoolClient := gitalypb.NewObjectPoolServiceClient(sourceCC)
+	targetObjectPoolClient := gitalypb.NewObjectPoolServiceClient(targetCC)
 
-	resp, err := sourceObjectPoolClient.GetObjectPool(ctx, &gitalypb.GetObjectPoolRequest{
+	sourceResp, err := sourceObjectPoolClient.GetObjectPool(ctx, &gitalypb.GetObjectPoolRequest{
 		Repository: sourceRepository,
 	})
 	if err != nil {
 		return err
 	}
 
-	sourceObjectPool := resp.GetObjectPool()
+	targetResp, err := targetObjectPoolClient.GetObjectPool(ctx, &gitalypb.GetObjectPoolRequest{
+		Repository: targetRepository,
+	})
+	if err != nil {
+		return err
+	}
 
-	targetObjectPoolClient := gitalypb.NewObjectPoolServiceClient(targetCC)
+	sourcePool := sourceResp.GetObjectPool()
+	targetPool := targetResp.GetObjectPool()
 
-	if sourceObjectPool == nil {
-		// If the source repository is not linked to an object pool, the target repository
-		// should also not be linked to any object pool to ensure consistency.
+	switch {
+	// If the source and target object pool state already match, there is nothing to sync.
+	case sourcePool.GetRepository().GetRelativePath() == targetPool.GetRepository().GetRelativePath():
+	// If the target repository is linked to a non-matching object pool it must be disconnected.
+	case targetPool != nil:
 		if _, err := targetObjectPoolClient.DisconnectGitAlternates(ctx, &gitalypb.DisconnectGitAlternatesRequest{
 			Repository: targetRepository,
 		}); err != nil {
 			return err
 		}
-	} else {
-		// If the source repository is linked to an object pool, the target repository
-		// should link to the same object pool.
-		targetObjectPool := proto.Clone(sourceObjectPool).(*gitalypb.ObjectPool)
+
+		// If the source repository is not linked to an object pool, the target repository does not
+		// need to be linked to a new object pool. Otherwise, continue to object pool linking.
+		if sourcePool == nil {
+			break
+		}
+		fallthrough
+	// If the source pool is linked to a repository, link the target repository to the matching
+	// target object pool.
+	case targetPool == nil:
+		targetObjectPool := proto.Clone(sourcePool).(*gitalypb.ObjectPool)
 		targetObjectPool.GetRepository().StorageName = targetRepository.GetStorageName()
 		if _, err := targetObjectPoolClient.LinkRepositoryToObjectPool(ctx, &gitalypb.LinkRepositoryToObjectPoolRequest{
 			ObjectPool: targetObjectPool,
