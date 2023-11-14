@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/quarantine"
@@ -26,11 +25,8 @@ func TestRepositorySize_poolMember(t *testing.T) {
 Object pools are not yet supported with transaction management.`)
 
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.TransactionalLinkRepository).Run(t, testRepositorySizePoolMember)
-}
 
-func testRepositorySizePoolMember(t *testing.T, ctx context.Context) {
-	t.Parallel()
+	ctx := testhelper.Context(t)
 
 	cfg, client := setupRepositoryService(t)
 

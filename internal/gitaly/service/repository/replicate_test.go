@@ -52,7 +52,6 @@ attributes from HEAD.`)
 		featureflag.ReplicateRepositoryObjectPool,
 		featureflag.InterceptReplicateRepository,
 		featureflag.TransactionalAlternatesDisconnect,
-		featureflag.TransactionalLinkRepository,
 	).Run(t, testReplicateRepository)
 }
 
