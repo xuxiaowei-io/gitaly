@@ -147,21 +147,6 @@ func (cvh *cgroupV2Handler) collect(repoPath string, ch chan<- prometheus.Metric
 	}
 }
 
-func (cvh *cgroupV2Handler) cleanup() error {
-	processCgroupPath := cvh.currentProcessCgroup()
-
-	control, err := cvh.loadCgroup(processCgroupPath)
-	if err != nil {
-		return err
-	}
-
-	if err := control.Delete(); err != nil {
-		return fmt.Errorf("failed cleaning up cgroup %s: %w", processCgroupPath, err)
-	}
-
-	return nil
-}
-
 func (cvh *cgroupV2Handler) repoPath(groupID int) string {
 	return filepath.Join(cvh.currentProcessCgroup(), fmt.Sprintf("repos-%d", groupID))
 }

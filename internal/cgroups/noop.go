@@ -40,11 +40,6 @@ func (cg *NoopManager) CloneIntoCgroup(*exec.Cmd, ...AddCommandOption) (string, 
 	return "", io.NopCloser(nil), nil
 }
 
-//nolint:revive // This is unintentionally missing documentation.
-func (cg *NoopManager) Cleanup() error {
-	return nil
-}
-
 // Describe does nothing
 func (cg *NoopManager) Describe(ch chan<- *prometheus.Desc) {}
 

@@ -346,30 +346,6 @@ func TestAddCommand(t *testing.T) {
 	}
 }
 
-func TestCleanup(t *testing.T) {
-	for _, version := range []int{1, 2} {
-		t.Run("cgroups-v"+strconv.Itoa(version), func(t *testing.T) {
-			mock := newMock(t, version)
-
-			pid := 1
-			cfg := defaultCgroupsConfig()
-			cfg.Mountpoint = mock.rootPath()
-
-			manager := mock.newCgroupManager(cfg, testhelper.SharedLogger(t), pid)
-			mock.setupMockCgroupFiles(t, manager, []uint{0, 1, 2})
-
-			require.NoError(t, manager.Setup())
-			require.NoError(t, manager.Cleanup())
-
-			for i := uint(0); i < 3; i++ {
-				for _, path := range mock.repoPaths(pid, i) {
-					require.NoDirExists(t, path)
-				}
-			}
-		})
-	}
-}
-
 func TestMetrics(t *testing.T) {
 	tests := []struct {
 		name           string

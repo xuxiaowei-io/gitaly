@@ -183,12 +183,6 @@ func run(cfg config.Cfg, logger log.Logger) error {
 	logger.WithField("duration_ms", time.Since(began).Milliseconds()).Info("finished initializing cgroups")
 
 	defer func() {
-		if err := cgroupMgr.Cleanup(); err != nil {
-			logger.WithError(err).Warn("error cleaning up cgroups")
-		}
-	}()
-
-	defer func() {
 		if err := os.RemoveAll(cfg.RuntimeDir); err != nil {
 			logger.Warn("could not clean up runtime dir")
 		}

@@ -86,10 +86,6 @@ type Manager interface {
 	// to start the command directly in the correct cgroup. On success, the function returns an io.Closer
 	// that must be closed after the command has been started to close the cgroup's file descriptor.
 	CloneIntoCgroup(*exec.Cmd, ...AddCommandOption) (string, io.Closer, error)
-	// Cleanup cleans up cgroups created in Setup.
-	// It is expected to be called once at Gitaly shutdown from any
-	// instance of the Manager.
-	Cleanup() error
 	// Stats returns cgroup accounting statistics collected by reading
 	// cgroupfs files. Those statistics are generic for both Cgroup V1
 	// and Cgroup V2.
