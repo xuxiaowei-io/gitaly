@@ -1,5 +1,31 @@
 # Gitaly changelog
 
+## 16.6.0 (2023-11-15)
+
+### Added (2 changes)
+
+- [protocol: Add support for git protocol version 1](gitlab-org/gitaly@d0310a0e359bbca440288a4d14aec4ea9796389e) by @blanet ([merge request](gitlab-org/gitaly!6504))
+- [backup: Support incremental server-side backups](gitlab-org/gitaly@f8681cb2a5503a9e44db3c6f4c17e42b60b7be8a) ([merge request](gitlab-org/gitaly!6475))
+
+### Fixed (2 changes)
+
+- [Start commands directly in correct cgroups](gitlab-org/gitaly@0ca8e2a71beea49bd725447545a914568760de0c) ([merge request](gitlab-org/gitaly!6470))
+- [praefect: Get repository ID of repos in database](gitlab-org/gitaly@bed2c51bdefe44dcd78dd10fafd1e46ec08204d9) ([merge request](gitlab-org/gitaly!6471))
+
+### Changed (3 changes)
+
+- [backup: Set default branch from manifest on restore](gitlab-org/gitaly@ba1e54f4e70bc6717e960066dd0a326ab6c0dc03) ([merge request](gitlab-org/gitaly!6482))
+- [Log startup item duration in milliseconds](gitlab-org/gitaly@e021f1fcf49c9055b3309e85a093c0fa35384a42) ([merge request](gitlab-org/gitaly!6477))
+- [backup: Detect object format when creating a backup](gitlab-org/gitaly@b2917103ebd854e4ce3e94440adc456d9b26740d) ([merge request](gitlab-org/gitaly!6437))
+
+### Deprecated (1 change)
+
+- [proto: Deprecate ApplyGitattributes & GetInfoAttributes](gitlab-org/gitaly@e38427b8a4ca566eab0acf14d1d3fb5e89b6b257) ([merge request](gitlab-org/gitaly!6415))
+
+### Performance (1 change)
+
+- [backup: Use --all when creating an incremental backup bundle](gitlab-org/gitaly@d874d8c3eb0d0c9b9362b583ba8ccc42221140cd) ([merge request](gitlab-org/gitaly!6421))
+
 ## 16.5.2 (2023-11-14)
 
 No changes.
