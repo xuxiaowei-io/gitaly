@@ -173,7 +173,7 @@ func run(cfg config.Cfg, logger log.Logger) error {
 	// time a gitaly process is spawned. Look through the hierarchy root
 	// to find any cgroup directories that belong to old gitaly processes
 	// and remove them.
-	cgroups.PruneOldCgroups(cfg.Cgroups, logger)
+	cgroups.StartPruningOldCgroups(cfg.Cgroups, logger)
 	cgroupMgr := cgroups.NewManager(cfg.Cgroups, logger, os.Getpid())
 
 	began := time.Now()

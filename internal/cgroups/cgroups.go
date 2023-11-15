@@ -5,6 +5,7 @@ import (
 	"os/exec"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/dontpanic"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config/cgroups"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 )
@@ -105,7 +106,10 @@ func NewManager(cfg cgroups.Config, logger log.Logger, pid int) Manager {
 	return &NoopManager{}
 }
 
-// PruneOldCgroups prunes old cgroups for both the memory and cpu subsystems
-func PruneOldCgroups(cfg cgroups.Config, logger log.Logger) {
-	pruneOldCgroups(cfg, logger)
+// StartPruningOldCgroups prunes old cgroups for both the memory and cpu subsystems
+// in a goroutine.
+func StartPruningOldCgroups(cfg cgroups.Config, logger log.Logger) {
+	dontpanic.Go(logger, func() {
+		pruneOldCgroups(cfg, logger)
+	})
 }
