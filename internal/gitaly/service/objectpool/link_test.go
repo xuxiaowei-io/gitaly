@@ -1,13 +1,11 @@
 package objectpool
 
 import (
-	"context"
 	"os"
 	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
@@ -21,11 +19,8 @@ import (
 
 func TestLink(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.TransactionalLinkRepository).Run(t, testLink)
-}
 
-func testLink(t *testing.T, ctx context.Context) {
-	t.Parallel()
+	ctx := testhelper.Context(t)
 
 	cfg, repo, _, _, client := setup(t, ctx, testserver.WithDisablePraefect())
 
@@ -83,11 +78,8 @@ func testLink(t *testing.T, ctx context.Context) {
 
 func TestLink_idempotent(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.TransactionalLinkRepository).Run(t, testLinkIdempotent)
-}
 
-func testLinkIdempotent(t *testing.T, ctx context.Context) {
-	t.Parallel()
+	ctx := testhelper.Context(t)
 
 	cfg, repoProto, _, _, client := setup(t, ctx)
 
@@ -107,11 +99,8 @@ func testLinkIdempotent(t *testing.T, ctx context.Context) {
 
 func TestLink_noClobber(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.TransactionalLinkRepository).Run(t, testLinkNoClobber)
-}
 
-func testLinkNoClobber(t *testing.T, ctx context.Context) {
-	t.Parallel()
+	ctx := testhelper.Context(t)
 
 	cfg, repoProto, repoPath, _, client := setup(t, ctx)
 	poolProto, _, _ := createObjectPool(t, ctx, cfg, repoProto)
@@ -136,11 +125,8 @@ func testLinkNoClobber(t *testing.T, ctx context.Context) {
 
 func TestLink_noPool(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.TransactionalLinkRepository).Run(t, testLinkNoPool)
-}
 
-func testLinkNoPool(t *testing.T, ctx context.Context) {
-	t.Parallel()
+	ctx := testhelper.Context(t)
 
 	cfg, repo, _, _, client := setup(t, ctx)
 

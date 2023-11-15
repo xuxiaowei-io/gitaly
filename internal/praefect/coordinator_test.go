@@ -2053,10 +2053,7 @@ func TestStreamDirectorStorageScopeError(t *testing.T) {
 
 func TestDisabledTransactionsWithFeatureFlag(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(
-		featureflag.TransactionalAlternatesDisconnect,
-		featureflag.TransactionalLinkRepository,
-	).Run(t, testDisabledTransactionsWithFeatureFlag)
+	testhelper.NewFeatureSets(featureflag.TransactionalAlternatesDisconnect).Run(t, testDisabledTransactionsWithFeatureFlag)
 }
 
 func testDisabledTransactionsWithFeatureFlag(t *testing.T, ctx context.Context) {

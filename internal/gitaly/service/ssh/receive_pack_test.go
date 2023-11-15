@@ -425,11 +425,8 @@ func TestReceivePack_hidesObjectPoolReferences(t *testing.T) {
 Object pools are not yet support with WAL. This test is testing with a pooled repository.`)
 
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.TransactionalLinkRepository).Run(t, testReceivePackHidesObjectPoolReferences)
-}
 
-func testReceivePackHidesObjectPoolReferences(t *testing.T, ctx context.Context) {
-	t.Parallel()
+	ctx := testhelper.Context(t)
 
 	cfg := testcfg.Build(t)
 	cfg.SocketPath = runSSHServer(t, cfg)

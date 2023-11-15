@@ -322,10 +322,7 @@ func TestInfoRefsReceivePack_hiddenRefs(t *testing.T) {
 Object pools are not yet support with WAL. This test is testing with a pooled repository.`)
 
 	t.Parallel()
-	testhelper.NewFeatureSets(
-		featureflag.TransactionalLinkRepository,
-		featureflag.UploadPackBoundaryBitmapTraversal,
-	).Run(t, testInfoRefsReceivePackHiddenRefs)
+	testhelper.NewFeatureSets(featureflag.UploadPackBoundaryBitmapTraversal).Run(t, testInfoRefsReceivePackHiddenRefs)
 }
 
 func testInfoRefsReceivePackHiddenRefs(t *testing.T, ctx context.Context) {

@@ -53,7 +53,7 @@ var transactionRPCs = map[string]transactionsCondition{
 	"/gitaly.ConflictsService/ResolveConflicts":              transactionsEnabled,
 	"/gitaly.ObjectPoolService/DisconnectGitAlternates":      transactionsFlag(featureflag.TransactionalAlternatesDisconnect),
 	"/gitaly.ObjectPoolService/FetchIntoObjectPool":          transactionsEnabled,
-	"/gitaly.ObjectPoolService/LinkRepositoryToObjectPool":   transactionsFlag(featureflag.TransactionalLinkRepository),
+	"/gitaly.ObjectPoolService/LinkRepositoryToObjectPool":   transactionsEnabled,
 	"/gitaly.OperationService/UserApplyPatch":                transactionsEnabled,
 	"/gitaly.OperationService/UserCherryPick":                transactionsEnabled,
 	"/gitaly.OperationService/UserCommitFiles":               transactionsEnabled,
