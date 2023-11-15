@@ -369,7 +369,7 @@ test-with-praefect: test-go
 .PHONY: test-wal
 ## Run Go tests with write-ahead logging enabled.
 test-wal: export GITALY_TEST_WAL = YesPlease
-test-wal: test
+test-wal: test-go
 
 .PHONY: test-with-praefect-wal
 ## Run Go tests with write-ahead logging and Praefect enabled.
