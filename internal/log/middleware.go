@@ -6,6 +6,7 @@ import (
 
 	grpcmwlogging "github.com/grpc-ecosystem/go-grpc-middleware/logging"
 	grpcmwlogrus "github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
+	grpcmwloggingv2 "github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/logging"
 	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/env"
 	"google.golang.org/grpc"
@@ -207,4 +208,18 @@ func StreamLogDataCatcherServerInterceptor() grpc.StreamServerInterceptor {
 		}
 		return handler(srv, ss)
 	}
+}
+
+// ConvertLoggingFields converts Fields in go-grpc-middleware/v2/interceptors/logging package
+// into a general map[string]interface{}. So that other logging packages (such as Logrus) can use them.
+func ConvertLoggingFields(fields grpcmwloggingv2.Fields) map[string]any {
+	// We need len(fields)/2 because fields's type is a slice in the form of [key1, value1, key2, value2, ...]
+	// so in order to parse it into a map, we need a map with len(fields)/2 size.
+	fieldsMap := make(map[string]any, len(fields)/2)
+	i := fields.Iterator()
+	for i.Next() {
+		k, v := i.At()
+		fieldsMap[k] = v
+	}
+	return fieldsMap
 }
