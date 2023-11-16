@@ -48,6 +48,15 @@ service HookService {
     };
   }
 
+  // ProcReceiveHook is a hook invoked by git-receive-pack(1) [1]. This hook is responsible
+  // for updating the relevant references and reporting the results back to receive-pack.
+  //
+  // [1]: https://git-scm.com/docs/githooks#proc-receive
+  rpc ProcReceiveHook(stream ProcReceiveHookRequest) returns (stream ProcReceiveHookResponse) {
+    option (op_type) = {
+      op: MUTATOR
+    };
+  };
 }
 
 // PreReceiveHookRequest ...
@@ -169,4 +178,26 @@ message PackObjectsHookWithSidechannelRequest {
 
 // PackObjectsHookWithSidechannelResponse ...
 message PackObjectsHookWithSidechannelResponse {
+}
+
+// ProcReceiveHookRequest is the request for the ProcReceiveHook RPC.
+message ProcReceiveHookRequest {
+  // repository is the repository the hook operates on. This field is unused
+  // currently since we gather all information from stdin.
+  Repository repository = 1 [(target_repository)=true];
+  // environment_variables is the set of env variables to be passed to the RPC.
+  repeated string environment_variables = 2;
+  // stdin is a chunk of raw data which the hook receives.
+  bytes stdin = 3;
+}
+
+// ProcReceiveHookResponse is the response for the ProcReceiveHook RPC.
+message ProcReceiveHookResponse {
+  // stdout is a chunk of raw data to be output to stdout of the hook.
+  bytes stdout = 1;
+  // stderr is a chunk of raw data to be output to stderr of the hook.
+  bytes stderr = 2;
+  // exit_status is the exit status that the hooks outputs, this dictates the
+  // success/failure of git-receive-pack(1).
+  ExitStatus exit_status = 3;
 }
