@@ -52,7 +52,7 @@ func Example() {
 				// Praefect, so no need to perform voting. The client could be for example
 				// GitLab calling Gitaly directly.
 				fmt.Println("Gitaly responding to a non-multiplexed client")
-				return stream.SendMsg(&gitalypb.CreateBranchResponse{})
+				return stream.SendMsg(&gitalypb.UserCreateBranchResponse{})
 			} else if err != nil {
 				return fmt.Errorf("get peer id: %w", err)
 			}
@@ -72,7 +72,7 @@ func Example() {
 			fmt.Println("Gitaly received vote response via backchannel")
 
 			fmt.Println("Gitaly responding to the transactional mutator")
-			return stream.SendMsg(&gitalypb.CreateBranchResponse{})
+			return stream.SendMsg(&gitalypb.UserCreateBranchResponse{})
 		}),
 	)
 	defer srv.Stop()
@@ -135,7 +135,7 @@ func invokeWithOpts(address string, opts ...grpc.DialOption) error {
 		return fmt.Errorf("dial server: %w", err)
 	}
 
-	if err := clientConn.Invoke(context.Background(), "/Gitaly/Mutator", &gitalypb.CreateBranchRequest{}, &gitalypb.CreateBranchResponse{}); err != nil {
+	if err := clientConn.Invoke(context.Background(), "/Gitaly/Mutator", &gitalypb.UserCreateBranchRequest{}, &gitalypb.UserCreateBranchResponse{}); err != nil {
 		return fmt.Errorf("call server: %w", err)
 	}
 

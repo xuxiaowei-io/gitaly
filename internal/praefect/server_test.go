@@ -109,7 +109,7 @@ func TestNewBackchannelServerFactory(t *testing.T) {
 	clientConn := nodeSet["default"]["gitaly-1"].Connection
 	testhelper.RequireGrpcError(t,
 		status.Error(codes.NotFound, "transaction not found: 0"),
-		clientConn.Invoke(ctx, "/Service/Method", &gitalypb.CreateBranchRequest{}, &gitalypb.CreateBranchResponse{}),
+		clientConn.Invoke(ctx, "/Service/Method", &gitalypb.UserCreateBranchRequest{}, &gitalypb.UserCreateBranchResponse{}),
 	)
 }
 
