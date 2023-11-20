@@ -7,8 +7,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"strings"
 
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
@@ -27,6 +30,19 @@ var (
 	ErrSkipped = errors.New("repository skipped")
 	// ErrDoesntExist means that the data was not found.
 	ErrDoesntExist = errors.New("doesn't exist")
+
+	backupLatency = promauto.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name: "gitaly_backup_latency_seconds",
+			Help: "Latency of a repository backup by phase",
+		},
+		[]string{"phase"})
+	backupBundleSize = promauto.NewHistogram(
+		prometheus.HistogramOpts{
+			Name:    "gitaly_backup_bundle_bytes",
+			Help:    "Size of a Git bundle uploaded in a backup",
+			Buckets: prometheus.ExponentialBucketsRange(1, 10*math.Pow(1024, 3), 20), // up to 10GB
+		})
 )
 
 // Sink is an abstraction over the real storage used for storing/restoring backups.
