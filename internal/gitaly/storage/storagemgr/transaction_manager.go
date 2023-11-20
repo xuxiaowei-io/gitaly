@@ -184,9 +184,6 @@ type Transaction struct {
 	// quarantineDirectory is the directory within the stagingDirectory where the new objects of the
 	// transaction are quarantined.
 	quarantineDirectory string
-	// snapshotBaseRelativePath is the relative path of the snapshot directory in the storage.
-	// It's used to rewrite the repositories to point to their snapshots.
-	snapshotBaseRelativePath string
 	// packPrefix contains the prefix (`pack-<digest>`) of the transaction's pack if the transaction
 	// had objects to log.
 	packPrefix string
@@ -197,6 +194,9 @@ type Transaction struct {
 	// snapshotLSN is the log sequence number which this transaction is reading the repository's
 	// state at.
 	snapshotLSN LSN
+	// snapshot is the transaction's snapshot of the partition. It's used to rewrite relative paths to
+	// point to the snapshot instead of the actual repositories.
+	snapshot snapshot
 	// stagingRepository is a repository that is used to stage the transaction. If there are quarantined
 	// objects, it has the quarantine applied so the objects are available for verification and packing.
 	// Generally the staging repository is the actual repository instance. If the repository doesn't exist
@@ -223,9 +223,12 @@ type Transaction struct {
 //
 // relativePath is the relative path of the target repository the transaction is operating on.
 //
+// snapshottedRelativePaths are the relative paths to snapshot in addition to target repository.
+// These are read-only as the transaction can only perform changes against the target repository.
+//
 // readOnly indicates whether this is a read-only transaction. Read-only transactions are not
 // configured with a quarantine directory and do not commit a log entry.
-func (mgr *TransactionManager) Begin(ctx context.Context, relativePath string, readOnly bool) (_ *Transaction, returnedErr error) {
+func (mgr *TransactionManager) Begin(ctx context.Context, relativePath string, snapshottedRelativePaths []string, readOnly bool) (_ *Transaction, returnedErr error) {
 	// Wait until the manager has been initialized so the notification channels
 	// and the LSNs are loaded.
 	select {
@@ -290,45 +293,22 @@ func (mgr *TransactionManager) Begin(ctx context.Context, relativePath string, r
 			return nil, fmt.Errorf("mkdir temp: %w", err)
 		}
 
-		if txn.snapshotBaseRelativePath, err = filepath.Rel(
+		mgr.stateLock.RLock()
+		defer mgr.stateLock.RUnlock()
+		if txn.snapshot, err = newSnapshot(ctx,
 			mgr.storagePath,
 			filepath.Join(txn.stagingDirectory, "snapshot"),
+			append(snapshottedRelativePaths, txn.relativePath),
 		); err != nil {
-			return nil, fmt.Errorf("snapshot root relative path: %w", err)
+			return nil, fmt.Errorf("new snapshot: %w", err)
 		}
 
-		snapshotRepositoryPath := mgr.getAbsolutePath(txn.snapshotRelativePath(txn.relativePath))
-		if err := mgr.createRepositorySnapshot(ctx,
-			mgr.getAbsolutePath(txn.relativePath),
-			snapshotRepositoryPath,
-		); err != nil {
-			return nil, fmt.Errorf("create snapshot: %w", err)
-		}
-
-		// Read the repository's 'objects/info/alternates' file to figure out whether it is connected
-		// to an alternate. If so, we need to include the alternate repository in the snapshot along
-		// with the repository itself to ensure the objects from the alternate are also available.
-		if alternate, err := readAlternatesFile(snapshotRepositoryPath); err != nil && !errors.Is(err, errNoAlternate) {
-			return nil, fmt.Errorf("get alternate path: %w", err)
-		} else if alternate != "" {
-			// The repository had an alternate. The path is a relative from the repository's 'objects' directory
-			// to the alternates 'objects' directory. Build the relative path of the alternate repository.
-			alternateRelativePath := filepath.Dir(filepath.Join(txn.relativePath, "objects", alternate))
-			// Include the alternate repository in the snapshot as well.
-			if err := mgr.createRepositorySnapshot(ctx,
-				mgr.getAbsolutePath(alternateRelativePath),
-				mgr.getAbsolutePath(txn.snapshotRelativePath(alternateRelativePath)),
-			); err != nil {
-				return nil, fmt.Errorf("create alternate snapshot: %w", err)
-			}
-		}
-
-		txn.repositoryExists, err = mgr.doesRepositoryExist(txn.snapshotRelativePath(txn.relativePath))
+		txn.repositoryExists, err = mgr.doesRepositoryExist(txn.snapshot.relativePath(txn.relativePath))
 		if err != nil {
 			return nil, fmt.Errorf("does repository exist: %w", err)
 		}
 
-		txn.snapshotRepository = mgr.repositoryFactory.Build(txn.snapshotRelativePath(txn.relativePath))
+		txn.snapshotRepository = mgr.repositoryFactory.Build(txn.snapshot.relativePath(txn.relativePath))
 		if !txn.readOnly {
 			if txn.repositoryExists {
 				txn.quarantineDirectory = filepath.Join(txn.stagingDirectory, "quarantine")
@@ -341,7 +321,7 @@ func (mgr *TransactionManager) Begin(ctx context.Context, relativePath string, r
 					return nil, fmt.Errorf("quarantine: %w", err)
 				}
 			} else {
-				txn.quarantineDirectory = filepath.Join(mgr.storagePath, txn.snapshotRelativePath(txn.relativePath), "objects")
+				txn.quarantineDirectory = filepath.Join(mgr.storagePath, txn.snapshot.relativePath(txn.relativePath), "objects")
 			}
 		}
 
@@ -349,106 +329,27 @@ func (mgr *TransactionManager) Begin(ctx context.Context, relativePath string, r
 	}
 }
 
-// snapshotRelativePath returns a rewritten relative path that points to the passed in relative path's
-// location in the snapshot.
-func (txn *Transaction) snapshotRelativePath(relativePath string) string {
-	return filepath.Join(txn.snapshotBaseRelativePath, relativePath)
-}
-
 // RewriteRepository returns a copy of the repository that has been set up to correctly access
 // the repository in the transaction's snapshot.
 func (txn *Transaction) RewriteRepository(repo *gitalypb.Repository) *gitalypb.Repository {
 	rewritten := proto.Clone(repo).(*gitalypb.Repository)
-	rewritten.RelativePath = txn.snapshotRelativePath(repo.RelativePath)
-	rewritten.GitObjectDirectory = txn.snapshotRepository.GetGitObjectDirectory()
-	rewritten.GitAlternateObjectDirectories = txn.snapshotRepository.GetGitAlternateObjectDirectories()
+	rewritten.RelativePath = txn.snapshot.relativePath(repo.RelativePath)
+
+	if repo.RelativePath == txn.relativePath {
+		rewritten.GitObjectDirectory = txn.snapshotRepository.GetGitObjectDirectory()
+		rewritten.GitAlternateObjectDirectories = txn.snapshotRepository.GetGitAlternateObjectDirectories()
+	}
+
 	return rewritten
 }
 
 // OriginalRepository returns the repository as it was before rewriting it to point to the snapshot.
 func (txn *Transaction) OriginalRepository(repo *gitalypb.Repository) *gitalypb.Repository {
 	original := proto.Clone(repo).(*gitalypb.Repository)
-	original.RelativePath = strings.TrimPrefix(repo.RelativePath, txn.snapshotBaseRelativePath+string(os.PathSeparator))
+	original.RelativePath = strings.TrimPrefix(repo.RelativePath, txn.snapshot.prefix+string(os.PathSeparator))
 	original.GitObjectDirectory = ""
 	original.GitAlternateObjectDirectories = nil
 	return original
-}
-
-// createRepositorySnapshot snapshots the repository's current state at snapshotPath. This is done by
-// recreating the repository's directory structure and hard linking the repository's files in their
-// correct locations there. This effectively does a copy-free clone of the repository. Since the files
-// are shared between the snapshot and the repository, they must not be modified. Git doesn't modify
-// existing files but writes new ones so this property is upheld.
-func (mgr *TransactionManager) createRepositorySnapshot(ctx context.Context, repositoryPath, snapshotPath string) error {
-	// This creates the parent directory hierarchy regardless of whether the repository exists or not. It also
-	// doesn't consider the permissions in the storage. While not 100% correct, we have no logic that cares about
-	// the storage hierarchy above repositories.
-	//
-	// The repository's directory itself is not yet created as whether it should be created depends on whether the
-	// repository exists or not.
-	if err := os.MkdirAll(filepath.Dir(snapshotPath), perm.PrivateDir); err != nil {
-		return fmt.Errorf("create parent directory hierarchy: %w", err)
-	}
-
-	mgr.stateLock.RLock()
-	defer mgr.stateLock.RUnlock()
-	if err := createDirectorySnapshot(ctx, repositoryPath, snapshotPath, map[string]struct{}{
-		// Don't include worktrees in the snapshot. All of the worktrees in the repository should be leftover
-		// state from before transaction management was introduced as the transactions would create their
-		// worktrees in the snapshot.
-		housekeeping.WorktreesPrefix:      {},
-		housekeeping.GitlabWorktreePrefix: {},
-	}); err != nil {
-		return fmt.Errorf("create directory snapshot: %w", err)
-	}
-
-	return nil
-}
-
-// createDirectorySnapshot recursively recreates the directory structure from originalDirectory into
-// snapshotDirectory and hard links files into the same locations in snapshotDirectory.
-//
-// skipRelativePaths can be provided to skip certain entries from being included in the snapshot.
-func createDirectorySnapshot(ctx context.Context, originalDirectory, snapshotDirectory string, skipRelativePaths map[string]struct{}) error {
-	if err := filepath.Walk(originalDirectory, func(oldPath string, info fs.FileInfo, err error) error {
-		if err != nil {
-			if errors.Is(err, fs.ErrNotExist) && oldPath == originalDirectory {
-				// The directory being snapshotted does not exist. This is fine as the transaction
-				// may be about to create it.
-				return nil
-			}
-
-			return err
-		}
-
-		relativePath, err := filepath.Rel(originalDirectory, oldPath)
-		if err != nil {
-			return fmt.Errorf("rel: %w", err)
-		}
-
-		if _, ok := skipRelativePaths[relativePath]; ok {
-			return fs.SkipDir
-		}
-
-		newPath := filepath.Join(snapshotDirectory, relativePath)
-		if info.IsDir() {
-			if err := os.Mkdir(newPath, info.Mode().Perm()); err != nil {
-				return fmt.Errorf("create dir: %w", err)
-			}
-		} else if info.Mode().IsRegular() {
-			if err := os.Link(oldPath, newPath); err != nil {
-				return fmt.Errorf("link file: %w", err)
-			}
-		} else {
-			return fmt.Errorf("unsupported file mode: %q", info.Mode())
-		}
-
-		return nil
-	}); err != nil {
-		return fmt.Errorf("walk: %w", err)
-	}
-
-	return nil
 }
 
 func (txn *Transaction) updateState(newState transactionState) error {
@@ -914,9 +815,9 @@ func (mgr *TransactionManager) stageRepositoryCreation(ctx context.Context, tran
 		// Repository had no alternate.
 	} else {
 		alternateObjectsDir, err := filepath.Rel(
-			mgr.getAbsolutePath(transaction.snapshotBaseRelativePath),
+			mgr.getAbsolutePath(transaction.snapshot.prefix),
 			mgr.getAbsolutePath(
-				filepath.Join(transaction.snapshotBaseRelativePath, transaction.relativePath, "objects", alternate),
+				filepath.Join(transaction.snapshot.prefix, transaction.relativePath, "objects", alternate),
 			),
 		)
 		if err != nil {

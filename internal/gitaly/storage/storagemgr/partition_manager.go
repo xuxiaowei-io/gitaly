@@ -30,7 +30,7 @@ var ErrPartitionManagerClosed = errors.New("partition manager closed")
 // transactionManager is the interface of TransactionManager as used by PartitionManager. See the
 // TransactionManager's documentation for more details.
 type transactionManager interface {
-	Begin(context.Context, string, bool) (*Transaction, error)
+	Begin(context.Context, string, []string, bool) (*Transaction, error)
 	Run() error
 	Close()
 	isClosing() bool
@@ -474,7 +474,7 @@ func (pm *PartitionManager) Begin(ctx context.Context, storageName, relativePath
 		ptn.pendingTransactionCount++
 		storageMgr.mu.Unlock()
 
-		transaction, err := ptn.transactionManager.Begin(ctx, relativePath, readOnly)
+		transaction, err := ptn.transactionManager.Begin(ctx, relativePath, nil, readOnly)
 		if err != nil {
 			// The pending transaction count needs to be decremented since the transaction is no longer
 			// inflight. A transaction failing does not necessarily mean the transaction manager has
