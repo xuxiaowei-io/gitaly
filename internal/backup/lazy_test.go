@@ -36,6 +36,7 @@ func TestLazyWriter(t *testing.T) {
 		_, err = io.Copy(w, iotest.OneByteReader(bytes.NewReader(expectedData)))
 		require.NoError(t, err)
 		require.FileExists(t, tempFilePath)
+		require.Equal(t, len(expectedData), w.BytesWritten())
 
 		data, err := os.ReadFile(tempFilePath)
 		require.NoError(t, err)
@@ -50,5 +51,6 @@ func TestLazyWriter(t *testing.T) {
 		n, err := w.Write(make([]byte, 100))
 		require.Equal(t, 0, n)
 		require.Equal(t, assert.AnError, err)
+		require.Equal(t, 0, w.BytesWritten())
 	})
 }
