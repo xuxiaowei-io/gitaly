@@ -33,7 +33,8 @@ Please complete all but the "Reading material" section in your first few working
   - [ ]  [follow these instructions](https://about.gitlab.com/handbook/people-group/engineering/team-pto-calendar/#steps), and use `gitlab.com_mc911ncuk38bfngud133tjb4m8@group.calendar.google.com` as the Calendar ID.
 - Reading material
   - [ ] check out the [README](https://gitlab.com/gitlab-org/gitaly/-/blob/master/README.md) at https://gitlab.com/gitlab-org/gitaly, without getting lost in too much detail
-    - [ ] watch video [presentations](https://gitlab.com/gitlab-org/gitaly/-/blob/master/README.md#presentations) linked in README
+  - [ ] visit the [Gitaly Training & Resources Youtube channel](https://youtube.com/playlist?list=PL05JrBw4t0KqPMCB7xW1ExIRp6YuD_7_N)
+        for videos on how Gitaly works.
   - [ ] checkout the Gitaly doc [README](https://gitlab.com/gitlab-org/gitaly/-/blob/master/doc/README.md)
   - [ ] familiarize yourself with the [Merge request workflow](https://docs.gitlab.com/ee/development/contributing/merge_request_workflow.html) specific to working _on_ GitLab (the whole page)
   - [ ] check out the [team page](https://about.gitlab.com/handbook/engineering/development/enablement/systems/gitaly/)
