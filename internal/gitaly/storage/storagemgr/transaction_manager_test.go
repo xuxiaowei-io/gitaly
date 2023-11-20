@@ -790,6 +790,49 @@ func TestTransactionManager(t *testing.T) {
 			},
 		},
 		{
+			desc: "file-directory conflict solved in the same transaction",
+			steps: steps{
+				StartManager{},
+				Begin{
+					TransactionID: 1,
+					RelativePath:  relativePath,
+				},
+				Commit{
+					TransactionID: 1,
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/parent": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
+					},
+				},
+				Begin{
+					TransactionID:       2,
+					RelativePath:        relativePath,
+					ExpectedSnapshotLSN: 1,
+				},
+				UpdateReferences{
+					TransactionID: 2,
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/parent": {OldOID: setup.Commits.First.OID, NewOID: setup.ObjectHash.ZeroOID},
+					},
+				},
+				Commit{
+					TransactionID: 2,
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/parent/child": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
+					},
+				},
+			},
+			expectedState: StateAssertion{
+				Database: DatabaseState{
+					string(keyAppliedLSN(partitionID)): LSN(2).toProto(),
+				},
+				Repositories: RepositoryStates{
+					relativePath: {
+						References: []git.Reference{{Name: "refs/heads/parent/child", Target: setup.Commits.First.OID.String()}},
+					},
+				},
+			},
+		},
+		{
 			desc: "create a branch to a non-commit object",
 			steps: steps{
 				StartManager{},
@@ -1705,45 +1748,6 @@ func TestTransactionManager(t *testing.T) {
 			},
 		},
 		{
-			desc: "initial value is only recorded on the first time",
-			steps: steps{
-				StartManager{},
-				Begin{
-					RelativePath: relativePath,
-				},
-				RecordInitialReferenceValues{
-					InitialValues: map[git.ReferenceName]git.ObjectID{
-						"refs/heads/main": setup.ObjectHash.ZeroOID,
-					},
-				},
-				RecordInitialReferenceValues{
-					InitialValues: map[git.ReferenceName]git.ObjectID{
-						"refs/heads/main":     setup.Commits.Third.OID,
-						"refs/heads/branch-2": setup.ObjectHash.ZeroOID,
-					},
-				},
-				Commit{
-					ReferenceUpdates: ReferenceUpdates{
-						"refs/heads/main":     {NewOID: setup.Commits.First.OID},
-						"refs/heads/branch-2": {NewOID: setup.Commits.First.OID},
-					},
-				},
-			},
-			expectedState: StateAssertion{
-				Database: DatabaseState{
-					string(keyAppliedLSN(partitionID)): LSN(1).toProto(),
-				},
-				Repositories: RepositoryStates{
-					relativePath: {
-						References: []git.Reference{
-							{Name: "refs/heads/branch-2", Target: setup.Commits.First.OID.String()},
-							{Name: "refs/heads/main", Target: setup.Commits.First.OID.String()},
-						},
-					},
-				},
-			},
-		},
-		{
 			desc: "initial value is set on the first update",
 			steps: steps{
 				StartManager{},
@@ -2340,10 +2344,14 @@ func TestTransactionManager(t *testing.T) {
 				Database: DatabaseState{
 					string(keyLogEntry(partitionID, 1)): &gitalypb.LogEntry{
 						RelativePath: relativePath,
-						ReferenceUpdates: []*gitalypb.LogEntry_ReferenceUpdate{
+						ReferenceTransactions: []*gitalypb.LogEntry_ReferenceTransaction{
 							{
-								ReferenceName: []byte("refs/heads/main"),
-								NewOid:        []byte(setup.Commits.First.OID),
+								Changes: []*gitalypb.LogEntry_ReferenceTransaction_Change{
+									{
+										ReferenceName: []byte("refs/heads/main"),
+										NewOid:        []byte(setup.Commits.First.OID),
+									},
+								},
 							},
 						},
 					},
@@ -6640,7 +6648,7 @@ func checkManagerError(t *testing.T, ctx context.Context, managerErrChannel chan
 	t.Helper()
 
 	testTransaction := &Transaction{
-		referenceUpdates: ReferenceUpdates{"sentinel": {}},
+		referenceUpdates: []ReferenceUpdates{{"sentinel": {}}},
 		result:           make(chan error, 1),
 		finish:           func() error { return nil },
 	}
