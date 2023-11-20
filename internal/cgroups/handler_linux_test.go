@@ -735,6 +735,18 @@ oom_kill 3`},
 				{"cpu.stat", `nr_periods 10
 nr_throttled 50
 throttled_time 1000000`}, // 0.001 seconds
+				{"memory.stat", `cache 0
+rss 0
+inactive_anon 100
+active_anon 200
+inactive_file 300
+active_file 400
+total_cache 235000000
+total_rss 234000000
+total_inactive_anon 200000000
+total_active_anon 34000000
+total_inactive_file 100000000
+total_active_file 135000000`},
 			},
 			expectedStats: Stats{
 				ParentStats: CgroupStats{
@@ -744,6 +756,12 @@ throttled_time 1000000`}, // 0.001 seconds
 					MemoryLimit:          2000000000,
 					OOMKills:             3,
 					UnderOOM:             true,
+					TotalAnon:            234000000,
+					TotalActiveAnon:      34000000,
+					TotalInactiveAnon:    200000000,
+					TotalFile:            235000000,
+					TotalActiveFile:      135000000,
+					TotalInactiveFile:    100000000,
 				},
 			},
 		},
@@ -773,6 +791,12 @@ oom_kill 5`},
 				{"cpu.stat", `nr_periods 10
 nr_throttled 50
 throttled_usec 1000000`}, // 0.001 seconds
+				{"memory.stat", `anon 234000000
+file 235000000
+inactive_anon 200000000
+active_anon 34000000
+inactive_file 100000000
+active_file 135000000`},
 			},
 			expectedStats: Stats{
 				ParentStats: CgroupStats{
@@ -781,6 +805,12 @@ throttled_usec 1000000`}, // 0.001 seconds
 					MemoryUsage:          1234000000,
 					MemoryLimit:          2000000000,
 					OOMKills:             5,
+					TotalAnon:            234000000,
+					TotalActiveAnon:      34000000,
+					TotalInactiveAnon:    200000000,
+					TotalFile:            235000000,
+					TotalActiveFile:      135000000,
+					TotalInactiveFile:    100000000,
 				},
 			},
 		},

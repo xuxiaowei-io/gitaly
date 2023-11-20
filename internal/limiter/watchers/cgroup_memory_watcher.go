@@ -73,14 +73,14 @@ func (c *CgroupMemoryWatcher) Poll(context.Context) (*limiter.BackoffEvent, erro
 	// for some special insignificant cases (LazyFree for example). A portion of the Page Caches, noted by `inactive_file`,
 	// is the target for the eviction first. So, it makes sense to exclude the easy evictable memory from the threshold.
 	if parentStats.MemoryLimit > 0 && parentStats.MemoryUsage > 0 &&
-		float64(parentStats.MemoryUsage-parentStats.InactiveFile)/float64(parentStats.MemoryLimit) >= c.memoryThreshold {
+		float64(parentStats.MemoryUsage-parentStats.TotalInactiveFile)/float64(parentStats.MemoryLimit) >= c.memoryThreshold {
 		return &limiter.BackoffEvent{
 			WatcherName:   c.Name(),
 			ShouldBackoff: true,
 			Reason:        "cgroup memory exceeds threshold",
 			Stats: map[string]any{
 				"memory_usage":     parentStats.MemoryUsage,
-				"inactive_file":    parentStats.InactiveFile,
+				"inactive_file":    parentStats.TotalInactiveFile,
 				"memory_limit":     parentStats.MemoryLimit,
 				"memory_threshold": c.memoryThreshold,
 			},

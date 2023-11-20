@@ -34,18 +34,18 @@ type CgroupStats struct {
 	// UnderOOM is the current OOM status of a cgroup. This information is available for Cgroup V1 only. It's read
 	// from the `memory.oom_control` file.
 	UnderOOM bool
-	// Anon reflects the `rss` (V1) or `anon` (V2) of `memory.stat` file. That's amount of memory used in anonymous mappings
-	Anon uint64
+	// TotalAnon reflects the `rss` (V1) or `anon` (V2) of `memory.stat` file. That's amount of memory used in anonymous mappings
+	TotalAnon uint64
 	// ActiveAnon reflects the `active_file` of `memory.stat` file, anonymous and swap cache memory on active LRU list.
-	ActiveAnon uint64
+	TotalActiveAnon uint64
 	// InactiveAnon reflects the `inactive_anon` of `memory.stat` file, anonymous and swap cache memory on inactive LRU list.
-	InactiveAnon uint64
-	// File reflects the `cache` (V1) or `file` (V2) of `memory.stat` file, bytes of page cache memory.
-	File uint64
-	// ActiveFile reflects the `active_file` of `memory.stat` file, bytes of file-backed memory that cannot be reclaimed.
-	ActiveFile uint64
-	// InactiveFile reflects the `inactive_file` of `memory.stat` file, bytes of file-backed memory on inactive LRU list.
-	InactiveFile uint64
+	TotalInactiveAnon uint64
+	// TotalFile reflects the `cache` (V1) or `file` (V2) of `memory.stat` file, bytes of page cache memory.
+	TotalFile uint64
+	// TotalActiveFile reflects the `active_file` of `memory.stat` file, bytes of file-backed memory that cannot be reclaimed.
+	TotalActiveFile uint64
+	// TotalInactiveFile reflects the `inactive_file` of `memory.stat` file, bytes of file-backed memory on inactive LRU list.
+	TotalInactiveFile uint64
 }
 
 // Stats stores statistics of all cgroups managed by a manager

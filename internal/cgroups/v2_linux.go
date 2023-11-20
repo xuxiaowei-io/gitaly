@@ -189,14 +189,18 @@ func (cvh *cgroupV2Handler) stats() (Stats, error) {
 			CPUThrottledDuration: float64(metrics.CPU.ThrottledUsec) / float64(time.Second),
 			MemoryUsage:          metrics.Memory.Usage,
 			MemoryLimit:          metrics.Memory.UsageLimit,
-			Anon:                 metrics.Memory.Anon,
-			ActiveAnon:           metrics.Memory.ActiveAnon,
-			InactiveAnon:         metrics.Memory.InactiveAnon,
-			File:                 metrics.Memory.File,
-			ActiveFile:           metrics.Memory.ActiveFile,
-			InactiveFile:         metrics.Memory.InactiveFile,
+			// memory.stat breaks down the cgroup's memory footprint into different types of memory. In
+			// Cgroup V2, this file includes the consumption of the cgroup’s entire subtree. Total_* stats
+			// were removed.
+			TotalAnon:         metrics.Memory.Anon,
+			TotalActiveAnon:   metrics.Memory.ActiveAnon,
+			TotalInactiveAnon: metrics.Memory.InactiveAnon,
+			TotalFile:         metrics.Memory.File,
+			TotalActiveFile:   metrics.Memory.ActiveFile,
+			TotalInactiveFile: metrics.Memory.InactiveFile,
 		},
 	}
+
 	if metrics.MemoryEvents != nil {
 		stats.ParentStats.OOMKills = metrics.MemoryEvents.OomKill
 	}
