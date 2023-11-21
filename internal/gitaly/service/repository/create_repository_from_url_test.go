@@ -181,8 +181,14 @@ func TestCreateRepositoryFromURL_redirect(t *testing.T) {
 	require.True(t, httpServerState.serverVisited, "git command should make the initial HTTP request")
 	require.False(t, httpServerState.serverVisitedAfterRedirect, "git command should not follow HTTP redirection")
 
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "The requested URL returned error: 301")
+	testhelper.RequireStatusWithErrorMetadataRegexp(t,
+		structerr.NewInternal("creating repository: cloning repository: exit status 128"),
+		err,
+		map[string]string{
+			"stderr":           "The requested URL returned error: 301",
+			"resolved_address": "",
+		},
+	)
 }
 
 func TestCreateRepositoryFromURL_fsck(t *testing.T) {
@@ -214,9 +220,14 @@ func TestCreateRepositoryFromURL_fsck(t *testing.T) {
 		Repository: targetRepoProto,
 		Url:        "file://" + sourceRepoPath,
 	})
-	require.Error(t, err)
-	testhelper.RequireGrpcCode(t, err, codes.Internal)
-	require.Contains(t, err.Error(), "duplicateEntries: contains duplicate file entries")
+	testhelper.RequireStatusWithErrorMetadataRegexp(t,
+		structerr.NewInternal("creating repository: cloning repository: exit status 128"),
+		err,
+		map[string]string{
+			"stderr":           "duplicateEntries: contains duplicate file entries",
+			"resolved_address": "",
+		},
+	)
 }
 
 func TestServer_CloneFromURLCommand(t *testing.T) {
