@@ -404,6 +404,7 @@ func (mgr *Manager) writeBundle(ctx context.Context, repo Repository, step *Step
 		return mgr.sink.GetWriter(ctx, step.BundlePath)
 	})
 	defer func() {
+		backupBundleSize.Observe(float64(w.BytesWritten()))
 		if err := w.Close(); err != nil && returnErr == nil {
 			returnErr = fmt.Errorf("write bundle: %w", err)
 		}
