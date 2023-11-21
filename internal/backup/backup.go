@@ -381,6 +381,9 @@ func setContextServerInfo(ctx context.Context, server *storage.ServerInfo, stora
 }
 
 func (mgr *Manager) writeBundle(ctx context.Context, repo Repository, step *Step) (returnErr error) {
+	timer := prometheus.NewTimer(backupLatency.WithLabelValues("bundle"))
+	defer timer.ObserveDuration()
+
 	var patterns io.Reader
 	if len(step.PreviousRefPath) > 0 {
 		// If there is a previous ref path, then we are creating an increment
@@ -493,6 +496,9 @@ func (mgr *Manager) restoreBundle(ctx context.Context, repo Repository, path str
 }
 
 func (mgr *Manager) writeCustomHooks(ctx context.Context, repo Repository, path string) (returnErr error) {
+	timer := prometheus.NewTimer(backupLatency.WithLabelValues("custom_hooks"))
+	defer timer.ObserveDuration()
+
 	w := NewLazyWriter(func() (io.WriteCloser, error) {
 		return mgr.sink.GetWriter(ctx, path)
 	})
@@ -526,6 +532,9 @@ func (mgr *Manager) restoreCustomHooks(ctx context.Context, repo Repository, pat
 // writeRefs writes the previously fetched list of refs in the same output
 // format as `git-show-ref(1)`
 func (mgr *Manager) writeRefs(ctx context.Context, path string, refs []git.Reference) (returnErr error) {
+	timer := prometheus.NewTimer(backupLatency.WithLabelValues("refs"))
+	defer timer.ObserveDuration()
+
 	w, err := mgr.sink.GetWriter(ctx, path)
 	if err != nil {
 		return fmt.Errorf("write refs: %w", err)
