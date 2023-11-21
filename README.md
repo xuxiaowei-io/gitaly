@@ -152,74 +152,13 @@ Gitaly supports Continuous Profiling through [LabKit][] using [Stackdriver Profi
 
 For more information on how to set it up, see the [LabKit monitoring docs](https://gitlab.com/gitlab-org/labkit/-/blob/master/monitoring/doc.go).
 
+## Training Videos
+
+The [Gitaly Training and Resources Playlist](https://www.youtube.com/playlist?list=PL05JrBw4t0KqPMCB7xW1ExIRp6YuD_7_N)
+contains videos that give an overview into how Gitaly works, as well as dive
+deep into different parts of Gitaly and even Git.
+
 ## Presentations
-
-- [Praefect code walkthrough](https://youtu.be/w2R4ptDLPH4)
-
-  A walkthrough of the Praefect codebase.
-
-- [How to configure backpressure in Gitaly](https://youtu.be/wX9CtFdLYxE)
-
-  An overview of the knobs in the Gitaly config to set limits on incoming traffic.
-  There is also [written documentation](doc/backpressure.md).
-
-- [How Gitaly fits into GitLab (Youtube)](https://www.youtube.com/playlist?list=PL05JrBw4t0KqoFUiX42JG7BAc7pipMBAy) - a series of 1-hour training videos for contributors new to GitLab and Gitaly.
-  - [Part 1: the Gitaly client in `gitlab-ce`, 2019-02-21](https://www.youtube.com/watch?v=j0HNiKCnLTI&list=PL05JrBw4t0KqoFUiX42JG7BAc7pipMBAy)
-
-    Overview of GitLab backend processes, GitLab Rails deep dive: Gitaly
-    config in GitLab Rails, SQL data model, overview of how Gitaly calls get
-    made via GitalyClient.call.
-
-  - [Part 2: Git SSH, 2019-02-28](https://www.youtube.com/watch?v=0kY0HPFn25o&list=PL05JrBw4t0KqoFUiX42JG7BAc7pipMBAy)
-
-    What is in a `gitaly-proto` Repository message, legacy vs
-    hashed storage (repository directories), `git clone` via SSH,
-    `gitlab-shell`, `authorized_keys` and forced commands, what happens
-    during `git push`.
-
-  - [Part 3: Git push, 2019-03-07](https://www.youtube.com/watch?v=-kXYycFYDzo&list=PL05JrBw4t0KqoFUiX42JG7BAc7pipMBAy)
-
-    A closer look at the final stage of `git push` where the Git hooks run
-    and the refs get updated. Interaction between the Git hooks and GitLab
-    internal API. The Git
-    [object quarantine mechanism](https://git-scm.com/docs/git-receive-pack#_quarantine_environment).
-    Preview of Git HTTP (to be discussed next time).
-
-  - [Part 4: Git HTTP, 2019-03-14](https://www.youtube.com/watch?v=lM13p8lCu8A&list=PL05JrBw4t0KqoFUiX42JG7BAc7pipMBAy)
-
-    Intercepting Git HTTP traffic with mitmproxy, overview of
-    Git HTTP clone steps, code walk in `gitlab-workhorse` and `gitlab-ce`,
-    investigating internal workhorse API messages used for Git HTTP.
-
-  - [Part 5: Merge Requests across Forks, 2019-03-21](https://www.youtube.com/watch?v=yGSuOz0XOHQ&list=PL05JrBw4t0KqoFUiX42JG7BAc7pipMBAy)
-
-    Fixing a locally broken Ruby gem C
-    extension by recompiling, demo of how creating a MR across forks
-    causes new commits to suddenly appear in the fork parent repository,
-    deep dive into the FetchSourceBranch RPC, adding debug code to see
-    how address and authentication metadata is passed down to
-    `gitaly-ruby`, failed attempt to log `gitaly-ssh` arguments, comparison
-    of `gitaly-ssh` and `gitlab-shell`, a Gitaly server can end up making RPC calls to itself.
-
-  - [Part 6: Creating Git commits on behalf of Git users, 2019-03-21](https://www.youtube.com/watch?v=Rbe0KGTLkxY&list=PL05JrBw4t0KqoFUiX42JG7BAc7pipMBAy)
-
-    Demonstrate how usually Git hooks are run by
-    `git-receive-pack`, but sometimes by `gitaly-ruby`. Deep dive into
-    UserCommitFiles: where do those hooks actually get run? A look at
-    UserMerge. How does Gitaly make merge commits. A look at the
-    implementation of the special feature where users are not allowed
-    push to a branch, but are allowed to merge into it.
-
-  - [Part 7: How Gitaly uses Prometheus monitoring, 2019-07-09](https://youtu.be/R6F674Nj3wI)
-
-    What is [Prometheus](https://prometheus.io/). Reconstructing a
-    [Grafana](https://dashboards.gitlab.net) dashboard panel
-    with [PromQL](https://prometheus.io/docs/prometheus/latest/querying/basics/).
-    Adding a new counter to Gitaly. Querying Prometheus in Gitaly
-    during development. Comparing latency calculation with
-    [ELK](https://log.gitlab.net). [GRPC Prometheus
-    middleware](https://github.com/grpc-ecosystem/go-grpc-prometheus)
-    in Gitaly.
 
 - [TheConf talk on Scaling GitLab Git storage with Gitaly, 2019-08-16](https://speakerdeck.com/olsfer/how-gitlab-scaled-git-access-with-a-go-service)
 - [Infrastructure Team Update 2017-05-11](https://about.gitlab.com/2017/05/11/functional-group-updates/#infrastructure-team)
