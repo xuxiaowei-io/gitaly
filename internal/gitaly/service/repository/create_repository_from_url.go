@@ -102,7 +102,10 @@ func (s *server) CreateRepositoryFromURL(ctx context.Context, req *gitalypb.Crea
 		}
 
 		if err := cmd.Wait(); err != nil {
-			return fmt.Errorf("cloning repository: %w, stderr: %q", err, stderr.String())
+			return structerr.NewInternal("cloning repository: %w", err).WithMetadataItems(
+				structerr.MetadataItem{Key: "stderr", Value: stderr.String()},
+				structerr.MetadataItem{Key: "resolved_address", Value: req.GetResolvedAddress()},
+			)
 		}
 
 		if err := s.removeOriginInRepo(ctx, repo); err != nil {
