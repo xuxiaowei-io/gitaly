@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 
+	"gitlab.com/gitlab-org/gitaly/v16/internal/bundleuri"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/pktline"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
@@ -62,11 +63,13 @@ func (s *server) handleInfoRefs(ctx context.Context, service, repoPath string, r
 		cmdOpts = append(cmdOpts, git.WithDisabledHooks())
 	}
 
-	config, err := git.ConvertConfigOptions(req.GitConfigOptions)
+	gitConfig, err := git.ConvertConfigOptions(req.GitConfigOptions)
 	if err != nil {
 		return err
 	}
-	cmdOpts = append(cmdOpts, git.WithConfig(config...))
+	gitConfig = append(gitConfig, bundleuri.InfoRefsGitConfig(ctx)...)
+
+	cmdOpts = append(cmdOpts, git.WithConfig(gitConfig...))
 
 	if _, err := pktline.WriteString(w, fmt.Sprintf("# service=git-%s\n", service)); err != nil {
 		return structerr.NewInternal("pktLine: %w", err)

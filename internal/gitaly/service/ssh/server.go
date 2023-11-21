@@ -2,6 +2,7 @@ package ssh
 
 import (
 	"github.com/prometheus/client_golang/prometheus"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/backup"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
@@ -20,6 +21,8 @@ type server struct {
 	uploadPackRequestTimeoutTickerFactory    func() helper.Ticker
 	uploadArchiveRequestTimeoutTickerFactory func() helper.Ticker
 	packfileNegotiationMetrics               *prometheus.CounterVec
+	backupLocator                            backup.Locator
+	backupSink                               backup.Sink
 }
 
 // NewServer creates a new instance of a grpc SSHServer
@@ -39,6 +42,8 @@ func NewServer(deps *service.Dependencies, serverOpts ...ServerOpt) gitalypb.SSH
 			prometheus.CounterOpts{},
 			[]string{"git_negotiation_feature"},
 		),
+		backupLocator: deps.GetBackupLocator(),
+		backupSink:    deps.GetBackupSink(),
 	}
 
 	for _, serverOpt := range serverOpts {

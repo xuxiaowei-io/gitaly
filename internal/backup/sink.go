@@ -6,17 +6,22 @@ import (
 	"io"
 	"net/url"
 	"strings"
+	"time"
 
 	"gocloud.dev/blob"
 	"gocloud.dev/blob/azureblob"
 	"gocloud.dev/blob/gcsblob"
+	"gocloud.dev/blob/memblob"
 	"gocloud.dev/blob/s3blob"
 	"gocloud.dev/gcerrors"
 )
 
-// ResolveSink returns a sink implementation based on the provided path.
-func ResolveSink(ctx context.Context, path string) (Sink, error) {
-	parsed, err := url.Parse(path)
+// ResolveSink returns a sink implementation based on the provided uri.
+// The storage engine is chosen based on the provided uri.
+// It is the caller's responsibility to provide all required environment
+// variables in order to get properly initialized storage engine driver.
+func ResolveSink(ctx context.Context, uri string) (Sink, error) {
+	parsed, err := url.Parse(uri)
 	if err != nil {
 		return nil, err
 	}
@@ -29,11 +34,10 @@ func ResolveSink(ctx context.Context, path string) (Sink, error) {
 	}
 
 	switch scheme {
-	case s3blob.Scheme, azureblob.Scheme, gcsblob.Scheme:
-		sink, err := NewStorageServiceSink(ctx, path)
-		return sink, err
+	case s3blob.Scheme, azureblob.Scheme, gcsblob.Scheme, memblob.Scheme:
+		return newStorageServiceSink(ctx, uri)
 	default:
-		return NewFilesystemSink(path), nil
+		return NewFilesystemSink(uri), nil
 	}
 }
 
@@ -42,11 +46,8 @@ type StorageServiceSink struct {
 	bucket *blob.Bucket
 }
 
-// NewStorageServiceSink returns initialized instance of StorageServiceSink instance.
-// The storage engine is chosen based on the provided url value and a set of pre-registered
-// blank imports in that file. It is the caller's responsibility to provide all required environment
-// variables in order to get properly initialized storage engine driver.
-func NewStorageServiceSink(ctx context.Context, url string) (*StorageServiceSink, error) {
+// newStorageServiceSink returns initialized instance of StorageServiceSink instance.
+func newStorageServiceSink(ctx context.Context, url string) (*StorageServiceSink, error) {
 	bucket, err := blob.OpenBucket(ctx, url)
 	if err != nil {
 		return nil, fmt.Errorf("storage service sink: open bucket: %w", err)
@@ -97,4 +98,22 @@ func (s *StorageServiceSink) GetReader(ctx context.Context, relativePath string)
 		return nil, fmt.Errorf("storage service sink: new reader for %q: %w", relativePath, err)
 	}
 	return reader, nil
+}
+
+// SignedURL returns a URL that can be used to GET the blob for the duration
+// specified in expiry.
+func (s *StorageServiceSink) SignedURL(ctx context.Context, relativePath string, expiry time.Duration) (string, error) {
+	opt := &blob.SignedURLOptions{
+		Expiry: expiry,
+	}
+
+	signed, err := s.bucket.SignedURL(ctx, relativePath, opt)
+	if err != nil {
+		if gcerrors.Code(err) == gcerrors.NotFound {
+			err = ErrDoesntExist
+		}
+		return "", fmt.Errorf("storage service sink: signed URL for %q: %w", relativePath, err)
+	}
+
+	return signed, err
 }

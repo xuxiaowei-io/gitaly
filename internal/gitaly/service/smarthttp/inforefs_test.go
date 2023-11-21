@@ -33,7 +33,10 @@ import (
 func TestInfoRefsUploadPack_successful(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets(featureflag.UploadPackBoundaryBitmapTraversal).Run(t, testInfoRefsUploadPackSuccessful)
+	testhelper.NewFeatureSets(
+		featureflag.UploadPackBoundaryBitmapTraversal,
+		featureflag.BundleURI,
+	).Run(t, testInfoRefsUploadPackSuccessful)
 }
 
 func testInfoRefsUploadPackSuccessful(t *testing.T, ctx context.Context) {
@@ -63,7 +66,10 @@ func testInfoRefsUploadPackSuccessful(t *testing.T, ctx context.Context) {
 func TestInfoRefsUploadPack_internalRefs(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets(featureflag.UploadPackBoundaryBitmapTraversal).Run(t, testInfoRefsUploadPackInternalRefs)
+	testhelper.NewFeatureSets(
+		featureflag.UploadPackBoundaryBitmapTraversal,
+		featureflag.BundleURI,
+	).Run(t, testInfoRefsUploadPackInternalRefs)
 }
 
 func testInfoRefsUploadPackInternalRefs(t *testing.T, ctx context.Context) {
@@ -138,7 +144,10 @@ func testInfoRefsUploadPackInternalRefs(t *testing.T, ctx context.Context) {
 func TestInfoRefsUploadPack_validate(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets(featureflag.UploadPackBoundaryBitmapTraversal).Run(t, testInfoRefsUploadPackValidate)
+	testhelper.NewFeatureSets(
+		featureflag.UploadPackBoundaryBitmapTraversal,
+		featureflag.BundleURI,
+	).Run(t, testInfoRefsUploadPackValidate)
 }
 
 func testInfoRefsUploadPackValidate(t *testing.T, ctx context.Context) {
@@ -176,7 +185,10 @@ func testInfoRefsUploadPackValidate(t *testing.T, ctx context.Context) {
 func TestInfoRefsUploadPack_partialClone(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets(featureflag.UploadPackBoundaryBitmapTraversal).Run(t, testInfoRefsUploadPackPartialClone)
+	testhelper.NewFeatureSets(
+		featureflag.UploadPackBoundaryBitmapTraversal,
+		featureflag.BundleURI,
+	).Run(t, testInfoRefsUploadPackPartialClone)
 }
 
 func testInfoRefsUploadPackPartialClone(t *testing.T, ctx context.Context) {
@@ -204,7 +216,10 @@ func testInfoRefsUploadPackPartialClone(t *testing.T, ctx context.Context) {
 func TestInfoRefsUploadPack_gitConfigOptions(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets(featureflag.UploadPackBoundaryBitmapTraversal).Run(t, testInfoRefsUploadPackGitConfigOptions)
+	testhelper.NewFeatureSets(
+		featureflag.UploadPackBoundaryBitmapTraversal,
+		featureflag.BundleURI,
+	).Run(t, testInfoRefsUploadPackGitConfigOptions)
 }
 
 func testInfoRefsUploadPackGitConfigOptions(t *testing.T, ctx context.Context) {
@@ -230,10 +245,45 @@ func testInfoRefsUploadPackGitConfigOptions(t *testing.T, ctx context.Context) {
 	})
 }
 
+func TestInfoRefsUploadPack_bundleURI(t *testing.T) {
+	t.Parallel()
+
+	testhelper.NewFeatureSets(
+		featureflag.UploadPackBoundaryBitmapTraversal,
+	).Run(t, testInfoRefsUploadPackBundleURI)
+}
+
+func testInfoRefsUploadPackBundleURI(t *testing.T, ctx context.Context) {
+	t.Parallel()
+
+	ctx = featureflag.OutgoingCtxWithFeatureFlag(ctx, featureflag.BundleURI, true)
+
+	cfg := testcfg.Build(t)
+	cfg.SocketPath = runSmartHTTPServer(t, cfg)
+
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
+
+	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"), gittest.WithParents())
+
+	rpcRequest := &gitalypb.InfoRefsRequest{
+		Repository:       repo,
+		GitProtocol:      git.ProtocolV2,
+		GitConfigOptions: []string{"transfer.bundleURI=true"},
+	}
+	response, err := makeInfoRefsUploadPackRequest(t, ctx, cfg.SocketPath, cfg.Auth.Token, rpcRequest)
+	require.NoError(t, err)
+	requireAdvertisedCapabilitiesV2(t, string(response), "git-upload-pack", []string{
+		"bundle-uri",
+	})
+}
+
 func TestInfoRefsUploadPack_gitProtocol(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets(featureflag.UploadPackBoundaryBitmapTraversal).Run(t, testInfoRefsUploadPackGitProtocol)
+	testhelper.NewFeatureSets(
+		featureflag.UploadPackBoundaryBitmapTraversal,
+		featureflag.BundleURI,
+	).Run(t, testInfoRefsUploadPackGitProtocol)
 }
 
 func testInfoRefsUploadPackGitProtocol(t *testing.T, ctx context.Context) {
@@ -290,7 +340,10 @@ func makeInfoRefsUploadPackRequest(t *testing.T, ctx context.Context, serverSock
 func TestInfoRefsReceivePack_successful(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets(featureflag.UploadPackBoundaryBitmapTraversal).Run(t, testInfoRefsReceivePackSuccessful)
+	testhelper.NewFeatureSets(
+		featureflag.UploadPackBoundaryBitmapTraversal,
+		featureflag.BundleURI,
+	).Run(t, testInfoRefsReceivePackSuccessful)
 }
 
 func testInfoRefsReceivePackSuccessful(t *testing.T, ctx context.Context) {
@@ -322,7 +375,10 @@ func TestInfoRefsReceivePack_hiddenRefs(t *testing.T) {
 Object pools are not yet support with WAL. This test is testing with a pooled repository.`)
 
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.UploadPackBoundaryBitmapTraversal).Run(t, testInfoRefsReceivePackHiddenRefs)
+	testhelper.NewFeatureSets(
+		featureflag.UploadPackBoundaryBitmapTraversal,
+		featureflag.BundleURI,
+	).Run(t, testInfoRefsReceivePackHiddenRefs)
 }
 
 func testInfoRefsReceivePackHiddenRefs(t *testing.T, ctx context.Context) {
@@ -352,7 +408,10 @@ func testInfoRefsReceivePackHiddenRefs(t *testing.T, ctx context.Context) {
 func TestInfoRefsReceivePack_validate(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets(featureflag.UploadPackBoundaryBitmapTraversal).Run(t, testInfoRefsReceivePackValidate)
+	testhelper.NewFeatureSets(
+		featureflag.UploadPackBoundaryBitmapTraversal,
+		featureflag.BundleURI,
+	).Run(t, testInfoRefsReceivePackValidate)
 }
 
 func testInfoRefsReceivePackValidate(t *testing.T, ctx context.Context) {
@@ -405,6 +464,24 @@ func makeInfoRefsReceivePackRequest(t *testing.T, ctx context.Context, serverSoc
 	return response, err
 }
 
+func requireAdvertisedCapabilitiesV2(t *testing.T, responseBody, expectedService string, expectedCapabilities []string) {
+	t.Helper()
+
+	responseLines := strings.SplitAfter(responseBody, "\n")
+	require.Greater(t, len(responseLines), 2)
+
+	// The first line contains the service announcement
+	require.Equal(t, gittest.Pktlinef(t, "# service=%s\n", expectedService), responseLines[0])
+
+	// The second line contains the protocol version
+	require.Equal(t, "0000"+gittest.Pktlinef(t, "version %d\n", 2), responseLines[1])
+
+	// The third line and following lines contain capabilities
+	for _, expectedCap := range expectedCapabilities {
+		require.Contains(t, responseLines[2:], gittest.Pktlinef(t, "%s\n", expectedCap))
+	}
+}
+
 func requireAdvertisedRefs(t *testing.T, responseBody, expectedService string, expectedRefs []string) {
 	t.Helper()
 
@@ -444,7 +521,10 @@ func (ms *mockStreamer) PutStream(ctx context.Context, repo *gitalypb.Repository
 func TestInfoRefsUploadPack_cache(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets(featureflag.UploadPackBoundaryBitmapTraversal).Run(t, testInfoRefsUploadPackCache)
+	testhelper.NewFeatureSets(
+		featureflag.UploadPackBoundaryBitmapTraversal,
+		featureflag.BundleURI,
+	).Run(t, testInfoRefsUploadPackCache)
 }
 
 func testInfoRefsUploadPackCache(t *testing.T, ctx context.Context) {

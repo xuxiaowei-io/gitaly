@@ -57,7 +57,10 @@ func runTestWithAndWithoutConfigOptions(
 func TestServer_PostUploadWithChannel(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets(featureflag.UploadPackBoundaryBitmapTraversal).Run(t, testServerPostUploadWithChannel)
+	testhelper.NewFeatureSets(
+		featureflag.UploadPackBoundaryBitmapTraversal,
+		featureflag.BundleURI,
+	).Run(t, testServerPostUploadWithChannel)
 }
 
 func testServerPostUploadWithChannel(t *testing.T, ctx context.Context) {
@@ -108,7 +111,10 @@ func testServerPostUpload(t *testing.T, ctx context.Context, makeRequest request
 func TestServer_PostUploadPackSidechannel_gitConfigOptions(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets(featureflag.UploadPackBoundaryBitmapTraversal).Run(t, testServerPostUploadPackSidechannelGitConfigOptions)
+	testhelper.NewFeatureSets(
+		featureflag.UploadPackBoundaryBitmapTraversal,
+		featureflag.BundleURI,
+	).Run(t, testServerPostUploadPackSidechannelGitConfigOptions)
 }
 
 func testServerPostUploadPackSidechannelGitConfigOptions(t *testing.T, ctx context.Context) {
@@ -177,7 +183,10 @@ func testServerPostUploadPackGitConfigOptions(t *testing.T, ctx context.Context,
 func TestServer_PostUploadPackWithSidechannel_gitProtocol(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets(featureflag.UploadPackBoundaryBitmapTraversal).Run(t, testServerPostUploadPackWithSidechannelGitProtocol)
+	testhelper.NewFeatureSets(
+		featureflag.UploadPackBoundaryBitmapTraversal,
+		featureflag.BundleURI,
+	).Run(t, testServerPostUploadPackWithSidechannelGitProtocol)
 }
 
 func testServerPostUploadPackWithSidechannelGitProtocol(t *testing.T, ctx context.Context) {
@@ -220,7 +229,10 @@ func testServerPostUploadPackGitProtocol(t *testing.T, ctx context.Context, make
 func TestServer_PostUploadPackWithSidechannel_suppressDeepenExitError(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets(featureflag.UploadPackBoundaryBitmapTraversal).Run(t, testServerPostUploadPackWithSidechannelSuppressDeepenExitError)
+	testhelper.NewFeatureSets(
+		featureflag.UploadPackBoundaryBitmapTraversal,
+		featureflag.BundleURI,
+	).Run(t, testServerPostUploadPackWithSidechannelSuppressDeepenExitError)
 }
 
 func testServerPostUploadPackWithSidechannelSuppressDeepenExitError(t *testing.T, ctx context.Context) {
@@ -250,7 +262,10 @@ func testServerPostUploadPackSuppressDeepenExitError(t *testing.T, ctx context.C
 func TestServer_PostUploadPackWithSidechannel_usesPackObjectsHook(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets(featureflag.UploadPackBoundaryBitmapTraversal).Run(t, testServerPostUploadPackWithSidechannelUsesPackObjectsHook)
+	testhelper.NewFeatureSets(
+		featureflag.UploadPackBoundaryBitmapTraversal,
+		featureflag.BundleURI,
+	).Run(t, testServerPostUploadPackWithSidechannelUsesPackObjectsHook)
 }
 
 func testServerPostUploadPackWithSidechannelUsesPackObjectsHook(t *testing.T, ctx context.Context) {
@@ -300,7 +315,10 @@ func testServerPostUploadPackUsesPackObjectsHook(t *testing.T, ctx context.Conte
 func TestServer_PostUploadPack_validation(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets(featureflag.UploadPackBoundaryBitmapTraversal).Run(t, testServerPostUploadPackValidation)
+	testhelper.NewFeatureSets(
+		featureflag.UploadPackBoundaryBitmapTraversal,
+		featureflag.BundleURI,
+	).Run(t, testServerPostUploadPackValidation)
 }
 
 func testServerPostUploadPackValidation(t *testing.T, ctx context.Context) {
@@ -346,7 +364,10 @@ func testServerPostUploadPackValidationRequest(t *testing.T, ctx context.Context
 func TestServer_PostUploadPackSidechannel_validation(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets(featureflag.UploadPackBoundaryBitmapTraversal).Run(t, testServerPostUploadPackSidechannelValidation)
+	testhelper.NewFeatureSets(
+		featureflag.UploadPackBoundaryBitmapTraversal,
+		featureflag.BundleURI,
+	).Run(t, testServerPostUploadPackSidechannelValidation)
 }
 
 func testServerPostUploadPackSidechannelValidation(t *testing.T, ctx context.Context) {
@@ -426,7 +447,10 @@ func extractPackDataFromResponse(t *testing.T, buf *bytes.Buffer) ([]byte, int, 
 func TestServer_PostUploadPackWithSidechannel_partialClone(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets(featureflag.UploadPackBoundaryBitmapTraversal).Run(t, testServerPostUploadPackWithSidechannelPartialClone)
+	testhelper.NewFeatureSets(
+		featureflag.UploadPackBoundaryBitmapTraversal,
+		featureflag.BundleURI,
+	).Run(t, testServerPostUploadPackWithSidechannelPartialClone)
 }
 
 func testServerPostUploadPackWithSidechannelPartialClone(t *testing.T, ctx context.Context) {
@@ -484,7 +508,10 @@ func testServerPostUploadPackPartialClone(t *testing.T, ctx context.Context, mak
 func TestServer_PostUploadPackWithSidechannel_allowAnySHA1InWant(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets(featureflag.UploadPackBoundaryBitmapTraversal).Run(t, testServerPostUploadPackWithSidechannelAllowAnySHA1InWant)
+	testhelper.NewFeatureSets(
+		featureflag.UploadPackBoundaryBitmapTraversal,
+		featureflag.BundleURI,
+	).Run(t, testServerPostUploadPackWithSidechannelAllowAnySHA1InWant)
 }
 
 func testServerPostUploadPackWithSidechannelAllowAnySHA1InWant(t *testing.T, ctx context.Context) {

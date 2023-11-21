@@ -36,7 +36,10 @@ import (
 )
 
 func runTestWithAndWithoutConfigOptions(t *testing.T, tf func(t *testing.T, ctx context.Context, opts ...testcfg.Option), opts ...testcfg.Option) {
-	testhelper.NewFeatureSets(featureflag.UploadPackBoundaryBitmapTraversal).Run(t, func(t *testing.T, ctx context.Context) {
+	testhelper.NewFeatureSets(
+		featureflag.UploadPackBoundaryBitmapTraversal,
+		featureflag.BundleURI,
+	).Run(t, func(t *testing.T, ctx context.Context) {
 		t.Run("no config options", func(t *testing.T) { tf(t, ctx) })
 
 		if len(opts) > 0 {
@@ -160,7 +163,10 @@ func testUploadPackTimeout(t *testing.T, ctx context.Context, opts ...testcfg.Op
 func TestUploadPackWithSidechannel_client(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets(featureflag.UploadPackBoundaryBitmapTraversal).Run(t, testUploadPackWithSidechannelClient)
+	testhelper.NewFeatureSets(
+		featureflag.UploadPackBoundaryBitmapTraversal,
+		featureflag.BundleURI,
+	).Run(t, testUploadPackWithSidechannelClient)
 }
 
 func testUploadPackWithSidechannelClient(t *testing.T, ctx context.Context) {
@@ -475,7 +481,10 @@ func requireFailedSSHStream(t *testing.T, expectedErr error, recv func() (int32,
 func TestUploadPack_validation(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets(featureflag.UploadPackBoundaryBitmapTraversal).Run(t, testUploadPackValidation)
+	testhelper.NewFeatureSets(
+		featureflag.UploadPackBoundaryBitmapTraversal,
+		featureflag.BundleURI,
+	).Run(t, testUploadPackValidation)
 }
 
 func testUploadPackValidation(t *testing.T, ctx context.Context) {
@@ -777,7 +786,10 @@ func testUploadPackWithoutSideband(t *testing.T, ctx context.Context, opts ...te
 func TestUploadPack_invalidStorage(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets(featureflag.UploadPackBoundaryBitmapTraversal).Run(t, testUploadPackInvalidStorage)
+	testhelper.NewFeatureSets(
+		featureflag.UploadPackBoundaryBitmapTraversal,
+		featureflag.BundleURI,
+	).Run(t, testUploadPackInvalidStorage)
 }
 
 func testUploadPackInvalidStorage(t *testing.T, ctx context.Context) {
@@ -806,7 +818,10 @@ func testUploadPackInvalidStorage(t *testing.T, ctx context.Context) {
 func TestUploadPack_gitFailure(t *testing.T) {
 	t.Parallel()
 
-	testhelper.NewFeatureSets(featureflag.UploadPackBoundaryBitmapTraversal).Run(t, testUploadPackGitFailure)
+	testhelper.NewFeatureSets(
+		featureflag.UploadPackBoundaryBitmapTraversal,
+		featureflag.BundleURI,
+	).Run(t, testUploadPackGitFailure)
 }
 
 func testUploadPackGitFailure(t *testing.T, ctx context.Context) {

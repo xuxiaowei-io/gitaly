@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"time"
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/catfile"
@@ -38,6 +39,9 @@ type Sink interface {
 	// GetReader returns a reader that servers the data stored by relativePath.
 	// If relativePath doesn't exists the ErrDoesntExist will be returned.
 	GetReader(ctx context.Context, relativePath string) (io.ReadCloser, error)
+	// SignedURL returns a URL that can be used to GET the blob for the duration
+	// specified in expiry.
+	SignedURL(ctx context.Context, relativePath string, expiry time.Duration) (string, error)
 }
 
 // Backup represents all the information needed to restore a backup for a repository
