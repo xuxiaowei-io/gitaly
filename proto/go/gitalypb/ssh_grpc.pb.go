@@ -22,13 +22,22 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type SSHServiceClient interface {
-	// SSHUploadPack is an RPC to forward 'git upload-pack' to Gitaly for SSH sessions.
+	// SSHUploadPack is an RPC to forward git-upload-pack(1) to Gitaly for SSH sessions. The RPC uses
+	// bidirectional streaming so the client can stream stdin and the server can stream stdout and
+	// stderr for git-upload-pack(1).
 	SSHUploadPack(ctx context.Context, opts ...grpc.CallOption) (SSHService_SSHUploadPackClient, error)
-	// SSHUploadPackWithSidechannel is an RPC to forward 'git upload-pack' to Gitaly for SSH sessions, via sidechannels.
+	// SSHUploadPackWithSidechannel is an RPC to forward git-upload-pack(1) to Gitaly for SSH
+	// sessions, via sidechannels. Sidechannel connections sidestep gRPC Protobuf message overhead and
+	// allow higher throughput of bulk data transfers. The stdin, stdout, and stderr for the
+	// git-upload-pack(1) are streamed through the sidechannel connection.
 	SSHUploadPackWithSidechannel(ctx context.Context, in *SSHUploadPackWithSidechannelRequest, opts ...grpc.CallOption) (*SSHUploadPackWithSidechannelResponse, error)
-	// SSHReceivePack is an RPC to forward 'git receive-pack' to Gitaly for SSH sessions.
+	// SSHReceivePack is an RPC to forward git-receive-pack(1) to Gitaly for SSH sessions. The RPC uses
+	// bidirectional streaming so the client can stream stdin and the server can stream stdout and
+	// stderr for git-receive-pack(1).
 	SSHReceivePack(ctx context.Context, opts ...grpc.CallOption) (SSHService_SSHReceivePackClient, error)
-	// SSHUploadArchive is an RPC to forward 'git upload-archive' to Gitaly for SSH sessions.
+	// SSHUploadArchive is an RPC to forward git-upload-archive(1) to Gitaly for SSH sessions. The RPC
+	// uses bidirectional streaming so the client can stream stdin and the server can stream stdout
+	// and stderr for git-upload-archive(1).
 	SSHUploadArchive(ctx context.Context, opts ...grpc.CallOption) (SSHService_SSHUploadArchiveClient, error)
 }
 
@@ -146,13 +155,22 @@ func (x *sSHServiceSSHUploadArchiveClient) Recv() (*SSHUploadArchiveResponse, er
 // All implementations must embed UnimplementedSSHServiceServer
 // for forward compatibility
 type SSHServiceServer interface {
-	// SSHUploadPack is an RPC to forward 'git upload-pack' to Gitaly for SSH sessions.
+	// SSHUploadPack is an RPC to forward git-upload-pack(1) to Gitaly for SSH sessions. The RPC uses
+	// bidirectional streaming so the client can stream stdin and the server can stream stdout and
+	// stderr for git-upload-pack(1).
 	SSHUploadPack(SSHService_SSHUploadPackServer) error
-	// SSHUploadPackWithSidechannel is an RPC to forward 'git upload-pack' to Gitaly for SSH sessions, via sidechannels.
+	// SSHUploadPackWithSidechannel is an RPC to forward git-upload-pack(1) to Gitaly for SSH
+	// sessions, via sidechannels. Sidechannel connections sidestep gRPC Protobuf message overhead and
+	// allow higher throughput of bulk data transfers. The stdin, stdout, and stderr for the
+	// git-upload-pack(1) are streamed through the sidechannel connection.
 	SSHUploadPackWithSidechannel(context.Context, *SSHUploadPackWithSidechannelRequest) (*SSHUploadPackWithSidechannelResponse, error)
-	// SSHReceivePack is an RPC to forward 'git receive-pack' to Gitaly for SSH sessions.
+	// SSHReceivePack is an RPC to forward git-receive-pack(1) to Gitaly for SSH sessions. The RPC uses
+	// bidirectional streaming so the client can stream stdin and the server can stream stdout and
+	// stderr for git-receive-pack(1).
 	SSHReceivePack(SSHService_SSHReceivePackServer) error
-	// SSHUploadArchive is an RPC to forward 'git upload-archive' to Gitaly for SSH sessions.
+	// SSHUploadArchive is an RPC to forward git-upload-archive(1) to Gitaly for SSH sessions. The RPC
+	// uses bidirectional streaming so the client can stream stdin and the server can stream stdout
+	// and stderr for git-upload-archive(1).
 	SSHUploadArchive(SSHService_SSHUploadArchiveServer) error
 	mustEmbedUnimplementedSSHServiceServer()
 }

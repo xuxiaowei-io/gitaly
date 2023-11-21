@@ -20,15 +20,17 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// SSHUploadPackRequest ...
+// SSHUploadPackRequest is a request for the SSHUploadPack RPC. The first request of the stream must
+// only contain repository, git_config_options, and git_protocol. All subsequent requests must only
+// contain stdin data.
 type SSHUploadPackRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// repository must be present in the first message.
+	// repository is the repository where git-upload-pack(1) is spawned.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// stdin is a chunk of raw data to be copied to 'git upload-pack' standard input.
+	// stdin is a chunk of raw data to be copied to git-upload-pack(1) standard input.
 	Stdin []byte `protobuf:"bytes,2,opt,name=stdin,proto3" json:"stdin,omitempty"`
 	// git_config_options are parameters to use with git -c (key=value pairs).
 	GitConfigOptions []string `protobuf:"bytes,4,rep,name=git_config_options,json=gitConfigOptions,proto3" json:"git_config_options,omitempty"`
@@ -96,15 +98,16 @@ func (x *SSHUploadPackRequest) GetGitProtocol() string {
 	return ""
 }
 
-// SSHUploadPackResponse ...
+// SSHUploadPackResponse is a response for the SSHUploadPack RPC. Responses are stream back to
+// clients in chunks containing the stdout and stderr from git-upload-pack(1).
 type SSHUploadPackResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// stdout is a chunk of raw data from 'git upload-pack' standard output.
+	// stdout is a chunk of raw data from git-upload-pack(1) standard output.
 	Stdout []byte `protobuf:"bytes,1,opt,name=stdout,proto3" json:"stdout,omitempty"`
-	// stderr is a chunk of raw data from 'git upload-pack' standard error.
+	// stderr is a chunk of raw data from git-upload-pack(1) standard error.
 	Stderr []byte `protobuf:"bytes,2,opt,name=stderr,proto3" json:"stderr,omitempty"`
 	// exit_status is the exit status when the command has finished. This field
 	// may be nil. This is intentional.
@@ -164,13 +167,13 @@ func (x *SSHUploadPackResponse) GetExitStatus() *ExitStatus {
 	return nil
 }
 
-// SSHUploadPackWithSidechannelRequest ...
+// SSHUploadPackWithSidechannelRequest is a request for the SSHUploadPackWithSidechannel RPC.
 type SSHUploadPackWithSidechannelRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// repository must be present in the first message.
+	// repository is the repository where git-upload-pack(1) is spawned.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
 	// git_config_options are parameters to use with git -c (key=value pairs).
 	GitConfigOptions []string `protobuf:"bytes,2,rep,name=git_config_options,json=gitConfigOptions,proto3" json:"git_config_options,omitempty"`
@@ -231,7 +234,7 @@ func (x *SSHUploadPackWithSidechannelRequest) GetGitProtocol() string {
 	return ""
 }
 
-// SSHUploadPackWithSidechannelResponse ...
+// SSHUploadPackWithSidechannelResponse is a response for the SSHUploadPackWithSidechannel RPC.
 type SSHUploadPackWithSidechannelResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -280,22 +283,23 @@ func (x *SSHUploadPackWithSidechannelResponse) GetPackfileNegotiationStatistics(
 	return nil
 }
 
-// SSHReceivePackRequest ...
+// SSHReceivePackRequest is a request for the SSHReceivePack RPC. All fields other than stdin must
+// be set in the first request message. Subsequent requests in the stream must only contain the
+// stdin field.
 type SSHReceivePackRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// repository must be present in the first message.
+	// repository is the repository where git-receive-pack(1) is spawned.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// stdin is a chunk of raw data to be copied to 'git upload-pack' standard input
+	// stdin is a chunk of raw data to be copied to git-receive-pack(1) standard input
 	Stdin []byte `protobuf:"bytes,2,opt,name=stdin,proto3" json:"stdin,omitempty"`
-	// gl_id is the contents of GL_ID, GL_REPOSITORY, and GL_USERNAME environment variables
-	// for 'git receive-pack'.
+	// gl_id is the GitLab ID of the user. This is used by Git {pre,post}-receive hooks.
 	GlId string `protobuf:"bytes,3,opt,name=gl_id,json=glId,proto3" json:"gl_id,omitempty"`
-	// gl_repository ...
+	// gl_repository refers to the GitLab repository. This is used by Git {pre,post}-receive hooks.
 	GlRepository string `protobuf:"bytes,4,opt,name=gl_repository,json=glRepository,proto3" json:"gl_repository,omitempty"`
-	// gl_username ...
+	// gl_username is the GitLab Username of the user. This is used by Git {pre,post}-receive hooks.
 	GlUsername string `protobuf:"bytes,5,opt,name=gl_username,json=glUsername,proto3" json:"gl_username,omitempty"`
 	// git_protocol is the git protocol version.
 	GitProtocol string `protobuf:"bytes,6,opt,name=git_protocol,json=gitProtocol,proto3" json:"git_protocol,omitempty"`
@@ -384,15 +388,16 @@ func (x *SSHReceivePackRequest) GetGitConfigOptions() []string {
 	return nil
 }
 
-// SSHReceivePackResponse ...
+// SSHReceivePackResponse is a response for the SSHReceivePack RPC. Responses are stream back to
+// clients in chunks containing the stdout and stderr from git-receive-pack(1).
 type SSHReceivePackResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// stdout is a chunk of raw data from 'git receive-pack' standard output.
+	// stdout is a chunk of raw data from git-receive-pack(1) standard output.
 	Stdout []byte `protobuf:"bytes,1,opt,name=stdout,proto3" json:"stdout,omitempty"`
-	// stderr is a chunk of raw data from 'git receive-pack' standard error.
+	// stderr is a chunk of raw data from git-receive-pack(1) standard error.
 	Stderr []byte `protobuf:"bytes,2,opt,name=stderr,proto3" json:"stderr,omitempty"`
 	// exit_status is the exit status when the command has finished. This field
 	// may be nil. This is intentional.
@@ -452,15 +457,16 @@ func (x *SSHReceivePackResponse) GetExitStatus() *ExitStatus {
 	return nil
 }
 
-// SSHUploadArchiveRequest ...
+// SSHUploadArchiveRequest is a request for the SSHUploadArchive RPC. The first request of the
+// stream must only contain repository. All subsequent requests must only contain stdin data.
 type SSHUploadArchiveRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// repository must be present in the first message.
+	// repository is the repository where git-upload-archive(1) is spawned.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// stdin is a chunk of raw data to be copied to 'git upload-archive' standard input.
+	// stdin is a chunk of raw data to be copied to git-upload-archive(1) standard input.
 	Stdin []byte `protobuf:"bytes,2,opt,name=stdin,proto3" json:"stdin,omitempty"`
 }
 
@@ -510,15 +516,16 @@ func (x *SSHUploadArchiveRequest) GetStdin() []byte {
 	return nil
 }
 
-// SSHUploadArchiveResponse ...
+// SSHUploadArchiveResponse is a response for the SSHUploadArchive RPC. Responses are stream back to
+// clients in chunks containing the stdout and stderr from git-upload-archive(1).
 type SSHUploadArchiveResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// stdout is a chunk of raw data from 'git upload-archive' standard output.
+	// stdout is a chunk of raw data from git-upload-archive(1) standard output.
 	Stdout []byte `protobuf:"bytes,1,opt,name=stdout,proto3" json:"stdout,omitempty"`
-	// stderr is a chunk of raw data from 'git upload-archive' standard error.
+	// stderr is a chunk of raw data from git-upload-archive(1) standard error.
 	Stderr []byte `protobuf:"bytes,2,opt,name=stderr,proto3" json:"stderr,omitempty"`
 	// exit_status is the exit status when the command has finished. This field
 	// may be nil. This is intentional.
