@@ -20,7 +20,7 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// UpdateRemoteMirrorRequest ...
+// UpdateRemoteMirrorRequest is a request for the UpdateRemoteMirror RPC.
 type UpdateRemoteMirrorRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -124,7 +124,7 @@ func (x *UpdateRemoteMirrorRequest) GetKeepDivergentRefs() bool {
 	return false
 }
 
-// UpdateRemoteMirrorResponse ...
+// UpdateRemoteMirrorResponse is a response for the UpdateRemoteMirror RPC.
 type UpdateRemoteMirrorResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -174,13 +174,14 @@ func (x *UpdateRemoteMirrorResponse) GetDivergentRefs() [][]byte {
 	return nil
 }
 
-// FindRemoteRepositoryRequest ...
+// FindRemoteRepositoryRequest is a request for the FindRemoteRepository RPC.
 type FindRemoteRepositoryRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// remote ...
+	// remote is the remote repository being checked. Because this RPC is not executed within a
+	// repository, the remote parameter must specify a valid Git URL for the targeted repository.
 	Remote string `protobuf:"bytes,1,opt,name=remote,proto3" json:"remote,omitempty"`
 	// storage_name is used to redirect request to proper storage where it can be handled.
 	// As of now it doesn't matter what storage will be used, but it still must be a valid.
@@ -234,15 +235,14 @@ func (x *FindRemoteRepositoryRequest) GetStorageName() string {
 	return ""
 }
 
-// FindRemoteRepositoryResponse ...
-// This migth throw a GRPC Unavailable code, to signal the request failure
-// is transient.
+// FindRemoteRepositoryResponse is a response for the FindRemoteRepository RPC. This might throw a
+// GRPC Unavailable code to signal the request failure is transient.
 type FindRemoteRepositoryResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// exists ...
+	// exists specifies if the remote repository exists.
 	Exists bool `protobuf:"varint,1,opt,name=exists,proto3" json:"exists,omitempty"`
 }
 
@@ -419,7 +419,7 @@ func (x *FindRemoteRootRefResponse) GetRef() string {
 	return ""
 }
 
-// Remote ...
+// Remote defines a remote repository that diverged references should be pushed to.
 type UpdateRemoteMirrorRequest_Remote struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
