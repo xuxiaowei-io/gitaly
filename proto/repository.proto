@@ -1299,6 +1299,9 @@ message BackupRepositoryRequest {
   // incremental controls whether an incremental backup should be performed. An incremental
   // backup will attempt to locate a previous backup of this repository to base itself off.
   bool incremental = 4;
+  // base_backup_id is the label of the backup that is used as a base for
+  // creating an incremental backup if supported by the layout.
+  string base_backup_id = 5;
 }
 
 // BackupRepositoryResponse is a response for the BackupRepository RPC.
