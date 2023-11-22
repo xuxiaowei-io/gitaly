@@ -1,61 +1,40 @@
 package gitalybackup
 
 import (
-	"context"
-	"flag"
 	"fmt"
-	"io"
-	"os"
 
-	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
-	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
+	"github.com/urfave/cli/v2"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/version"
 )
 
-type subcmd interface {
-	Flags(*flag.FlagSet)
-	Run(ctx context.Context, logger log.Logger, stdin io.Reader, stdout io.Writer) error
+func init() {
+	cli.VersionPrinter = func(ctx *cli.Context) {
+		fmt.Fprintln(ctx.App.Writer, version.GetVersionString(binaryName))
+	}
 }
 
-var subcommands = map[string]subcmd{
-	"create":  &createSubcommand{},
-	"restore": &restoreSubcommand{},
-}
+const (
+	progname = "gitaly-backup"
 
-// Main is an entry point of the gitaly-backup binary.
-func Main() {
-	logger, err := log.Configure(os.Stdout, "json", "")
-	if err != nil {
-		fmt.Printf("configuring logger failed: %v", err)
-		os.Exit(1)
-	}
+	pathFlagName = "path"
+	binaryName   = "Gitaly Backup"
+)
 
-	flags := flag.NewFlagSet("gitaly-backup", flag.ExitOnError)
-	_ = flags.Parse(os.Args)
-
-	if flags.NArg() < 2 {
-		logger.Error("missing subcommand")
-		os.Exit(1)
-	}
-
-	subcmdName := flags.Arg(1)
-	subcmd, ok := subcommands[subcmdName]
-	if !ok {
-		logger.Error(fmt.Sprintf("unknown subcommand: %q", flags.Arg(1)))
-		os.Exit(1)
-	}
-
-	subcmdFlags := flag.NewFlagSet(subcmdName, flag.ExitOnError)
-	subcmd.Flags(subcmdFlags)
-	_ = subcmdFlags.Parse(flags.Args()[2:])
-
-	ctx, err := storage.InjectGitalyServersEnv(context.Background())
-	if err != nil {
-		logger.Error(err.Error())
-		os.Exit(1)
-	}
-
-	if err := subcmd.Run(ctx, logger, os.Stdin, os.Stdout); err != nil {
-		logger.Error(err.Error())
-		os.Exit(1)
+// NewApp returns a new gitaly[backup app.
+func NewApp() *cli.App {
+	return &cli.App{
+		Name:    progname,
+		Usage:   "create gitaly backups",
+		Version: version.GetVersionString(binaryName),
+		Commands: []*cli.Command{
+			newCreateCommand(),
+			newRestoreCommand(),
+		},
+		Flags: []cli.Flag{
+			&cli.StringFlag{
+				Name:  pathFlagName,
+				Usage: "Directory where the backup files will be created/restored.",
+			},
+		},
 	}
 }

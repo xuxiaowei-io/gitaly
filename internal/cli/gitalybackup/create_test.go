@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"flag"
 	"io"
 	"path/filepath"
 	"strings"
@@ -31,7 +30,7 @@ func TestCreateSubcommand(t *testing.T) {
 		{
 			Name: "when a local backup is created",
 			Flags: func(backupRoot string) []string {
-				return []string{"-path", backupRoot, "-id", "the-new-backup"}
+				return []string{"--path", backupRoot, "--id", "the-new-backup"}
 			},
 			ServerOpts: func(ctx context.Context, backupRoot string) []testserver.GitalyServerOpt {
 				return nil
@@ -41,7 +40,7 @@ func TestCreateSubcommand(t *testing.T) {
 		{
 			Name: "when a server-side backup is created",
 			Flags: func(path string) []string {
-				return []string{"-server-side", "-id", "the-new-backup"}
+				return []string{"--server-side", "--id", "the-new-backup"}
 			},
 			ServerOpts: func(ctx context.Context, backupRoot string) []testserver.GitalyServerOpt {
 				backupSink, err := backup.ResolveSink(ctx, backupRoot)
@@ -60,7 +59,7 @@ func TestCreateSubcommand(t *testing.T) {
 		{
 			Name: "when a server-side incremental backup is created",
 			Flags: func(path string) []string {
-				return []string{"-server-side", "-incremental", "-id", "the-new-backup"}
+				return []string{"--server-side", "--incremental", "--id", "the-new-backup"}
 			},
 			ServerOpts: func(ctx context.Context, backupRoot string) []testserver.GitalyServerOpt {
 				backupSink, err := backup.ResolveSink(ctx, backupRoot)
@@ -112,13 +111,14 @@ func TestCreateSubcommand(t *testing.T) {
 				"relative_path": "invalid",
 			}))
 
-			cmd := createSubcommand{}
-			fs := flag.NewFlagSet("create", flag.ContinueOnError)
-			cmd.Flags(fs)
-			require.NoError(t, fs.Parse(tc.Flags(path)))
+			args := append([]string{progname, "create"}, tc.Flags(path)...)
+			args = append(args, "--layout", "pointer")
+			cmd := NewApp()
+			cmd.Reader = &stdin
+			cmd.Writer = io.Discard
 
 			require.EqualError(t,
-				cmd.Run(ctx, testhelper.SharedLogger(t), &stdin, io.Discard),
+				cmd.RunContext(ctx, args),
 				tc.ExpectedErrMessage)
 
 			for _, repo := range repos {

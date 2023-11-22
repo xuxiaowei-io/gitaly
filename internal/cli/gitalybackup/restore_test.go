@@ -3,11 +3,12 @@ package gitalybackup
 import (
 	"bytes"
 	"encoding/json"
-	"flag"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
+	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -32,7 +33,6 @@ the database and only then perform the removal.
 
 Issue: https://gitlab.com/gitlab-org/gitaly/-/issues/5269`)
 
-	t.Parallel()
 	ctx := testhelper.Context(t)
 
 	cfg := testcfg.Build(t)
@@ -82,16 +82,29 @@ Issue: https://gitlab.com/gitlab-org/gitaly/-/issues/5269`)
 	}))
 
 	ctx = testhelper.MergeIncomingMetadata(ctx, testcfg.GitalyServersMetadataFromCfg(t, cfg))
-	cmd := restoreSubcommand{}
 
-	fs := flag.NewFlagSet("restore", flag.ContinueOnError)
-	cmd.Flags(fs)
+	args := []string{
+		progname,
+		"restore",
+		"--path",
+		path,
+		"--parallel",
+		strconv.Itoa(runtime.NumCPU()),
+		"--parallel-storage",
+		"2",
+		"--layout",
+		"pointer",
+		"--remove-all-repositories",
+		existingRepo.StorageName,
+	}
+	cmd := NewApp()
+	cmd.Reader = &stdin
+	cmd.Writer = io.Discard
 
 	require.DirExists(t, existRepoPath)
 
-	require.NoError(t, fs.Parse([]string{"-path", path, "-remove-all-repositories", existingRepo.StorageName}))
 	require.EqualError(t,
-		cmd.Run(ctx, testhelper.SharedLogger(t), &stdin, io.Discard),
+		cmd.RunContext(ctx, args),
 		"restore: pipeline: 1 failures encountered:\n - invalid: manager: could not dial source: invalid connection string: \"invalid\"\n")
 
 	require.NoDirExists(t, existRepoPath)
@@ -115,7 +128,6 @@ the database and only then perform the removal.
 
 Issue: https://gitlab.com/gitlab-org/gitaly/-/issues/5269`)
 
-	t.Parallel()
 	ctx := testhelper.Context(t)
 
 	path := testhelper.TempDir(t)
@@ -174,16 +186,29 @@ Issue: https://gitlab.com/gitlab-org/gitaly/-/issues/5269`)
 	}))
 
 	ctx = testhelper.MergeIncomingMetadata(ctx, testcfg.GitalyServersMetadataFromCfg(t, cfg))
-	cmd := restoreSubcommand{}
 
-	fs := flag.NewFlagSet("restore", flag.ContinueOnError)
-	cmd.Flags(fs)
+	args := []string{
+		progname,
+		"restore",
+		"--parallel",
+		strconv.Itoa(runtime.NumCPU()),
+		"--parallel-storage",
+		"2",
+		"--layout",
+		"pointer",
+		"--remove-all-repositories",
+		existingRepo.StorageName,
+		"--server-side",
+		"true",
+	}
+	cmd := NewApp()
+	cmd.Reader = &stdin
+	cmd.Writer = io.Discard
 
 	require.DirExists(t, existRepoPath)
 
-	require.NoError(t, fs.Parse([]string{"-server-side", "-remove-all-repositories", existingRepo.StorageName}))
 	require.EqualError(t,
-		cmd.Run(ctx, testhelper.SharedLogger(t), &stdin, io.Discard),
+		cmd.RunContext(ctx, args),
 		"restore: pipeline: 1 failures encountered:\n - invalid: server-side restore: could not dial source: invalid connection string: \"invalid\"\n")
 
 	require.NoDirExists(t, existRepoPath)
