@@ -1246,9 +1246,10 @@ func TestValidateCgroups(t *testing.T) {
 						Shares:  512,
 					},
 					Repositories: cgroups.Repositories{
-						Count:       10,
-						MemoryBytes: 1024,
-						CPUShares:   512,
+						Count:             10,
+						MaxCgroupsPerRepo: 1,
+						MemoryBytes:       1024,
+						CPUShares:         512,
 					},
 				},
 			},
@@ -1264,7 +1265,8 @@ func TestValidateCgroups(t *testing.T) {
 					Mountpoint:    "/sys/fs/cgroup",
 					HierarchyRoot: "baz",
 					Repositories: cgroups.Repositories{
-						Count: 10,
+						Count:             10,
+						MaxCgroupsPerRepo: 1,
 					},
 				},
 			},
@@ -1279,7 +1281,8 @@ func TestValidateCgroups(t *testing.T) {
 					Mountpoint:    "/sys/fs/cgroup",
 					HierarchyRoot: "gitaly",
 					Repositories: cgroups.Repositories{
-						Count: 10,
+						Count:             10,
+						MaxCgroupsPerRepo: 1,
 					},
 				},
 			},
@@ -1308,8 +1311,9 @@ func TestValidateCgroups(t *testing.T) {
 						Shares:  0,
 					},
 					Repositories: cgroups.Repositories{
-						Count:       10,
-						MemoryBytes: 1024,
+						Count:             10,
+						MaxCgroupsPerRepo: 1,
+						MemoryBytes:       1024,
 					},
 				},
 			},
@@ -1339,8 +1343,9 @@ func TestValidateCgroups(t *testing.T) {
 						Shares:  512,
 					},
 					Repositories: cgroups.Repositories{
-						Count:     10,
-						CPUShares: 512,
+						Count:             10,
+						MaxCgroupsPerRepo: 1,
+						CPUShares:         512,
 					},
 				},
 			},
@@ -1385,10 +1390,11 @@ func TestValidateCgroups(t *testing.T) {
 					Mountpoint:    "/sys/fs/cgroup",
 					HierarchyRoot: "gitaly",
 					Repositories: cgroups.Repositories{
-						Count:       10,
-						MemoryBytes: 1024,
-						CPUShares:   512,
-						CPUQuotaUs:  500,
+						Count:             10,
+						MaxCgroupsPerRepo: 1,
+						MemoryBytes:       1024,
+						CPUShares:         512,
+						CPUQuotaUs:        500,
 					},
 				},
 			},
@@ -1427,9 +1433,10 @@ func TestValidateCgroups(t *testing.T) {
 					Mountpoint:    "/sys/fs/cgroup",
 					HierarchyRoot: "gitaly",
 					Repositories: cgroups.Repositories{
-						Count:      10,
-						CPUShares:  512,
-						CPUQuotaUs: 500,
+						Count:             10,
+						MaxCgroupsPerRepo: 1,
+						CPUShares:         512,
+						CPUQuotaUs:        500,
 					},
 				},
 			},
@@ -1454,10 +1461,11 @@ func TestValidateCgroups(t *testing.T) {
 					CPUShares:     1024,
 					CPUQuotaUs:    800,
 					Repositories: cgroups.Repositories{
-						Count:       10,
-						MemoryBytes: 2147483648,
-						CPUShares:   128,
-						CPUQuotaUs:  500,
+						Count:             10,
+						MaxCgroupsPerRepo: 1,
+						MemoryBytes:       2147483648,
+						CPUShares:         128,
+						CPUQuotaUs:        500,
 					},
 				},
 				validateErr: errors.New("cgroups.repositories: memory limit cannot exceed parent"),
@@ -1477,8 +1485,9 @@ func TestValidateCgroups(t *testing.T) {
 					HierarchyRoot: "gitaly",
 					CPUShares:     128,
 					Repositories: cgroups.Repositories{
-						Count:     10,
-						CPUShares: 512,
+						Count:             10,
+						MaxCgroupsPerRepo: 1,
+						CPUShares:         512,
 					},
 				},
 				validateErr: errors.New("cgroups.repositories: cpu shares cannot exceed parent"),
@@ -1498,8 +1507,9 @@ func TestValidateCgroups(t *testing.T) {
 					HierarchyRoot: "gitaly",
 					CPUQuotaUs:    225,
 					Repositories: cgroups.Repositories{
-						Count:      10,
-						CPUQuotaUs: 500,
+						Count:             10,
+						MaxCgroupsPerRepo: 1,
+						CPUQuotaUs:        500,
 					},
 				},
 				validateErr: errors.New("cgroups.repositories: cpu quota cannot exceed parent"),
@@ -1520,9 +1530,32 @@ func TestValidateCgroups(t *testing.T) {
 					HierarchyRoot:  "gitaly",
 					MetricsEnabled: true,
 					Repositories: cgroups.Repositories{
-						Count:       10,
-						MemoryBytes: 1024,
-						CPUShares:   512,
+						Count:             10,
+						MaxCgroupsPerRepo: 1,
+						MemoryBytes:       1024,
+						CPUShares:         512,
+					},
+				},
+			},
+			{
+				name: "max_cgroups_per_repo enabled",
+				rawCfg: `[cgroups]
+				mountpoint = "/sys/fs/cgroup"
+				hierarchy_root = "gitaly"
+				[cgroups.repositories]
+				count = 10
+				max_cgroups_per_repo = 5
+				memory_bytes = 1024
+				cpu_shares = 512
+				`,
+				expect: cgroups.Config{
+					Mountpoint:    "/sys/fs/cgroup",
+					HierarchyRoot: "gitaly",
+					Repositories: cgroups.Repositories{
+						Count:             10,
+						MaxCgroupsPerRepo: 5,
+						MemoryBytes:       1024,
+						CPUShares:         512,
 					},
 				},
 			},

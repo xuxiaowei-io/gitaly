@@ -14,25 +14,47 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 )
 
+// mockRand is a mock for random number generator that implements randomizer interface of cgroups package.
+type mockRand struct {
+	t   *testing.T
+	max int
+	n   int
+}
+
+func newMockRand(t *testing.T, max int) *mockRand {
+	return &mockRand{t: t, max: max, n: -1}
+}
+
+// Intn returns 0 to inputMax-1 in turn then back to 0. It also verifies if the input argument matched the initialized max.
+func (r *mockRand) Intn(inputMax int) int {
+	require.Equalf(r.t, r.max, inputMax, "unexpected rand.Intn() argument, expected %d, actual %d", r.max, inputMax)
+
+	r.n++
+	if r.n >= r.max {
+		r.n = 0
+	}
+	return r.n
+}
+
 func TestCloneIntoCgroup(t *testing.T) {
 	mountPoint := t.TempDir()
 	hierarchyRoot := filepath.Join(mountPoint, "gitaly")
 
 	// Create the files we expect the manager to open.
 	require.NoError(t, os.MkdirAll(filepath.Join(hierarchyRoot, "gitaly-1"), fs.ModePerm))
-	require.NoError(t, os.MkdirAll(filepath.Join(hierarchyRoot, "gitaly-1", "repos-3"), fs.ModePerm))
-	require.NoError(t, os.MkdirAll(filepath.Join(hierarchyRoot, "gitaly-1", "repos-5"), fs.ModePerm))
+	for i := 0; i < 10; i++ {
+		require.NoError(t, os.MkdirAll(filepath.Join(hierarchyRoot, "gitaly-1", fmt.Sprintf("repos-%d", i)), fs.ModePerm))
+	}
 	require.NoError(t, os.WriteFile(filepath.Join(hierarchyRoot, "gitaly-1", "cgroup.subtree_control"), nil, fs.ModePerm))
 
-	mgr := NewManager(cgroups.Config{
-		Mountpoint:    mountPoint,
-		HierarchyRoot: "gitaly",
-		Repositories: cgroups.Repositories{
-			Count: 10,
-		},
-	}, testhelper.NewLogger(t), 1)
-
 	t.Run("command args used as key", func(t *testing.T) {
+		mgr := NewManager(cgroups.Config{
+			Mountpoint:    mountPoint,
+			HierarchyRoot: "gitaly",
+			Repositories: cgroups.Repositories{
+				Count: 10,
+			},
+		}, testhelper.NewLogger(t), 1)
 		for _, tc := range []struct {
 			desc                string
 			existingSysProcAttr *syscall.SysProcAttr
@@ -74,6 +96,14 @@ func TestCloneIntoCgroup(t *testing.T) {
 	})
 
 	t.Run("key provided", func(t *testing.T) {
+		mgr := NewManager(cgroups.Config{
+			Mountpoint:    mountPoint,
+			HierarchyRoot: "gitaly",
+			Repositories: cgroups.Repositories{
+				Count: 10,
+			},
+		}, testhelper.NewLogger(t), 1)
+
 		commandWithKey := exec.Command("command", "arg")
 		pathWithKey, closeWithKey, err := mgr.CloneIntoCgroup(commandWithKey, WithCgroupKey("some-key"))
 		require.NoError(t, err)
@@ -92,6 +122,39 @@ func TestCloneIntoCgroup(t *testing.T) {
 
 		require.NotEqual(t, pathWithKey, pathWithoutKey, "commands should be placed in different groups")
 		require.NotEqual(t, commandWithKey.SysProcAttr.CgroupFD, commandWithoutKey.SysProcAttr.CgroupFD)
+	})
+
+	t.Run("AllocationCount is set", func(t *testing.T) {
+		mgr := NewManager(cgroups.Config{
+			Mountpoint:    mountPoint,
+			HierarchyRoot: "gitaly",
+			Repositories: cgroups.Repositories{
+				Count:             10,
+				MaxCgroupsPerRepo: 3,
+			},
+		}, testhelper.NewLogger(t), 1)
+
+		assertSpawnedCommand := func(key string, groupID string) {
+			commandWithKey := exec.Command("command", "arg")
+			pathWithKey, closeWithKey, err := mgr.CloneIntoCgroup(commandWithKey, WithCgroupKey(key))
+			require.NoError(t, err)
+			defer testhelper.MustClose(t, closeWithKey)
+			require.Equal(t, filepath.Join(hierarchyRoot, fmt.Sprintf("gitaly-1/%s", groupID)), pathWithKey)
+			require.True(t, commandWithKey.SysProcAttr.UseCgroupFD)
+			require.NotEqual(t, 0, commandWithKey.SysProcAttr.UseCgroupFD)
+		}
+
+		mgr.(*CGroupManager).rand = newMockRand(t, 3)
+		// Starting point is 3 (similar to the above test)
+		assertSpawnedCommand("some-key", "repos-3")
+		assertSpawnedCommand("some-key", "repos-4")
+		assertSpawnedCommand("some-key", "repos-5")
+
+		mgr.(*CGroupManager).rand = newMockRand(t, 3)
+		// Starting point is 8
+		assertSpawnedCommand("key-1", "repos-8")
+		assertSpawnedCommand("key-1", "repos-9")
+		assertSpawnedCommand("key-1", "repos-0") // Wrap-around
 	})
 }
 

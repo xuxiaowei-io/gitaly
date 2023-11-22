@@ -168,9 +168,21 @@ func TestRepositories_Validate(t *testing.T) {
 		{
 			name: "valid",
 			repositories: Repositories{
-				Count:       2,
-				MemoryBytes: 1024,
-				CPUShares:   16,
+				Count:             2,
+				MaxCgroupsPerRepo: 2,
+				MemoryBytes:       1024,
+				CPUShares:         16,
+			},
+			memBytes:  2048,
+			cpuShares: 32,
+		},
+		{
+			name: "valid",
+			repositories: Repositories{
+				Count:             2,
+				MaxCgroupsPerRepo: 1,
+				MemoryBytes:       1024,
+				CPUShares:         16,
 			},
 			memBytes:  2048,
 			cpuShares: 32,
@@ -178,15 +190,20 @@ func TestRepositories_Validate(t *testing.T) {
 		{
 			name: "invalid",
 			repositories: Repositories{
-				Count:       2,
-				MemoryBytes: 1024,
-				CPUShares:   16,
-				CPUQuotaUs:  32000,
+				Count:             2,
+				MaxCgroupsPerRepo: 3,
+				MemoryBytes:       1024,
+				CPUShares:         16,
+				CPUQuotaUs:        32000,
 			},
 			memBytes:   256,
 			cpuShares:  2,
 			cpuQuotaUs: 16000,
 			expectedErr: cfgerror.ValidationErrors{
+				cfgerror.NewValidationError(
+					fmt.Errorf("%w: 3 out of [0, 2]", cfgerror.ErrNotInRange),
+					"max_cgroups_per_repo",
+				),
 				cfgerror.NewValidationError(
 					fmt.Errorf("%w: 1024 out of [0, 256]", cfgerror.ErrNotInRange),
 					"memory_bytes",
