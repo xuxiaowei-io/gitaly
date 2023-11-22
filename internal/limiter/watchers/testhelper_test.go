@@ -27,7 +27,6 @@ func (m *testCgroupManager) Stats() (cgroups.Stats, error) {
 	return m.statsList[m.statsIndex-1], m.statsErr
 }
 func (m *testCgroupManager) Setup() error                        { return nil }
-func (m *testCgroupManager) Cleanup() error                      { return nil }
 func (m *testCgroupManager) Describe(ch chan<- *prometheus.Desc) {}
 func (m *testCgroupManager) Collect(ch chan<- prometheus.Metric) {}
 func (m *testCgroupManager) AddCommand(*exec.Cmd, ...cgroups.AddCommandOption) (string, error) {

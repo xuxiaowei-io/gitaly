@@ -30,7 +30,6 @@ type cgroupHandler interface {
 	createCgroup(repoResources *specs.LinuxResources, cgroupPath string) error
 	addToCgroup(pid int, cgroupPath string) error
 	collect(repoPath string, ch chan<- prometheus.Metric)
-	cleanup() error
 	currentProcessCgroup() string
 	repoPath(groupID int) string
 	stats() (Stats, error)
@@ -207,11 +206,6 @@ func (cgm *CGroupManager) cgroupPathForCommand(cmd *exec.Cmd, opts []AddCommandO
 
 	groupID := uint(checksum) % cgm.cfg.Repositories.Count
 	return cgm.handler.repoPath(int(groupID))
-}
-
-// Cleanup cleans up cgroups created in Setup.
-func (cgm *CGroupManager) Cleanup() error {
-	return cgm.handler.cleanup()
 }
 
 // Describe is used to generate description information for each CGroupManager prometheus metric

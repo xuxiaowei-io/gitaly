@@ -169,11 +169,6 @@ func run(cfg config.Cfg, logger log.Logger) error {
 	}
 	cfg.RuntimeDir = runtimeDir
 
-	// When cgroups are configured, we create a directory structure each
-	// time a gitaly process is spawned. Look through the hierarchy root
-	// to find any cgroup directories that belong to old gitaly processes
-	// and remove them.
-	cgroups.PruneOldCgroups(cfg.Cgroups, logger)
 	cgroupMgr := cgroups.NewManager(cfg.Cgroups, logger, os.Getpid())
 
 	began := time.Now()
@@ -181,12 +176,6 @@ func run(cfg config.Cfg, logger log.Logger) error {
 		return fmt.Errorf("failed setting up cgroups: %w", err)
 	}
 	logger.WithField("duration_ms", time.Since(began).Milliseconds()).Info("finished initializing cgroups")
-
-	defer func() {
-		if err := cgroupMgr.Cleanup(); err != nil {
-			logger.WithError(err).Warn("error cleaning up cgroups")
-		}
-	}()
 
 	defer func() {
 		if err := os.RemoveAll(cfg.RuntimeDir); err != nil {
@@ -251,9 +240,6 @@ func run(cfg config.Cfg, logger log.Logger) error {
 
 	repoCounter := counter.NewRepositoryCounter(cfg.Storages)
 	prometheus.MustRegister(repoCounter)
-	repoCounter.StartCountingRepositories(ctx, locator, logger)
-
-	tempdir.StartCleaning(logger, locator, cfg.Storages, time.Hour)
 
 	prometheus.MustRegister(gitCmdFactory)
 
@@ -498,6 +484,14 @@ func run(cfg config.Cfg, logger log.Logger) error {
 			logger.WithError(err).Error("Unable to write gitaly metadata file")
 		}
 	}
+
+	// When cgroups are configured, we create a directory structure each
+	// time a gitaly process is spawned. Look through the hierarchy root
+	// to find any cgroup directories that belong to old gitaly processes
+	// and remove them.
+	cgroups.StartPruningOldCgroups(cfg.Cgroups, logger)
+	repoCounter.StartCountingRepositories(ctx, locator, logger)
+	tempdir.StartCleaning(logger, locator, cfg.Storages, time.Hour)
 
 	if err := b.Start(); err != nil {
 		return fmt.Errorf("unable to start the bootstrap: %w", err)
