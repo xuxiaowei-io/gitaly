@@ -2,9 +2,10 @@ package log
 
 import (
 	"context"
-	"github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors"
+	"sync"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
+	"github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors"
 	grpcmwloggingv2 "github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/logging"
 	grpcmwselector "github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/selector"
 	"github.com/sirupsen/logrus"
@@ -36,14 +37,20 @@ type Logger interface {
 	ReplaceFields(fields Fields) Logger
 }
 
+// threadSafeEntry is a wrapper around logrus.Entry with lock that provides thread safety.
+type threadSafeEntry struct {
+	entry *logrus.Entry
+	lock  *sync.Mutex
+}
+
 // LogrusLogger is an implementation of the Logger interface that is implemented via a `logrus.FieldLogger`.
 type LogrusLogger struct {
-	entry *logrus.Entry
+	entryWrapper *threadSafeEntry
 }
 
 // FromLogrusEntry constructs a new Gitaly-specific logger from a `logrus.Logger`.
 func FromLogrusEntry(entry *logrus.Entry) LogrusLogger {
-	return LogrusLogger{entry: entry}
+	return LogrusLogger{entryWrapper: &threadSafeEntry{entry: entry, lock: &sync.Mutex{}}}
 }
 
 // LogrusEntry returns the `logrus.Entry` that backs this logger. Note that this interface only exists during the
@@ -52,52 +59,94 @@ func FromLogrusEntry(entry *logrus.Entry) LogrusLogger {
 // Deprecated: This will be removed once all callsites have been converted to do something that is independent of the
 // logrus logger.
 func (l LogrusLogger) LogrusEntry() *logrus.Entry {
-	return l.entry
+	l.entryWrapper.lock.Lock()
+	defer l.entryWrapper.lock.Unlock()
+	return l.entryWrapper.entry
 }
 
 // WithField creates a new logger with the given field appended.
 func (l LogrusLogger) WithField(key string, value any) Logger {
-	return LogrusLogger{entry: l.entry.WithField(key, value)}
+	l.entryWrapper.lock.Lock()
+	defer l.entryWrapper.lock.Unlock()
+	return LogrusLogger{
+		entryWrapper: &threadSafeEntry{
+			l.entryWrapper.entry.WithField(key, value),
+			l.entryWrapper.lock,
+		},
+	}
+}
+
+// ReplaceFields creates a new logger with old fields truncated and replaced by new fields.
+func (l LogrusLogger) ReplaceFields(fields Fields) Logger {
+	l.entryWrapper.lock.Lock()
+	defer l.entryWrapper.lock.Unlock()
+	l.entryWrapper.entry.Data = Fields{}
+	return LogrusLogger{
+		entryWrapper: &threadSafeEntry{
+			l.entryWrapper.entry.WithFields(fields),
+			l.entryWrapper.lock,
+		},
+	}
 }
 
 // WithFields creates a new logger with the given fields appended.
 func (l LogrusLogger) WithFields(fields Fields) Logger {
-	return LogrusLogger{entry: l.entry.WithFields(fields)}
-}
-
-func (l LogrusLogger) ReplaceFields(fields Fields) Logger {
-	l.entry.Data = Fields{}
-	return LogrusLogger{entry: l.entry.WithFields(fields)}
+	l.entryWrapper.lock.Lock()
+	defer l.entryWrapper.lock.Unlock()
+	return LogrusLogger{
+		entryWrapper: &threadSafeEntry{
+			l.entryWrapper.entry.WithFields(fields),
+			l.entryWrapper.lock,
+		},
+	}
 }
 
 // WithError creates a new logger with an appended error field.
 func (l LogrusLogger) WithError(err error) Logger {
-	return LogrusLogger{entry: l.entry.WithError(err)}
+	l.entryWrapper.lock.Lock()
+	defer l.entryWrapper.lock.Unlock()
+	return LogrusLogger{
+		entryWrapper: &threadSafeEntry{
+			l.entryWrapper.entry.WithError(err),
+			l.entryWrapper.lock,
+		},
+	}
 }
 
 // Debug writes a log message at debug level.
 func (l LogrusLogger) Debug(msg string) {
-	l.entry.Debug(msg)
+	l.entryWrapper.lock.Lock()
+	defer l.entryWrapper.lock.Unlock()
+	l.entryWrapper.entry.Debug(msg)
 }
 
 // Info writes a log message at info level.
 func (l LogrusLogger) Info(msg string) {
-	l.entry.Info(msg)
+	l.entryWrapper.lock.Lock()
+	defer l.entryWrapper.lock.Unlock()
+	l.entryWrapper.entry.Info(msg)
 }
 
 // Warn writes a log message at warn level.
 func (l LogrusLogger) Warn(msg string) {
-	l.entry.Warn(msg)
+	l.entryWrapper.lock.Lock()
+	defer l.entryWrapper.lock.Unlock()
+	l.entryWrapper.entry.Warn(msg)
 }
 
 // Error writes a log message at error level.
 func (l LogrusLogger) Error(msg string) {
-	l.entry.Error(msg)
+	l.entryWrapper.lock.Lock()
+	defer l.entryWrapper.lock.Unlock()
+	l.entryWrapper.entry.Error(msg)
 }
 
 // toContext injects the logger into the given context so that it can be retrieved via `FromContext()`.
 func (l LogrusLogger) toContext(ctx context.Context) context.Context {
-	return ctxlogrus.ToContext(ctx, l.entry)
+	if l.entryWrapper == nil {
+		return ctxlogrus.ToContext(ctx, nil)
+	}
+	return ctxlogrus.ToContext(ctx, l.entryWrapper.entry)
 }
 
 // StreamServerInterceptor creates a new stream server interceptor. The loggerFunc is the function that will be called to
@@ -123,8 +172,10 @@ func (l LogrusLogger) UnaryServerInterceptor(loggerFunc grpcmwloggingv2.Logger, 
 }
 
 func (l LogrusLogger) log(ctx context.Context, level logrus.Level, msg string) {
+	l.entryWrapper.lock.Lock()
+	defer l.entryWrapper.lock.Unlock()
 	middlewareFields := ConvertLoggingFields(grpcmwloggingv2.ExtractFields(ctx))
-	l.entry.WithFields(ctxlogrus.Extract(ctx).Data).WithFields(middlewareFields).Log(level, msg)
+	l.entryWrapper.entry.WithFields(ctxlogrus.Extract(ctx).Data).WithFields(middlewareFields).Log(level, msg)
 }
 
 // DebugContext logs a new log message at Debug level. Fields added to the context via AddFields will be appended.
@@ -151,7 +202,10 @@ func (l LogrusLogger) ErrorContext(ctx context.Context, msg string) {
 // logger.
 func fromContext(ctx context.Context) LogrusLogger {
 	return LogrusLogger{
-		entry: ctxlogrus.Extract(ctx),
+		entryWrapper: &threadSafeEntry{
+			ctxlogrus.Extract(ctx),
+			&sync.Mutex{},
+		},
 	}
 }
 

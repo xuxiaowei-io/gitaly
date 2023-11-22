@@ -173,7 +173,7 @@ func UnaryLogDataCatcherServerInterceptor() grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
 		mpp := messageProducerPropagationFrom(ctx)
 		if mpp != nil {
-			for k, v := range fromContext(ctx).entry.Data {
+			for k, v := range fromContext(ctx).entryWrapper.entry.Data {
 				mpp.fields = mpp.fields.AppendUnique(grpcmwloggingv2.Fields{k, v})
 			}
 		}
@@ -188,7 +188,7 @@ func StreamLogDataCatcherServerInterceptor() grpc.StreamServerInterceptor {
 		ctx := ss.Context()
 		mpp := messageProducerPropagationFrom(ctx)
 		if mpp != nil {
-			for k, v := range fromContext(ctx).entry.Data {
+			for k, v := range fromContext(ctx).entryWrapper.entry.Data {
 				mpp.fields = mpp.fields.AppendUnique(grpcmwloggingv2.Fields{k, v})
 			}
 		}
