@@ -342,6 +342,112 @@ func (l ManifestInteropLocator) Find(ctx context.Context, repo storage.Repositor
 	return &backup, nil
 }
 
+// ManifestLocator locates backup paths based on manifest files that are
+// written to a predetermined path:
+//
+//	manifests/<repo_storage_name>/<repo_relative_path>/<backup_id>.toml
+type ManifestLocator struct {
+	Sink Sink
+}
+
+// BeginFull passes through to Fallback
+func (l ManifestLocator) BeginFull(ctx context.Context, repo storage.Repository, backupID string) *Backup {
+	storageName := repo.GetStorageName()
+	relativePath := repo.GetRelativePath()
+
+	return &Backup{
+		ID:         backupID,
+		Repository: repo,
+		Steps: []Step{
+			{
+				BundlePath:      filepath.Join(storageName, relativePath, backupID, "001.bundle"),
+				RefPath:         filepath.Join(storageName, relativePath, backupID, "001.refs"),
+				CustomHooksPath: filepath.Join(storageName, relativePath, backupID, "001.custom_hooks.tar"),
+			},
+		},
+	}
+}
+
+// BeginIncremental passes through to Fallback
+func (l ManifestLocator) BeginIncremental(ctx context.Context, repo storage.Repository, backupID, baseBackupID string) (*Backup, error) {
+	backup, err := l.Find(ctx, repo, baseBackupID)
+	switch {
+	case errors.Is(err, ErrDoesntExist):
+		return l.BeginFull(ctx, repo, backupID), nil
+	case err != nil:
+		return nil, fmt.Errorf("manifest: begin incremental: %w", err)
+	}
+
+	storageName := repo.GetStorageName()
+	relativePath := repo.GetRelativePath()
+	n := len(backup.Steps) + 1
+
+	backup.ID = backupID
+	backup.Steps = append(backup.Steps, Step{
+		BundlePath:      filepath.Join(storageName, relativePath, backupID, fmt.Sprintf("%03d.bundle", n)),
+		RefPath:         filepath.Join(storageName, relativePath, backupID, fmt.Sprintf("%03d.refs", n)),
+		CustomHooksPath: filepath.Join(storageName, relativePath, backupID, fmt.Sprintf("%03d.custom_hooks.tar", n)),
+	})
+
+	return backup, nil
+}
+
+// Commit passes through to Fallback, then writes a manifest file for the backup.
+func (l ManifestLocator) Commit(ctx context.Context, backup *Backup) (returnErr error) {
+	if err := l.writeManifest(ctx, backup, backup.ID); err != nil {
+		return fmt.Errorf("manifest: commit: %w", err)
+	}
+	if err := l.writeManifest(ctx, backup, "latest"); err != nil {
+		return fmt.Errorf("manifest: commit: %w", err)
+	}
+
+	return nil
+}
+
+// FindLatest passes through to Fallback
+func (l ManifestLocator) FindLatest(ctx context.Context, repo storage.Repository) (*Backup, error) {
+	return l.Find(ctx, repo, "latest")
+}
+
+// Find loads the manifest for the provided repo and backupID. If this manifest
+// does not exist, the fallback is used.
+func (l ManifestLocator) Find(ctx context.Context, repo storage.Repository, backupID string) (*Backup, error) {
+	f, err := l.Sink.GetReader(ctx, manifestPath(repo, backupID))
+	if err != nil {
+		return nil, fmt.Errorf("manifest: find: %w", err)
+	}
+	defer f.Close()
+
+	var backup Backup
+
+	if err := toml.NewDecoder(f).Decode(&backup); err != nil {
+		return nil, fmt.Errorf("manifest: find: %w", err)
+	}
+
+	backup.ID = backupID
+	backup.Repository = repo
+
+	return &backup, nil
+}
+
+func (l ManifestLocator) writeManifest(ctx context.Context, backup *Backup, backupID string) (returnErr error) {
+	f, err := l.Sink.GetWriter(ctx, manifestPath(backup.Repository, backupID))
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err := f.Close(); err != nil && returnErr == nil {
+			returnErr = err
+		}
+	}()
+
+	if err := toml.NewEncoder(f).Encode(backup); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func manifestPath(repo storage.Repository, backupID string) string {
 	storageName := repo.GetStorageName()
 	// Other locators strip the .git suffix off of relative paths. This suffix
