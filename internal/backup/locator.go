@@ -35,7 +35,7 @@ func (l LegacyLocator) BeginFull(ctx context.Context, repo storage.Repository, b
 }
 
 // BeginIncremental is not supported for legacy backups
-func (l LegacyLocator) BeginIncremental(ctx context.Context, repo storage.Repository, backupID string) (*Backup, error) {
+func (l LegacyLocator) BeginIncremental(ctx context.Context, repo storage.Repository, backupID, baseBackupID string) (*Backup, error) {
 	return nil, errors.New("legacy layout: begin incremental: not supported")
 }
 
@@ -108,7 +108,7 @@ func (l PointerLocator) BeginFull(ctx context.Context, repo storage.Repository, 
 // backup.  The incremental backup is always based off of the latest full
 // backup. If there is no latest backup, a new full backup step is returned
 // using fallbackBackupID
-func (l PointerLocator) BeginIncremental(ctx context.Context, repo storage.Repository, fallbackBackupID string) (*Backup, error) {
+func (l PointerLocator) BeginIncremental(ctx context.Context, repo storage.Repository, fallbackBackupID, _baseBackupID string) (*Backup, error) {
 	repoPath := strings.TrimSuffix(repo.GetRelativePath(), ".git")
 	backupID, err := l.findLatestID(ctx, repoPath)
 	if err != nil {
@@ -286,8 +286,8 @@ func (l ManifestInteropLocator) BeginFull(ctx context.Context, repo storage.Repo
 }
 
 // BeginIncremental passes through to Fallback
-func (l ManifestInteropLocator) BeginIncremental(ctx context.Context, repo storage.Repository, backupID string) (*Backup, error) {
-	return l.Fallback.BeginIncremental(ctx, repo, backupID)
+func (l ManifestInteropLocator) BeginIncremental(ctx context.Context, repo storage.Repository, backupID, baseBackupID string) (*Backup, error) {
+	return l.Fallback.BeginIncremental(ctx, repo, backupID, baseBackupID)
 }
 
 // Commit passes through to Fallback, then writes a manifest file for the backup.

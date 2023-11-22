@@ -31,6 +31,7 @@ type createSubcommand struct {
 	layout          string
 	incremental     bool
 	backupID        string
+	baseBackupID    string
 	serverSide      bool
 }
 
@@ -41,6 +42,7 @@ func (cmd *createSubcommand) flags(ctx *cli.Context) {
 	cmd.layout = ctx.String("layout")
 	cmd.incremental = ctx.Bool("incremental")
 	cmd.backupID = ctx.String("id")
+	cmd.baseBackupID = ctx.String("base-id")
 	cmd.serverSide = ctx.Bool("server-side")
 }
 
@@ -168,6 +170,7 @@ func (cmd *createSubcommand) run(ctx context.Context, logger log.Logger, stdin i
 			VanityRepository: &repo,
 			Incremental:      cmd.incremental,
 			BackupID:         cmd.backupID,
+			BaseBackupID:     cmd.baseBackupID,
 		}))
 	}
 

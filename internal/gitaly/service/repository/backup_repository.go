@@ -36,6 +36,7 @@ func (s *server) BackupRepository(ctx context.Context, in *gitalypb.BackupReposi
 		VanityRepository: in.VanityRepository,
 		BackupID:         in.BackupId,
 		Incremental:      in.Incremental,
+		BaseBackupID:     in.BaseBackupId,
 	})
 
 	switch {

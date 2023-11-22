@@ -184,7 +184,7 @@ func TestPointerLocator(t *testing.T) {
 						previousRefPath = step.RefPath
 					}
 
-					step, err := l.BeginIncremental(ctx, repo, fallbackBackupID)
+					step, err := l.BeginIncremental(ctx, repo, fallbackBackupID, "")
 					require.NoError(t, err)
 					require.Equal(t, expected, step)
 
@@ -465,7 +465,7 @@ custom_hooks_path = '%[1]s/%[2]s/001.custom_hooks.tar'
 			Fallback: l,
 		}
 
-		incremental, err := l.BeginIncremental(ctx, repo, backupID)
+		incremental, err := l.BeginIncremental(ctx, repo, backupID, "")
 		require.NoError(t, err)
 		require.NoError(t, l.Commit(ctx, incremental))
 

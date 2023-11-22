@@ -159,7 +159,7 @@ func (l dummyLocator) BeginFull(ctx context.Context, repo storage.Repository, ba
 }
 
 // BeginIncremental is not supported by this dummyLocator.
-func (l dummyLocator) BeginIncremental(ctx context.Context, repo storage.Repository, backupID string) (*backup.Backup, error) {
+func (l dummyLocator) BeginIncremental(ctx context.Context, repo storage.Repository, backupID, baseBackupID string) (*backup.Backup, error) {
 	return nil, structerr.NewUnimplemented("BeginIncremental not implemented for dummyLocator")
 }
 

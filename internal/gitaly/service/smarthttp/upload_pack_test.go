@@ -386,7 +386,7 @@ func (l *mockBackupLocator) BeginFull(ctx context.Context, repo storage.Reposito
 	return l.backup
 }
 
-func (l *mockBackupLocator) BeginIncremental(ctx context.Context, repo storage.Repository, backupID string) (*backup.Backup, error) {
+func (l *mockBackupLocator) BeginIncremental(ctx context.Context, repo storage.Repository, backupID, baseBackupID string) (*backup.Backup, error) {
 	return nil, nil
 }
 

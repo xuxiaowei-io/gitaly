@@ -33,6 +33,9 @@ type CreateRequest struct {
 	// BackupID is used to determine a unique path for the backup when a full
 	// backup is created.
 	BackupID string
+	// BaseBackupID is used to determine the backup used to use as the base of
+	// an incremental backup if supported by the selected layout.
+	BaseBackupID string
 }
 
 // RestoreRequest is the request to restore from a backup

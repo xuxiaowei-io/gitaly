@@ -92,8 +92,11 @@ type Locator interface {
 	BeginFull(ctx context.Context, repo storage.Repository, backupID string) *Backup
 
 	// BeginIncremental returns the backup with the last element of Steps being
-	// the tentative step needed to create an incremental backup.
-	BeginIncremental(ctx context.Context, repo storage.Repository, backupID string) (*Backup, error)
+	// the tentative step needed to create an incremental backup. backupID will
+	// be the name of the newly created backup. baseBackupID is the name of the
+	// backup used to create an incremental backup from if supported by the
+	// layout.
+	BeginIncremental(ctx context.Context, repo storage.Repository, backupID, baseBackupID string) (*Backup, error)
 
 	// Commit persists the backup so that it can be looked up by FindLatest. It
 	// is expected that the last element of Steps will be the newly created
@@ -243,7 +246,7 @@ func (mgr *Manager) Create(ctx context.Context, req *CreateRequest) error {
 	var backup *Backup
 	if req.Incremental {
 		var err error
-		backup, err = mgr.locator.BeginIncremental(ctx, req.VanityRepository, req.BackupID)
+		backup, err = mgr.locator.BeginIncremental(ctx, req.VanityRepository, req.BackupID, req.BaseBackupID)
 		if err != nil {
 			return fmt.Errorf("manager: %w", err)
 		}
