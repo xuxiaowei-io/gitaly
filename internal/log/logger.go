@@ -2,10 +2,11 @@ package log
 
 import (
 	"context"
+	"github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors"
 
-	grpcmwlogrus "github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	grpcmwloggingv2 "github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/logging"
+	grpcmwselector "github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/selector"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 )
@@ -29,8 +30,10 @@ type Logger interface {
 	WarnContext(ctx context.Context, msg string)
 	ErrorContext(ctx context.Context, msg string)
 
-	StreamServerInterceptor(...grpcmwlogrus.Option) grpc.StreamServerInterceptor
-	UnaryServerInterceptor(...grpcmwlogrus.Option) grpc.UnaryServerInterceptor
+	StreamServerInterceptor(grpcmwloggingv2.Logger, ...Option) grpc.StreamServerInterceptor
+	UnaryServerInterceptor(grpcmwloggingv2.Logger, ...Option) grpc.UnaryServerInterceptor
+
+	ReplaceFields(fields Fields) Logger
 }
 
 // LogrusLogger is an implementation of the Logger interface that is implemented via a `logrus.FieldLogger`.
@@ -59,6 +62,11 @@ func (l LogrusLogger) WithField(key string, value any) Logger {
 
 // WithFields creates a new logger with the given fields appended.
 func (l LogrusLogger) WithFields(fields Fields) Logger {
+	return LogrusLogger{entry: l.entry.WithFields(fields)}
+}
+
+func (l LogrusLogger) ReplaceFields(fields Fields) Logger {
+	l.entry.Data = Fields{}
 	return LogrusLogger{entry: l.entry.WithFields(fields)}
 }
 
@@ -92,14 +100,26 @@ func (l LogrusLogger) toContext(ctx context.Context) context.Context {
 	return ctxlogrus.ToContext(ctx, l.entry)
 }
 
-// StreamServerInterceptor creates a gRPC interceptor that generates log messages for streaming RPC calls.
-func (l LogrusLogger) StreamServerInterceptor(opts ...grpcmwlogrus.Option) grpc.StreamServerInterceptor {
-	return grpcmwlogrus.StreamServerInterceptor(l.entry, opts...)
+// StreamServerInterceptor creates a new stream server interceptor. The loggerFunc is the function that will be called to
+// log messages; options are the Option slice that can be used to configure the interceptor.
+func (l LogrusLogger) StreamServerInterceptor(loggerFunc grpcmwloggingv2.Logger, options ...Option) grpc.StreamServerInterceptor {
+	o := evaluateServerOpt(options)
+	interceptor := interceptors.StreamServerInterceptor(reportable(loggerFunc, o))
+	if o.matcher != nil {
+		interceptor = grpcmwselector.StreamServerInterceptor(interceptor, *o.matcher)
+	}
+	return interceptor
 }
 
-// UnaryServerInterceptor creates a gRPC interceptor that generates log messages for unary RPC calls.
-func (l LogrusLogger) UnaryServerInterceptor(opts ...grpcmwlogrus.Option) grpc.UnaryServerInterceptor {
-	return grpcmwlogrus.UnaryServerInterceptor(l.entry, opts...)
+// UnaryServerInterceptor creates a new unary server interceptor. The loggerFunc is the function that will be called to
+// log messages; options are the Option slice that can be used to configure the interceptor.
+func (l LogrusLogger) UnaryServerInterceptor(loggerFunc grpcmwloggingv2.Logger, options ...Option) grpc.UnaryServerInterceptor {
+	o := evaluateServerOpt(options)
+	interceptor := interceptors.UnaryServerInterceptor(reportable(loggerFunc, o))
+	if o.matcher != nil {
+		interceptor = grpcmwselector.UnaryServerInterceptor(interceptor, *o.matcher)
+	}
+	return interceptor
 }
 
 func (l LogrusLogger) log(ctx context.Context, level logrus.Level, msg string) {

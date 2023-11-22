@@ -38,4 +38,10 @@ func TestLoggerOptions(t *testing.T) {
 		opt := evaluateServerOpt([]Option{WithLogOnEvents(events...)})
 		require.Equal(t, opt.loggableEvents, events)
 	})
+
+	t.Run("WithMatcher", func(t *testing.T) {
+		matcher := DeciderMatcher()
+		opt := evaluateServerOpt([]Option{WithMatcher(matcher)})
+		require.Equal(t, opt.matcher, matcher)
+	})
 }
