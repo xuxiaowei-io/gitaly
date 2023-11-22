@@ -267,29 +267,31 @@ func (l PointerLocator) writeLatest(ctx context.Context, path, target string) (r
 	return nil
 }
 
-// ManifestLocator locates backup paths based on manifest files that are
+// ManifestInteropLocator locates backup paths based on manifest files that are
 // written to a predetermined path:
 //
 //	manifests/<repo_storage_name>/<repo_relative_path>/<backup_id>.toml
 //
-// It relies on Fallback to determine paths of new backups.
-type ManifestLocator struct {
+// This layout adds manifests to existing layouts so that all backups can be
+// eventually migrated to manifest files only. It relies on Fallback to
+// determine paths of new backups.
+type ManifestInteropLocator struct {
 	Sink     Sink
 	Fallback Locator
 }
 
 // BeginFull passes through to Fallback
-func (l ManifestLocator) BeginFull(ctx context.Context, repo storage.Repository, backupID string) *Backup {
+func (l ManifestInteropLocator) BeginFull(ctx context.Context, repo storage.Repository, backupID string) *Backup {
 	return l.Fallback.BeginFull(ctx, repo, backupID)
 }
 
 // BeginIncremental passes through to Fallback
-func (l ManifestLocator) BeginIncremental(ctx context.Context, repo storage.Repository, backupID string) (*Backup, error) {
+func (l ManifestInteropLocator) BeginIncremental(ctx context.Context, repo storage.Repository, backupID string) (*Backup, error) {
 	return l.Fallback.BeginIncremental(ctx, repo, backupID)
 }
 
 // Commit passes through to Fallback, then writes a manifest file for the backup.
-func (l ManifestLocator) Commit(ctx context.Context, backup *Backup) (returnErr error) {
+func (l ManifestInteropLocator) Commit(ctx context.Context, backup *Backup) (returnErr error) {
 	if err := l.Fallback.Commit(ctx, backup); err != nil {
 		return err
 	}
@@ -312,13 +314,13 @@ func (l ManifestLocator) Commit(ctx context.Context, backup *Backup) (returnErr 
 }
 
 // FindLatest passes through to Fallback
-func (l ManifestLocator) FindLatest(ctx context.Context, repo storage.Repository) (*Backup, error) {
+func (l ManifestInteropLocator) FindLatest(ctx context.Context, repo storage.Repository) (*Backup, error) {
 	return l.Fallback.FindLatest(ctx, repo)
 }
 
 // Find loads the manifest for the provided repo and backupID. If this manifest
 // does not exist, the fallback is used.
-func (l ManifestLocator) Find(ctx context.Context, repo storage.Repository, backupID string) (*Backup, error) {
+func (l ManifestInteropLocator) Find(ctx context.Context, repo storage.Repository, backupID string) (*Backup, error) {
 	f, err := l.Sink.GetReader(ctx, manifestPath(repo, backupID))
 	switch {
 	case errors.Is(err, ErrDoesntExist):

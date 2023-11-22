@@ -406,7 +406,7 @@ func TestPointerLocator(t *testing.T) {
 	})
 }
 
-func TestManifestLocator(t *testing.T) {
+func TestManifestInteropLocator(t *testing.T) {
 	t.Parallel()
 
 	const backupID = "abc123"
@@ -428,7 +428,7 @@ func TestManifestLocator(t *testing.T) {
 		var l Locator = PointerLocator{
 			Sink: sink,
 		}
-		l = ManifestLocator{
+		l = ManifestInteropLocator{
 			Sink:     sink,
 			Fallback: l,
 		}
@@ -460,7 +460,7 @@ custom_hooks_path = '%[1]s/%[2]s/001.custom_hooks.tar'
 		var l Locator = PointerLocator{
 			Sink: sink,
 		}
-		l = ManifestLocator{
+		l = ManifestInteropLocator{
 			Sink:     sink,
 			Fallback: l,
 		}
@@ -486,7 +486,7 @@ custom_hooks_path = '%[1]s/%[2]s/002.custom_hooks.tar'
 	})
 }
 
-func TestManifestLocator_Find(t *testing.T) {
+func TestManifestInteropLocator_Find(t *testing.T) {
 	t.Parallel()
 
 	for _, tc := range []struct {
@@ -593,7 +593,7 @@ custom_hooks_path = 'path/to/002.custom_hooks.tar'
 			var l Locator = PointerLocator{
 				Sink: sink,
 			}
-			l = ManifestLocator{
+			l = ManifestInteropLocator{
 				Sink:     sink,
 				Fallback: l,
 			}

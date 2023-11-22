@@ -148,7 +148,7 @@ func ResolveLocator(layout string, sink Sink) (Locator, error) {
 		return nil, fmt.Errorf("unknown layout: %q", layout)
 	}
 
-	locator = ManifestLocator{
+	locator = ManifestInteropLocator{
 		Sink:     sink,
 		Fallback: locator,
 	}
