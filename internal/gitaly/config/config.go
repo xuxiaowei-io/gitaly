@@ -801,6 +801,10 @@ func (cfg *Cfg) SetDefaults() error {
 
 	cfg.Cgroups.FallbackToOldVersion()
 
+	if cfg.Cgroups.Repositories.Count != 0 && cfg.Cgroups.Repositories.MaxCgroupsPerRepo == 0 {
+		cfg.Cgroups.Repositories.MaxCgroupsPerRepo = 1
+	}
+
 	if cfg.Backup.Layout == "" {
 		cfg.Backup.Layout = "pointer"
 	}

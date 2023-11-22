@@ -241,8 +241,7 @@ func TestRepoCgroups(t *testing.T) {
 					// is creating repository directories in the correct location.
 					requireShards(t, version, mock, manager, pid)
 
-					groupID := calcGroupID(cmdArgs, cfg.Repositories.Count)
-
+					groupID := uint(0) // Fixed - generated from the command
 					mock.setupMockCgroupFiles(t, manager, []uint{groupID})
 
 					require.False(t, manager.Ready())
@@ -286,33 +285,29 @@ func TestRepoCgroups(t *testing.T) {
 func TestAddCommand(t *testing.T) {
 	for _, version := range []int{1, 2} {
 		t.Run("cgroups-v"+strconv.Itoa(version), func(t *testing.T) {
-			mock := newMock(t, version)
-
-			config := defaultCgroupsConfig()
-			config.Repositories.Count = 10
-			config.Repositories.MemoryBytes = 1024
-			config.Repositories.CPUShares = 16
-			config.HierarchyRoot = "gitaly"
-			config.Mountpoint = mock.rootPath()
-
 			pid := 1
-			manager1 := mock.newCgroupManager(config, testhelper.SharedLogger(t), pid)
-			mock.setupMockCgroupFiles(t, manager1, []uint{})
-			require.NoError(t, manager1.Setup())
-
 			ctx := testhelper.Context(t)
 
-			cmd2 := exec.CommandContext(ctx, cmdArgs[0], cmdArgs[1:]...)
-			require.NoError(t, cmd2.Run())
-
-			groupID := calcGroupID(cmd2.Args, config.Repositories.Count)
-
-			manager2 := mock.newCgroupManager(config, testhelper.SharedLogger(t), pid)
-
 			t.Run("without overridden key", func(t *testing.T) {
-				_, err := manager2.AddCommand(cmd2)
+				mock := newMock(t, version)
+				config := defaultCgroupsConfig()
+				config.Repositories.Count = 10
+				config.Repositories.MemoryBytes = 1024
+				config.Repositories.CPUShares = 16
+				config.HierarchyRoot = "gitaly"
+				config.Mountpoint = mock.rootPath()
+
+				cmd := exec.CommandContext(ctx, cmdArgs[0], cmdArgs[1:]...)
+				require.NoError(t, cmd.Run())
+
+				manager := mock.newCgroupManager(config, testhelper.SharedLogger(t), pid)
+				mock.setupMockCgroupFiles(t, manager, []uint{})
+				require.NoError(t, manager.Setup())
+
+				groupID := uint(8) // Fixed - generated from the command
+				_, err := manager.AddCommand(cmd)
 				require.NoError(t, err)
-				requireShards(t, version, mock, manager2, pid, groupID)
+				requireShards(t, version, mock, manager, pid, groupID)
 
 				for _, path := range mock.repoPaths(pid, groupID) {
 					procsPath := filepath.Join(path, "cgroup.procs")
@@ -321,26 +316,78 @@ func TestAddCommand(t *testing.T) {
 					cmdPid, err := strconv.Atoi(string(content))
 					require.NoError(t, err)
 
-					require.Equal(t, cmd2.Process.Pid, cmdPid)
+					require.Equal(t, cmd.Process.Pid, cmdPid)
 				}
 			})
 
 			t.Run("with overridden key", func(t *testing.T) {
-				overriddenGroupID := calcGroupID([]string{"foobar"}, config.Repositories.Count)
+				mock := newMock(t, version)
+				config := defaultCgroupsConfig()
+				config.Repositories.Count = 10
+				config.Repositories.MemoryBytes = 1024
+				config.Repositories.CPUShares = 16
+				config.HierarchyRoot = "gitaly"
+				config.Mountpoint = mock.rootPath()
 
-				_, err := manager2.AddCommand(cmd2, WithCgroupKey("foobar"))
+				cmd := exec.CommandContext(ctx, cmdArgs[0], cmdArgs[1:]...)
+				require.NoError(t, cmd.Run())
+
+				manager := mock.newCgroupManager(config, testhelper.SharedLogger(t), pid)
+				mock.setupMockCgroupFiles(t, manager, []uint{})
+				require.NoError(t, manager.Setup())
+
+				groupID := uint(9) // Fixed - generated from the key
+				_, err := manager.AddCommand(cmd, WithCgroupKey("foobar"))
 				require.NoError(t, err)
-				requireShards(t, version, mock, manager2, pid, groupID, overriddenGroupID)
+				requireShards(t, version, mock, manager, pid, groupID)
 
-				for _, path := range mock.repoPaths(pid, overriddenGroupID) {
+				for _, path := range mock.repoPaths(pid, groupID) {
 					procsPath := filepath.Join(path, "cgroup.procs")
 					content := readCgroupFile(t, procsPath)
 
 					cmdPid, err := strconv.Atoi(string(content))
 					require.NoError(t, err)
 
-					require.Equal(t, cmd2.Process.Pid, cmdPid)
+					require.Equal(t, cmd.Process.Pid, cmdPid)
 				}
+			})
+
+			t.Run("when AllocationSet is set", func(t *testing.T) {
+				mock := newMock(t, version)
+				config := defaultCgroupsConfig()
+				config.Repositories.Count = 10
+				config.Repositories.MaxCgroupsPerRepo = 3
+				config.Repositories.MemoryBytes = 1024
+				config.Repositories.CPUShares = 16
+				config.HierarchyRoot = "gitaly"
+				config.Mountpoint = mock.rootPath()
+
+				manager := mock.newCgroupManager(config, testhelper.SharedLogger(t), pid)
+				mock.setupMockCgroupFiles(t, manager, []uint{})
+				require.NoError(t, manager.Setup())
+
+				rand := newMockRand(t, 3)
+				manager.rand = rand
+
+				groupIDs := []uint{8, 9, 0}
+				for i := 0; i < 3; i++ {
+					cmd := exec.CommandContext(ctx, cmdArgs[0], cmdArgs[1:]...)
+					require.NoError(t, cmd.Run())
+					_, err := manager.AddCommand(cmd)
+					require.NoError(t, err)
+
+					for _, path := range mock.repoPaths(pid, groupIDs[i]) {
+						procsPath := filepath.Join(path, "cgroup.procs")
+						content := readCgroupFile(t, procsPath)
+
+						cmdPid, err := strconv.Atoi(string(content))
+						require.NoError(t, err)
+
+						require.Equal(t, cmd.Process.Pid, cmdPid)
+					}
+				}
+
+				requireShards(t, version, mock, manager, pid, groupIDs...)
 			})
 		})
 	}

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"hash/crc32"
 	"io"
+	"math/rand"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -14,6 +15,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"syscall"
+	"time"
 
 	cgrps "github.com/containerd/cgroups/v3"
 	"github.com/opencontainers/runtime-spec/specs-go"
@@ -72,6 +74,12 @@ func (s *cgroupStatus) getLock(cgroupPath string) *cgroupLock {
 	return cgLock
 }
 
+// randomizer is the interface of the Go random number generator.
+type randomizer interface {
+	// Intn returns a random integer in the range [0,n).
+	Intn(n int) int
+}
+
 // CGroupManager is a manager class that implements specific methods related to cgroups
 type CGroupManager struct {
 	cfg     cgroupscfg.Config
@@ -79,8 +87,8 @@ type CGroupManager struct {
 	enabled bool
 	repoRes *specs.LinuxResources
 	status  *cgroupStatus
-
 	handler cgroupHandler
+	rand    randomizer
 }
 
 func newCgroupManager(cfg cgroupscfg.Config, logger log.Logger, pid int) *CGroupManager {
@@ -106,6 +114,7 @@ func newCgroupManagerWithMode(cfg cgroupscfg.Config, logger log.Logger, pid int,
 		handler: handler,
 		repoRes: configRepositoryResources(cfg),
 		status:  newCgroupStatus(cfg, handler.repoPath),
+		rand:    rand.New(rand.NewSource(time.Now().UnixNano())),
 	}
 }
 
@@ -199,13 +208,21 @@ func (cgm *CGroupManager) cgroupPathForCommand(cmd *exec.Cmd, opts []AddCommandO
 	if key == "" {
 		key = strings.Join(cmd.Args, "/")
 	}
-
-	checksum := crc32.ChecksumIEEE(
-		[]byte(key),
-	)
-
-	groupID := uint(checksum) % cgm.cfg.Repositories.Count
+	groupID := cgm.calcGroupID(cgm.rand, key, cgm.cfg.Repositories.Count, cgm.cfg.Repositories.MaxCgroupsPerRepo)
 	return cgm.handler.repoPath(int(groupID))
+}
+
+func (cgm *CGroupManager) calcGroupID(rand randomizer, key string, count uint, allocationCount uint) uint {
+	checksum := crc32.ChecksumIEEE([]byte(key))
+
+	// Pick a starting point
+	groupID := uint(checksum) % count
+	if allocationCount <= 1 {
+		return groupID
+	}
+
+	// Shift random distance [0, allocation) from the starting point. Wrap-around if needed.
+	return (groupID + uint(rand.Intn(int(allocationCount)))) % count
 }
 
 // Describe is used to generate description information for each CGroupManager prometheus metric

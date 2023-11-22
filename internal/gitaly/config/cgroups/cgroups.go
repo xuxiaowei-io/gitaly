@@ -61,6 +61,26 @@ type Repositories struct {
 	// Count is the number of cgroups that will be created for repository-level isolation
 	// of git commands.
 	Count uint `toml:"count"`
+	// MaxCgroupsPerRepo specifies the maximum number of cgroups to which a single repository can allocate its
+	// processes.
+	// By default, a repository can spawn processes in at most one cgroups. If the number of repositories
+	// is more than the number of cgroups (likely), multiple repositories share the same one. This model works very
+	// well if the repositories under the management of Cgroup are equivalent in size or traffic. If a node has some
+	// enormous repositories (mono-repo, for example), the scoping cgroups become excessively large comparing to the
+	// rest. This imbalance situation might force the operators to lift the repository-level cgroups. As a result,
+	// the isolation effect is not effective.
+	// This config is designed to balance resource usage between cgroups, mitigate competition for resources
+	// within a single cgroup, and enhance memory usage efficiency and isolation. The value can be adjusted based on
+	// the specific workload and number of repository cgroups on the node.
+	// A Git process uses its target repository's relative path as the hash key to find the corresponding cgroup. It
+	// is allocated randomly to any of the consequent MaxCgroupsPerRepo cgroups. It wraps around if needed.
+	//                repo-X
+	//               ┌───────┐
+	// □ □ □ □ □ □ □ ■ ■ ■ ■ ■ ■ ■ ■ □ □ □ □
+	//                     └────────┘
+	//                      repo-Y
+	// The default value is "1".
+	MaxCgroupsPerRepo uint `toml:"max_cgroups_per_repo"`
 	// MemoryBytes is the memory limit for each cgroup. 0 implies no memory limit.
 	MemoryBytes int64 `toml:"memory_bytes"`
 	// CPUShares are the shares of CPU that each cgroup is allowed to utilize. A value of 1024
@@ -77,6 +97,7 @@ type Repositories struct {
 // Validate runs validation on all fields and compose all found errors.
 func (r *Repositories) Validate(memBytes int64, cpuShares uint64, cpuQuotaUs int64) error {
 	return cfgerror.New().
+		Append(cfgerror.InRange(0, r.Count, r.MaxCgroupsPerRepo, cfgerror.InRangeOptIncludeMin, cfgerror.InRangeOptIncludeMax), "max_cgroups_per_repo").
 		Append(cfgerror.InRange(0, memBytes, r.MemoryBytes, cfgerror.InRangeOptIncludeMin, cfgerror.InRangeOptIncludeMax), "memory_bytes").
 		Append(cfgerror.InRange(0, cpuShares, r.CPUShares, cfgerror.InRangeOptIncludeMin, cfgerror.InRangeOptIncludeMax), "cpu_shares").
 		Append(cfgerror.InRange(0, cpuQuotaUs, r.CPUQuotaUs, cfgerror.InRangeOptIncludeMin, cfgerror.InRangeOptIncludeMax), "cpu_quota_us").
