@@ -8,7 +8,6 @@ import (
 	"sync"
 	"testing"
 
-	grpcmwlogrus "github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/client"
@@ -63,23 +62,15 @@ func TestPayloadBytes(t *testing.T) {
 		}),
 		grpc.ChainUnaryInterceptor(
 			logger.UnaryServerInterceptor(
-				grpcmwlogrus.WithMessageProducer(
-					log.MessageProducer(
-						log.PropagationMessageProducer(grpcmwlogrus.DefaultMessageProducer),
-						FieldsProducer,
-					),
-				),
+				log.PropagationMessageProducer(log.DefaultInterceptorLogger(logger)),
+				log.WithFiledProducers(FieldsProducer),
 			),
 			log.UnaryLogDataCatcherServerInterceptor(),
 		),
 		grpc.ChainStreamInterceptor(
 			logger.StreamServerInterceptor(
-				grpcmwlogrus.WithMessageProducer(
-					log.MessageProducer(
-						log.PropagationMessageProducer(grpcmwlogrus.DefaultMessageProducer),
-						FieldsProducer,
-					),
-				),
+				log.PropagationMessageProducer(log.DefaultInterceptorLogger(logger)),
+				log.WithFiledProducers(FieldsProducer),
 			),
 			log.StreamLogDataCatcherServerInterceptor(),
 		),
@@ -152,7 +143,7 @@ func TestPayloadBytes(t *testing.T) {
 			require.EqualValues(t, 8, e.Data["grpc.request.payload_bytes"])
 			require.EqualValues(t, 8, e.Data["grpc.response.payload_bytes"])
 		}
-		if e.Message == "finished streaming call with code OK" {
+		if e.Message == "finished bidi_stream call with code OK" {
 			stream++
 			require.EqualValues(t, 16, e.Data["grpc.request.payload_bytes"])
 			require.EqualValues(t, 16, e.Data["grpc.response.payload_bytes"])
