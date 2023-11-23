@@ -33,6 +33,15 @@ func TestCheckObjectsExist(t *testing.T) {
 		gittest.WithMessage("commit-3"), gittest.WithParents(commitID1),
 	)
 
+	blobID := gittest.WriteBlob(t, cfg, repoPath, []byte("foobar"))
+	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("foo"), gittest.WithTreeEntries(
+		gittest.TreeEntry{OID: blobID, Path: "bar", Mode: "100644"},
+		gittest.TreeEntry{OID: blobID, Path: "~bar", Mode: "100644"},
+		gittest.TreeEntry{OID: blobID, Path: "@bar", Mode: "100644"},
+		gittest.TreeEntry{OID: blobID, Path: "@", Mode: "100644"},
+		gittest.TreeEntry{OID: blobID, Path: "bar:none", Mode: "100644"},
+	))
+
 	for _, tc := range []struct {
 		desc            string
 		requests        []*gitalypb.CheckObjectsExistRequest
@@ -193,6 +202,48 @@ func TestCheckObjectsExist(t *testing.T) {
 			expectedErr: testhelper.WithInterceptedMetadata(
 				structerr.NewInvalidArgument("invalid revision: revision can't start with '-'"),
 				"revision", "-not-a-rev"),
+		},
+		{
+			desc: "path scoped revisions",
+			requests: []*gitalypb.CheckObjectsExistRequest{
+				{
+					Repository: repo,
+					Revisions: [][]byte{
+						[]byte("foo:bar"),
+						[]byte("bar:foo"),
+					},
+				},
+			},
+			expectedResults: map[string]bool{
+				"foo:bar": true,
+				"bar:foo": false,
+			},
+		},
+		{
+			desc: "path scoped revisions",
+			requests: []*gitalypb.CheckObjectsExistRequest{
+				{
+					Repository: repo,
+					Revisions: [][]byte{
+						[]byte("foo:bar"),
+						[]byte("bar:foo"),
+						[]byte("bar:foo\nfoo"),
+						[]byte("foo:~bar"),
+						[]byte("foo:@bar"),
+						[]byte("foo:@"),
+						[]byte("foo:bar:none"),
+					},
+				},
+			},
+			expectedResults: map[string]bool{
+				"foo:bar":      true,
+				"bar:foo":      false,
+				"bar:foo\nfoo": false,
+				"foo:~bar":     true,
+				"foo:@bar":     true,
+				"foo:@":        true,
+				"foo:bar:none": true,
+			},
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
