@@ -7,9 +7,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"strings"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
@@ -28,6 +31,19 @@ var (
 	ErrSkipped = errors.New("repository skipped")
 	// ErrDoesntExist means that the data was not found.
 	ErrDoesntExist = errors.New("doesn't exist")
+
+	backupLatency = promauto.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name: "gitaly_backup_latency_seconds",
+			Help: "Latency of a repository backup by phase",
+		},
+		[]string{"phase"})
+	backupBundleSize = promauto.NewHistogram(
+		prometheus.HistogramOpts{
+			Name:    "gitaly_backup_bundle_bytes",
+			Help:    "Size of a Git bundle uploaded in a backup",
+			Buckets: prometheus.ExponentialBucketsRange(1, 10*math.Pow(1024, 3), 20), // up to 10GB
+		})
 )
 
 // Sink is an abstraction over the real storage used for storing/restoring backups.
@@ -369,6 +385,9 @@ func setContextServerInfo(ctx context.Context, server *storage.ServerInfo, stora
 }
 
 func (mgr *Manager) writeBundle(ctx context.Context, repo Repository, step *Step) (returnErr error) {
+	timer := prometheus.NewTimer(backupLatency.WithLabelValues("bundle"))
+	defer timer.ObserveDuration()
+
 	var patterns io.Reader
 	if len(step.PreviousRefPath) > 0 {
 		// If there is a previous ref path, then we are creating an increment
@@ -389,6 +408,7 @@ func (mgr *Manager) writeBundle(ctx context.Context, repo Repository, step *Step
 		return mgr.sink.GetWriter(ctx, step.BundlePath)
 	})
 	defer func() {
+		backupBundleSize.Observe(float64(w.BytesWritten()))
 		if err := w.Close(); err != nil && returnErr == nil {
 			returnErr = fmt.Errorf("write bundle: %w", err)
 		}
@@ -481,6 +501,9 @@ func (mgr *Manager) restoreBundle(ctx context.Context, repo Repository, path str
 }
 
 func (mgr *Manager) writeCustomHooks(ctx context.Context, repo Repository, path string) (returnErr error) {
+	timer := prometheus.NewTimer(backupLatency.WithLabelValues("custom_hooks"))
+	defer timer.ObserveDuration()
+
 	w := NewLazyWriter(func() (io.WriteCloser, error) {
 		return mgr.sink.GetWriter(ctx, path)
 	})
@@ -514,6 +537,9 @@ func (mgr *Manager) restoreCustomHooks(ctx context.Context, repo Repository, pat
 // writeRefs writes the previously fetched list of refs in the same output
 // format as `git-show-ref(1)`
 func (mgr *Manager) writeRefs(ctx context.Context, path string, refs []git.Reference) (returnErr error) {
+	timer := prometheus.NewTimer(backupLatency.WithLabelValues("refs"))
+	defer timer.ObserveDuration()
+
 	w, err := mgr.sink.GetWriter(ctx, path)
 	if err != nil {
 		return fmt.Errorf("write refs: %w", err)
