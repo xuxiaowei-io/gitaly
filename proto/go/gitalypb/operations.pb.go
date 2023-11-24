@@ -2764,7 +2764,7 @@ type UserCommitFilesRequestHeader struct {
 	// point to the new commit.
 	Force bool `protobuf:"varint,9,opt,name=force,proto3" json:"force,omitempty"`
 	// start_sha specifies the SHA of the commit to use as the parent of new commit. Takes priority
-	// over start_branch_name and branc_name. Optional.
+	// over start_branch_name and branch_name. Optional.
 	StartSha string `protobuf:"bytes,10,opt,name=start_sha,json=startSha,proto3" json:"start_sha,omitempty"`
 	// timestamp is the optional timestamp to use for the commits as author and
 	// committer date. If it's not set, the current time will be used.
