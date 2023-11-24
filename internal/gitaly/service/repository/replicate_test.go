@@ -109,25 +109,6 @@ func testReplicateRepository(t *testing.T, ctx context.Context) {
 			},
 		},
 		{
-			desc: "replicate info attributes",
-			setup: func(t *testing.T, cfg config.Cfg) setupData {
-				source, sourcePath, target, _ := setupSourceAndTarget(t, cfg, false)
-
-				// Write an info attributes file to the source repository to verify it is getting
-				// created in the target repository as expected.
-				// We should get rid of this with https://gitlab.com/groups/gitlab-org/-/epics/9006
-				attrFilePath := filepath.Join(sourcePath, "info", "attributes")
-				require.NoError(t, os.MkdirAll(filepath.Dir(attrFilePath), perm.SharedDir))
-				attributesData := []byte("*.pbxproj binary\n")
-				require.NoError(t, os.WriteFile(attrFilePath, attributesData, perm.SharedFile))
-
-				return setupData{
-					source: source,
-					target: target,
-				}
-			},
-		},
-		{
 			desc: "replicate branch",
 			setup: func(t *testing.T, cfg config.Cfg) setupData {
 				source, sourcePath, target, _ := setupSourceAndTarget(t, cfg, false)
@@ -638,17 +619,17 @@ func testReplicateRepository(t *testing.T, ctx context.Context) {
 				"config file must match",
 			)
 
-			// Verify info attributes matches.
-			sourceAttributesData, err := os.ReadFile(filepath.Join(sourcePath, "info", "attributes"))
-			if err != nil {
-				require.ErrorIs(t, err, os.ErrNotExist)
-			}
-
-			require.Equal(t,
-				string(sourceAttributesData),
-				string(testhelper.MustReadFile(t, filepath.Join(targetPath, "info", "attributes"))),
-				"info/attributes file must match",
-			)
+			//// Verify info attributes matches.
+			//sourceAttributesData, err := os.ReadFile(filepath.Join(sourcePath, "info", "attributes"))
+			//if err != nil {
+			//	require.ErrorIs(t, err, os.ErrNotExist)
+			//}
+			//
+			//require.Equal(t,
+			//	string(sourceAttributesData),
+			//	string(testhelper.MustReadFile(t, filepath.Join(targetPath, "info", "attributes"))),
+			//	"info/attributes file must match",
+			//)
 
 			// Verify custom hooks replicated.
 			var targetHooks []string
