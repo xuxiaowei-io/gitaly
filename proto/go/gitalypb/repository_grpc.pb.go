@@ -106,10 +106,6 @@ type RepositoryServiceClient interface {
 	// FindLicense looks in the given repository and attempts to detect all the
 	// details about the license used in the repository.
 	FindLicense(ctx context.Context, in *FindLicenseRequest, opts ...grpc.CallOption) (*FindLicenseResponse, error)
-	// Deprecated: Do not use.
-	// GetInfoAttributes reads the contents from info/attributes.
-	// This RPC will be removed in 17.0.
-	GetInfoAttributes(ctx context.Context, in *GetInfoAttributesRequest, opts ...grpc.CallOption) (RepositoryService_GetInfoAttributesClient, error)
 	// CalculateChecksum ...
 	CalculateChecksum(ctx context.Context, in *CalculateChecksumRequest, opts ...grpc.CallOption) (*CalculateChecksumResponse, error)
 	// GetSnapshot ...
@@ -571,39 +567,6 @@ func (c *repositoryServiceClient) FindLicense(ctx context.Context, in *FindLicen
 	return out, nil
 }
 
-// Deprecated: Do not use.
-func (c *repositoryServiceClient) GetInfoAttributes(ctx context.Context, in *GetInfoAttributesRequest, opts ...grpc.CallOption) (RepositoryService_GetInfoAttributesClient, error) {
-	stream, err := c.cc.NewStream(ctx, &RepositoryService_ServiceDesc.Streams[7], "/gitaly.RepositoryService/GetInfoAttributes", opts...)
-	if err != nil {
-		return nil, err
-	}
-	x := &repositoryServiceGetInfoAttributesClient{stream}
-	if err := x.ClientStream.SendMsg(in); err != nil {
-		return nil, err
-	}
-	if err := x.ClientStream.CloseSend(); err != nil {
-		return nil, err
-	}
-	return x, nil
-}
-
-type RepositoryService_GetInfoAttributesClient interface {
-	Recv() (*GetInfoAttributesResponse, error)
-	grpc.ClientStream
-}
-
-type repositoryServiceGetInfoAttributesClient struct {
-	grpc.ClientStream
-}
-
-func (x *repositoryServiceGetInfoAttributesClient) Recv() (*GetInfoAttributesResponse, error) {
-	m := new(GetInfoAttributesResponse)
-	if err := x.ClientStream.RecvMsg(m); err != nil {
-		return nil, err
-	}
-	return m, nil
-}
-
 func (c *repositoryServiceClient) CalculateChecksum(ctx context.Context, in *CalculateChecksumRequest, opts ...grpc.CallOption) (*CalculateChecksumResponse, error) {
 	out := new(CalculateChecksumResponse)
 	err := c.cc.Invoke(ctx, "/gitaly.RepositoryService/CalculateChecksum", in, out, opts...)
@@ -614,7 +577,7 @@ func (c *repositoryServiceClient) CalculateChecksum(ctx context.Context, in *Cal
 }
 
 func (c *repositoryServiceClient) GetSnapshot(ctx context.Context, in *GetSnapshotRequest, opts ...grpc.CallOption) (RepositoryService_GetSnapshotClient, error) {
-	stream, err := c.cc.NewStream(ctx, &RepositoryService_ServiceDesc.Streams[8], "/gitaly.RepositoryService/GetSnapshot", opts...)
+	stream, err := c.cc.NewStream(ctx, &RepositoryService_ServiceDesc.Streams[7], "/gitaly.RepositoryService/GetSnapshot", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -655,7 +618,7 @@ func (c *repositoryServiceClient) CreateRepositoryFromSnapshot(ctx context.Conte
 }
 
 func (c *repositoryServiceClient) GetRawChanges(ctx context.Context, in *GetRawChangesRequest, opts ...grpc.CallOption) (RepositoryService_GetRawChangesClient, error) {
-	stream, err := c.cc.NewStream(ctx, &RepositoryService_ServiceDesc.Streams[9], "/gitaly.RepositoryService/GetRawChanges", opts...)
+	stream, err := c.cc.NewStream(ctx, &RepositoryService_ServiceDesc.Streams[8], "/gitaly.RepositoryService/GetRawChanges", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -687,7 +650,7 @@ func (x *repositoryServiceGetRawChangesClient) Recv() (*GetRawChangesResponse, e
 }
 
 func (c *repositoryServiceClient) SearchFilesByContent(ctx context.Context, in *SearchFilesByContentRequest, opts ...grpc.CallOption) (RepositoryService_SearchFilesByContentClient, error) {
-	stream, err := c.cc.NewStream(ctx, &RepositoryService_ServiceDesc.Streams[10], "/gitaly.RepositoryService/SearchFilesByContent", opts...)
+	stream, err := c.cc.NewStream(ctx, &RepositoryService_ServiceDesc.Streams[9], "/gitaly.RepositoryService/SearchFilesByContent", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -719,7 +682,7 @@ func (x *repositoryServiceSearchFilesByContentClient) Recv() (*SearchFilesByCont
 }
 
 func (c *repositoryServiceClient) SearchFilesByName(ctx context.Context, in *SearchFilesByNameRequest, opts ...grpc.CallOption) (RepositoryService_SearchFilesByNameClient, error) {
-	stream, err := c.cc.NewStream(ctx, &RepositoryService_ServiceDesc.Streams[11], "/gitaly.RepositoryService/SearchFilesByName", opts...)
+	stream, err := c.cc.NewStream(ctx, &RepositoryService_ServiceDesc.Streams[10], "/gitaly.RepositoryService/SearchFilesByName", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -752,7 +715,7 @@ func (x *repositoryServiceSearchFilesByNameClient) Recv() (*SearchFilesByNameRes
 
 // Deprecated: Do not use.
 func (c *repositoryServiceClient) RestoreCustomHooks(ctx context.Context, opts ...grpc.CallOption) (RepositoryService_RestoreCustomHooksClient, error) {
-	stream, err := c.cc.NewStream(ctx, &RepositoryService_ServiceDesc.Streams[12], "/gitaly.RepositoryService/RestoreCustomHooks", opts...)
+	stream, err := c.cc.NewStream(ctx, &RepositoryService_ServiceDesc.Streams[11], "/gitaly.RepositoryService/RestoreCustomHooks", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -786,7 +749,7 @@ func (x *repositoryServiceRestoreCustomHooksClient) CloseAndRecv() (*RestoreCust
 }
 
 func (c *repositoryServiceClient) SetCustomHooks(ctx context.Context, opts ...grpc.CallOption) (RepositoryService_SetCustomHooksClient, error) {
-	stream, err := c.cc.NewStream(ctx, &RepositoryService_ServiceDesc.Streams[13], "/gitaly.RepositoryService/SetCustomHooks", opts...)
+	stream, err := c.cc.NewStream(ctx, &RepositoryService_ServiceDesc.Streams[12], "/gitaly.RepositoryService/SetCustomHooks", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -821,7 +784,7 @@ func (x *repositoryServiceSetCustomHooksClient) CloseAndRecv() (*SetCustomHooksR
 
 // Deprecated: Do not use.
 func (c *repositoryServiceClient) BackupCustomHooks(ctx context.Context, in *BackupCustomHooksRequest, opts ...grpc.CallOption) (RepositoryService_BackupCustomHooksClient, error) {
-	stream, err := c.cc.NewStream(ctx, &RepositoryService_ServiceDesc.Streams[14], "/gitaly.RepositoryService/BackupCustomHooks", opts...)
+	stream, err := c.cc.NewStream(ctx, &RepositoryService_ServiceDesc.Streams[13], "/gitaly.RepositoryService/BackupCustomHooks", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -853,7 +816,7 @@ func (x *repositoryServiceBackupCustomHooksClient) Recv() (*BackupCustomHooksRes
 }
 
 func (c *repositoryServiceClient) GetCustomHooks(ctx context.Context, in *GetCustomHooksRequest, opts ...grpc.CallOption) (RepositoryService_GetCustomHooksClient, error) {
-	stream, err := c.cc.NewStream(ctx, &RepositoryService_ServiceDesc.Streams[15], "/gitaly.RepositoryService/GetCustomHooks", opts...)
+	stream, err := c.cc.NewStream(ctx, &RepositoryService_ServiceDesc.Streams[14], "/gitaly.RepositoryService/GetCustomHooks", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1073,10 +1036,6 @@ type RepositoryServiceServer interface {
 	// FindLicense looks in the given repository and attempts to detect all the
 	// details about the license used in the repository.
 	FindLicense(context.Context, *FindLicenseRequest) (*FindLicenseResponse, error)
-	// Deprecated: Do not use.
-	// GetInfoAttributes reads the contents from info/attributes.
-	// This RPC will be removed in 17.0.
-	GetInfoAttributes(*GetInfoAttributesRequest, RepositoryService_GetInfoAttributesServer) error
 	// CalculateChecksum ...
 	CalculateChecksum(context.Context, *CalculateChecksumRequest) (*CalculateChecksumResponse, error)
 	// GetSnapshot ...
@@ -1235,9 +1194,6 @@ func (UnimplementedRepositoryServiceServer) GetConfig(*GetConfigRequest, Reposit
 }
 func (UnimplementedRepositoryServiceServer) FindLicense(context.Context, *FindLicenseRequest) (*FindLicenseResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method FindLicense not implemented")
-}
-func (UnimplementedRepositoryServiceServer) GetInfoAttributes(*GetInfoAttributesRequest, RepositoryService_GetInfoAttributesServer) error {
-	return status.Errorf(codes.Unimplemented, "method GetInfoAttributes not implemented")
 }
 func (UnimplementedRepositoryServiceServer) CalculateChecksum(context.Context, *CalculateChecksumRequest) (*CalculateChecksumResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CalculateChecksum not implemented")
@@ -1750,27 +1706,6 @@ func _RepositoryService_FindLicense_Handler(srv interface{}, ctx context.Context
 		return srv.(RepositoryServiceServer).FindLicense(ctx, req.(*FindLicenseRequest))
 	}
 	return interceptor(ctx, in, info, handler)
-}
-
-func _RepositoryService_GetInfoAttributes_Handler(srv interface{}, stream grpc.ServerStream) error {
-	m := new(GetInfoAttributesRequest)
-	if err := stream.RecvMsg(m); err != nil {
-		return err
-	}
-	return srv.(RepositoryServiceServer).GetInfoAttributes(m, &repositoryServiceGetInfoAttributesServer{stream})
-}
-
-type RepositoryService_GetInfoAttributesServer interface {
-	Send(*GetInfoAttributesResponse) error
-	grpc.ServerStream
-}
-
-type repositoryServiceGetInfoAttributesServer struct {
-	grpc.ServerStream
-}
-
-func (x *repositoryServiceGetInfoAttributesServer) Send(m *GetInfoAttributesResponse) error {
-	return x.ServerStream.SendMsg(m)
 }
 
 func _RepositoryService_CalculateChecksum_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -2340,11 +2275,6 @@ var RepositoryService_ServiceDesc = grpc.ServiceDesc{
 		{
 			StreamName:    "GetConfig",
 			Handler:       _RepositoryService_GetConfig_Handler,
-			ServerStreams: true,
-		},
-		{
-			StreamName:    "GetInfoAttributes",
-			Handler:       _RepositoryService_GetInfoAttributes_Handler,
 			ServerStreams: true,
 		},
 		{

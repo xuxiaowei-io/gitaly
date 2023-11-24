@@ -204,15 +204,6 @@ service RepositoryService {
     };
   }
 
-  // GetInfoAttributes reads the contents from info/attributes.
-  // This RPC will be removed in 17.0.
-  rpc GetInfoAttributes(GetInfoAttributesRequest) returns (stream GetInfoAttributesResponse) {
-    option (op_type) = {
-      op: ACCESSOR
-    };
-    option deprecated = true;
-  }
-
   // CalculateChecksum ...
   rpc CalculateChecksum(CalculateChecksumRequest) returns (CalculateChecksumResponse) {
     option (op_type) = {
@@ -923,18 +914,6 @@ message FindLicenseResponse {
   // license_nickname is a shortened full name for better readability.
   // It exists only for a small set of licenses and an empty value is returned in most cases.
   string license_nickname = 5;
-}
-
-// GetInfoAttributesRequest ...
-message GetInfoAttributesRequest {
-  // repository ...
-  Repository repository = 1 [(target_repository)=true];
-}
-
-// GetInfoAttributesResponse ...
-message GetInfoAttributesResponse {
-  // attributes ...
-  bytes attributes = 1;
 }
 
 // CalculateChecksumRequest ...

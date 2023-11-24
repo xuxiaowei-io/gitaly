@@ -106,7 +106,6 @@ func TestNewProtoRegistry(t *testing.T) {
 			"FindMergeBase":                OpAccessor,
 			"Fsck":                         OpAccessor,
 			"GetArchive":                   OpAccessor,
-			"GetInfoAttributes":            OpAccessor,
 			"GetRawChanges":                OpAccessor,
 			"GetSnapshot":                  OpAccessor,
 			"HasLocalBranches":             OpAccessor,
