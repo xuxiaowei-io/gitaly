@@ -57,9 +57,14 @@ var (
 	// errAlternateAlreadyLinked is returned when attempting to set an alternate on a repository that
 	// already has one.
 	errAlternateAlreadyLinked = errors.New("repository already has an alternate")
-	// errPackRefsConflictRefDeletion is returned when there is a committed ref deletion before pack-refs task is
-	// committed. The transaction should be aborted.
+	// errPackRefsConflictRefDeletion is returned when there is a committed ref deletion before pack-refs
+	// task is committed. The transaction should be aborted.
 	errPackRefsConflictRefDeletion = errors.New("detected a conflict with reference deletion when committing packed-refs")
+	// errHousekeepingConflictOtherUpdates is returned when the transaction includes housekeeping alongside
+	// with other updates.
+	errHousekeepingConflictOtherUpdates = errors.New("housekeeping in the same transaction with other updates")
+	// errHousekeepingConflictConcurrent is returned when there are another concurrent housekeeping task.
+	errHousekeepingConflictConcurrent = errors.New("conflict with another concurrent housekeeping task")
 
 	// Below errors are used to error out in cases when updates have been staged in a read-only transaction.
 	errReadOnlyReferenceUpdates    = errors.New("reference updates staged in a read-only transaction")
@@ -67,6 +72,7 @@ var (
 	errReadOnlyCustomHooksUpdate   = errors.New("custom hooks update staged in a read-only transaction")
 	errReadOnlyRepositoryDeletion  = errors.New("repository deletion staged in a read-only transaction")
 	errReadOnlyObjectsIncluded     = errors.New("objects staged in a read-only transaction")
+	errReadOnlyHousekeeping        = errors.New("housekeeping in a read-only transaction")
 )
 
 // InvalidReferenceFormatError is returned when a reference name was invalid.
@@ -433,9 +439,19 @@ func (txn *Transaction) Commit(ctx context.Context) (returnedErr error) {
 			return errReadOnlyRepositoryDeletion
 		case txn.includedObjects != nil:
 			return errReadOnlyObjectsIncluded
+		case txn.runHousekeeping != nil:
+			return errReadOnlyHousekeeping
 		default:
 			return nil
 		}
+	}
+
+	if txn.runHousekeeping != nil && (txn.referenceUpdates != nil ||
+		txn.defaultBranchUpdate != nil ||
+		txn.customHooksUpdate != nil ||
+		txn.deleteRepository ||
+		txn.includedObjects != nil) {
+		return errHousekeepingConflictOtherUpdates
 	}
 
 	return txn.commit(ctx, txn)
@@ -1347,13 +1363,11 @@ func (mgr *TransactionManager) processTransaction() (returnedErr error) {
 
 		if transaction.runHousekeeping != nil {
 			shouldStoreWALFiles = true
-			logEntry.Housekeeping = &gitalypb.LogEntry_Housekeeping{}
-
-			packRefsEntry, err := mgr.verifyPackRefs(mgr.ctx, transaction)
+			housekeepingEntry, err := mgr.verifyHousekeeping(mgr.ctx, transaction)
 			if err != nil {
 				return fmt.Errorf("verifying pack refs: %w", err)
 			}
-			logEntry.Housekeeping.PackRefs = packRefsEntry
+			logEntry.Housekeeping = housekeepingEntry
 		}
 
 		if shouldStoreWALFiles {
@@ -1780,6 +1794,38 @@ func (mgr *TransactionManager) verifyDefaultBranchUpdate(ctx context.Context, tr
 	}
 
 	return nil
+}
+
+// verifyHousekeeping verifies if all included housekeeping tasks can be performed. Although it's feasible for multiple
+// housekeeping tasks running at the same time, it's not guaranteed they are conflict-free. So, we need to ensure there
+// is no other concurrent housekeeping task. Each sub-task also needs specific verification.
+func (mgr *TransactionManager) verifyHousekeeping(ctx context.Context, transaction *Transaction) (*gitalypb.LogEntry_Housekeeping, error) {
+	mgr.mutex.Lock()
+	defer mgr.mutex.Unlock()
+
+	// Check for any concurrent housekeeping between this transaction's snapshot LSN and the latest appended LSN.
+	elm := mgr.committedEntries.Front()
+	for elm != nil {
+		entry := elm.Value.(*committedEntry)
+		if entry.lsn > transaction.snapshotLSN && entry.entry.RelativePath == transaction.relativePath {
+			if entry.entry.GetHousekeeping() != nil {
+				return nil, errHousekeepingConflictConcurrent
+			}
+			if entry.entry.GetRepositoryDeletion() != nil {
+				return nil, errHousekeepingConflictOtherUpdates
+			}
+		}
+		elm = elm.Next()
+	}
+
+	packRefsEntry, err := mgr.verifyPackRefs(mgr.ctx, transaction)
+	if err != nil {
+		return nil, fmt.Errorf("verifying pack refs: %w", err)
+	}
+
+	return &gitalypb.LogEntry_Housekeeping{
+		PackRefs: packRefsEntry,
+	}, nil
 }
 
 // verifyPackRefs verifies if the pack-refs housekeeping task can be logged. Ideally, we can just apply the packed-refs
@@ -2366,11 +2412,6 @@ func (mgr *TransactionManager) applyHousekeeping(ctx context.Context, lsn LSN, l
 		// command does dir removal for us, but in staginge repository during preparation stage. In the actual
 		// repository,  we need to do it ourselves.
 		rootRefDir := filepath.Join(repositoryPath, "refs")
-		protectedDirs := map[string]struct{}{
-			rootRefDir:                         {},
-			filepath.Join(rootRefDir, "heads"): {},
-			filepath.Join(rootRefDir, "tags"):  {},
-		}
 		for dir := range modifiedDirs {
 			for dir != rootRefDir {
 				if isEmpty, err := isDirEmpty(dir); err != nil {
@@ -2387,12 +2428,8 @@ func (mgr *TransactionManager) applyHousekeeping(ctx context.Context, lsn LSN, l
 					break
 				}
 
-				// Do not remove refs/heads and refs/tags because it's likely command will re-create it
-				// right afterward.
-				if _, exist := protectedDirs[dir]; !exist {
-					if err := os.Remove(dir); err != nil {
-						return fmt.Errorf("removing empty ref dir: %w", err)
-					}
+				if err := os.Remove(dir); err != nil {
+					return fmt.Errorf("removing empty ref dir: %w", err)
 				}
 				dir = filepath.Dir(dir)
 			}

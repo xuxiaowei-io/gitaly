@@ -48,6 +48,14 @@ func generateHousekeepingTests(t *testing.T, ctx context.Context, testPartitionI
 		}
 	}
 
+	defaultRefs := []git.Reference{
+		{Name: "refs/heads/branch-1", Target: setup.Commits.Second.OID.String()},
+		{Name: "refs/heads/branch-2", Target: setup.Commits.Third.OID.String()},
+		{Name: "refs/heads/main", Target: setup.Commits.First.OID.String()},
+		{Name: "refs/tags/v1.0.0", Target: lightweightTag.String()},
+		{Name: "refs/tags/v2.0.0", Target: annotatedTag.OID.String()},
+	}
+
 	return []transactionTestCase{
 		{
 			desc:        "run pack-refs on a repository without packed-refs",
@@ -801,6 +809,326 @@ func generateHousekeepingTests(t *testing.T, ctx context.Context, testPartitionI
 							},
 							LooseReferences: map[git.ReferenceName]git.ObjectID{},
 						},
+					},
+				},
+			},
+		},
+		{
+			desc:        "housekeeping fails in read-only transaction",
+			customSetup: customSetup,
+			steps: steps{
+				StartManager{},
+				Begin{
+					RelativePath: setup.RelativePath,
+					ReadOnly:     true,
+				},
+				RunPackRefs{},
+				Commit{
+					ExpectedError: errReadOnlyHousekeeping,
+				},
+			},
+			expectedState: StateAssertion{
+				Repositories: RepositoryStates{
+					relativePath: {
+						DefaultBranch: "refs/heads/main",
+						References:    defaultRefs,
+					},
+				},
+			},
+		},
+		{
+			desc:        "housekeeping fails when there are other updates in transaction",
+			customSetup: customSetup,
+			steps: steps{
+				StartManager{},
+				Begin{
+					RelativePath: setup.RelativePath,
+				},
+				RunPackRefs{},
+				Commit{
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main": {OldOID: setup.Commits.First.OID, NewOID: setup.Commits.Second.OID},
+					},
+					ExpectedError: errHousekeepingConflictOtherUpdates,
+				},
+			},
+			expectedState: StateAssertion{
+				Repositories: RepositoryStates{
+					relativePath: {
+						DefaultBranch: "refs/heads/main",
+						References:    defaultRefs,
+					},
+				},
+			},
+		},
+		{
+			desc:        "housekeeping transaction runs concurrently with another housekeeping transaction",
+			customSetup: customSetup,
+			steps: steps{
+				StartManager{},
+				Begin{
+					TransactionID: 1,
+					RelativePath:  setup.RelativePath,
+				},
+				RunPackRefs{
+					TransactionID: 1,
+				},
+				Begin{
+					TransactionID: 2,
+					RelativePath:  setup.RelativePath,
+				},
+				RunPackRefs{
+					TransactionID: 2,
+				},
+				Commit{
+					TransactionID: 1,
+				},
+				Commit{
+					TransactionID: 2,
+					ExpectedError: errHousekeepingConflictConcurrent,
+				},
+			},
+			expectedState: StateAssertion{
+				Database: DatabaseState{
+					string(keyAppliedLSN(setup.PartitionID)): LSN(1).toProto(),
+				},
+				Directory: directoryStateWithPackedRefs(1),
+				Repositories: RepositoryStates{
+					relativePath: {
+						DefaultBranch: "refs/heads/main",
+						References:    defaultRefs,
+						PackedRefs: &PackedRefsState{
+							PackedRefsContent: []string{
+								"# pack-refs with: peeled fully-peeled sorted ",
+								fmt.Sprintf("%s refs/heads/branch-1", setup.Commits.Second.OID.String()),
+								fmt.Sprintf("%s refs/heads/branch-2", setup.Commits.Third.OID.String()),
+								fmt.Sprintf("%s refs/heads/main", setup.Commits.First.OID.String()),
+								fmt.Sprintf("%s refs/tags/v1.0.0", lightweightTag.String()),
+								fmt.Sprintf("%s refs/tags/v2.0.0", annotatedTag.OID.String()),
+								fmt.Sprintf("^%s", setup.Commits.Diverging.OID.String()),
+							},
+							LooseReferences: map[git.ReferenceName]git.ObjectID{},
+						},
+					},
+				},
+			},
+		},
+		{
+			desc: "housekeeping transaction runs after another housekeeping transaction in other repository of a pool",
+			steps: steps{
+				RemoveRepository{},
+				StartManager{},
+				Begin{
+					TransactionID: 1,
+					RelativePath:  "pool",
+				},
+				CreateRepository{
+					TransactionID: 1,
+					References: map[git.ReferenceName]git.ObjectID{
+						"refs/heads/main": setup.Commits.First.OID,
+					},
+					Packs: [][]byte{setup.Commits.First.Pack},
+				},
+				Commit{
+					TransactionID: 1,
+				},
+				Begin{
+					TransactionID:       2,
+					RelativePath:        "member",
+					ExpectedSnapshotLSN: 1,
+				},
+				CreateRepository{
+					TransactionID: 2,
+					Alternate:     "../../pool/objects",
+				},
+				Commit{
+					TransactionID: 2,
+				},
+				Begin{
+					TransactionID:       3,
+					RelativePath:        "member",
+					ExpectedSnapshotLSN: 2,
+				},
+				Begin{
+					TransactionID:       4,
+					RelativePath:        "pool",
+					ExpectedSnapshotLSN: 2,
+				},
+				RunPackRefs{
+					TransactionID: 3,
+				},
+				RunPackRefs{
+					TransactionID: 4,
+				},
+				Commit{
+					TransactionID: 3,
+				},
+				Commit{
+					TransactionID: 4,
+				},
+			},
+			expectedState: StateAssertion{
+				Database: DatabaseState{
+					string(keyAppliedLSN(setup.PartitionID)): LSN(4).toProto(),
+				},
+				Repositories: RepositoryStates{
+					"pool": {
+						Objects: []git.ObjectID{
+							setup.ObjectHash.EmptyTreeOID,
+							setup.Commits.First.OID,
+						},
+						DefaultBranch: "refs/heads/main",
+						References: []git.Reference{
+							{Name: "refs/heads/main", Target: setup.Commits.First.OID.String()},
+						},
+						PackedRefs: &PackedRefsState{
+							PackedRefsContent: []string{
+								"# pack-refs with: peeled fully-peeled sorted ",
+								fmt.Sprintf("%s refs/heads/main", setup.Commits.First.OID.String()),
+							},
+							LooseReferences: map[git.ReferenceName]git.ObjectID{},
+						},
+					},
+					"member": {
+						Objects: []git.ObjectID{
+							setup.ObjectHash.EmptyTreeOID,
+							setup.Commits.First.OID,
+						},
+						Alternate: "../../pool/objects",
+					},
+				},
+				Directory: testhelper.DirectoryState{
+					"/":                  {Mode: fs.ModeDir | perm.PrivateDir},
+					"/wal":               {Mode: fs.ModeDir | perm.PrivateDir},
+					"/wal/1":             {Mode: fs.ModeDir | perm.PrivateDir},
+					"/wal/1/objects.idx": indexFileDirectoryEntry(setup.Config),
+					"/wal/1/objects.pack": packFileDirectoryEntry(
+						setup.Config,
+						[]git.ObjectID{
+							setup.ObjectHash.EmptyTreeOID,
+							setup.Commits.First.OID,
+						},
+					),
+					"/wal/1/objects.rev": reverseIndexFileDirectoryEntry(setup.Config),
+					"/wal/3":             {Mode: fs.ModeDir | perm.PrivateDir},
+					"/wal/3/packed-refs": packRefsDirectoryEntry(setup.Config),
+					"/wal/4":             {Mode: fs.ModeDir | perm.PrivateDir},
+					"/wal/4/packed-refs": packRefsDirectoryEntry(setup.Config),
+				},
+			},
+		},
+		{
+			desc:        "housekeeping transaction runs after another housekeeping transaction",
+			customSetup: customSetup,
+			steps: steps{
+				StartManager{},
+				Begin{
+					TransactionID: 1,
+					RelativePath:  setup.RelativePath,
+				},
+				RunPackRefs{
+					TransactionID: 1,
+				},
+				Commit{
+					TransactionID: 1,
+				},
+				Begin{
+					TransactionID:       2,
+					RelativePath:        setup.RelativePath,
+					ExpectedSnapshotLSN: 1,
+				},
+				RunPackRefs{
+					TransactionID: 2,
+				},
+				Commit{
+					TransactionID: 2,
+				},
+			},
+			expectedState: StateAssertion{
+				Database: DatabaseState{
+					string(keyAppliedLSN(setup.PartitionID)): LSN(2).toProto(),
+				},
+				Directory: testhelper.DirectoryState{
+					"/":                  {Mode: fs.ModeDir | perm.PrivateDir},
+					"/wal":               {Mode: fs.ModeDir | perm.PrivateDir},
+					"/wal/1":             {Mode: fs.ModeDir | perm.PrivateDir},
+					"/wal/1/packed-refs": packRefsDirectoryEntry(setup.Config),
+					"/wal/2":             {Mode: fs.ModeDir | perm.PrivateDir},
+					"/wal/2/packed-refs": packRefsDirectoryEntry(setup.Config),
+				},
+				Repositories: RepositoryStates{
+					relativePath: {
+						DefaultBranch: "refs/heads/main",
+						References:    defaultRefs,
+						PackedRefs: &PackedRefsState{
+							PackedRefsContent: []string{
+								"# pack-refs with: peeled fully-peeled sorted ",
+								fmt.Sprintf("%s refs/heads/branch-1", setup.Commits.Second.OID.String()),
+								fmt.Sprintf("%s refs/heads/branch-2", setup.Commits.Third.OID.String()),
+								fmt.Sprintf("%s refs/heads/main", setup.Commits.First.OID.String()),
+								fmt.Sprintf("%s refs/tags/v1.0.0", lightweightTag.String()),
+								fmt.Sprintf("%s refs/tags/v2.0.0", annotatedTag.OID.String()),
+								fmt.Sprintf("^%s", setup.Commits.Diverging.OID.String()),
+							},
+							LooseReferences: map[git.ReferenceName]git.ObjectID{},
+						},
+					},
+				},
+			},
+		},
+		{
+			desc:        "housekeeping transaction runs concurrently with a repository deletion",
+			customSetup: customSetup,
+			steps: steps{
+				StartManager{},
+				Begin{
+					TransactionID: 1,
+					RelativePath:  setup.RelativePath,
+				},
+				RunPackRefs{
+					TransactionID: 1,
+				},
+				Begin{
+					TransactionID: 2,
+					RelativePath:  setup.RelativePath,
+				},
+				Commit{
+					TransactionID:    2,
+					DeleteRepository: true,
+				},
+				Begin{
+					TransactionID:       3,
+					RelativePath:        setup.RelativePath,
+					ExpectedSnapshotLSN: 1,
+				},
+				CreateRepository{
+					TransactionID: 3,
+				},
+				Commit{
+					TransactionID: 3,
+				},
+				Commit{
+					TransactionID: 1,
+					ExpectedError: errHousekeepingConflictOtherUpdates,
+				},
+			},
+			expectedState: StateAssertion{
+				Database: DatabaseState{
+					string(keyAppliedLSN(setup.PartitionID)): LSN(2).toProto(),
+				},
+				Directory: testhelper.DirectoryState{
+					"/":    {Mode: fs.ModeDir | perm.PrivateDir},
+					"/wal": {Mode: fs.ModeDir | perm.PrivateDir},
+				},
+				Repositories: RepositoryStates{
+					relativePath: {
+						DefaultBranch: "refs/heads/main",
+						References:    nil,
+						PackedRefs: &PackedRefsState{
+							PackedRefsContent: []string{""},
+							LooseReferences:   map[git.ReferenceName]git.ObjectID{},
+						},
+						Objects: []git.ObjectID{},
 					},
 				},
 			},
