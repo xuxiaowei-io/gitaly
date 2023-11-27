@@ -203,13 +203,13 @@ func (OptimizeRepositoryRequest_Strategy) EnumDescriptor() ([]byte, []int) {
 	return file_repository_proto_rawDescGZIP(), []int{73, 0}
 }
 
-// RepositoryExistsRequest ...
+// RepositoryExistsRequest is a request for the RepositoryExists RPC.
 type RepositoryExistsRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// repository ...
+	// repository is the repo to check. The storage_name and relative_path attributes must be provided.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
 }
 
@@ -252,13 +252,13 @@ func (x *RepositoryExistsRequest) GetRepository() *Repository {
 	return nil
 }
 
-// RepositoryExistsResponse ...
+// RepositoryExistsResponse is a response for the RepositoryExists RPC.
 type RepositoryExistsResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// exists ...
+	// exists indicates whether the repo exists.
 	Exists bool `protobuf:"varint,1,opt,name=exists,proto3" json:"exists,omitempty"`
 }
 

@@ -22,7 +22,7 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type RepositoryServiceClient interface {
-	// RepositoryExists ...
+	// RepositoryExists returns whether a given repository exists.
 	RepositoryExists(ctx context.Context, in *RepositoryExistsRequest, opts ...grpc.CallOption) (*RepositoryExistsResponse, error)
 	// RepositorySize returns information on the complete on-disk repository size. If you need more
 	// detailed information about the size of various sub-structures you should instead use the
@@ -989,7 +989,7 @@ func (c *repositoryServiceClient) GetFileAttributes(ctx context.Context, in *Get
 // All implementations must embed UnimplementedRepositoryServiceServer
 // for forward compatibility
 type RepositoryServiceServer interface {
-	// RepositoryExists ...
+	// RepositoryExists returns whether a given repository exists.
 	RepositoryExists(context.Context, *RepositoryExistsRequest) (*RepositoryExistsResponse, error)
 	// RepositorySize returns information on the complete on-disk repository size. If you need more
 	// detailed information about the size of various sub-structures you should instead use the

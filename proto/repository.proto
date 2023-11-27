@@ -10,7 +10,7 @@ option go_package = "gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb";
 // RepositoryService is a service providing RPCs accessing repositories as a whole.
 service RepositoryService {
 
-  // RepositoryExists ...
+  // RepositoryExists returns whether a given repository exists.
   rpc RepositoryExists(RepositoryExistsRequest) returns (RepositoryExistsResponse) {
     option (op_type) = {
       op: ACCESSOR
@@ -406,15 +406,15 @@ service RepositoryService {
   }
 }
 
-// RepositoryExistsRequest ...
+// RepositoryExistsRequest is a request for the RepositoryExists RPC.
 message RepositoryExistsRequest {
-  // repository ...
+  // repository is the repo to check. The storage_name and relative_path attributes must be provided.
   Repository repository = 1 [(target_repository)=true];
 }
 
-// RepositoryExistsResponse ...
+// RepositoryExistsResponse is a response for the RepositoryExists RPC.
 message RepositoryExistsResponse {
-  // exists ...
+  // exists indicates whether the repo exists.
   bool exists = 1;
 }
 
