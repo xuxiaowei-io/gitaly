@@ -85,7 +85,7 @@ service RepositoryService {
     };
   }
 
-  // CreateRepository ...
+  // CreateRepository creates a new empty repository.
   rpc CreateRepository(CreateRepositoryRequest) returns (CreateRepositoryResponse) {
     option (op_type) = {
       op: MUTATOR
@@ -595,9 +595,9 @@ message FetchRemoteResponse {
   bool tags_changed = 1;
 }
 
-// CreateRepositoryRequest ...
+// CreateRepositoryRequest is a request for the CreateRepository RPC.
 message CreateRepositoryRequest {
-  // repository ...
+  // repository represents the repo to create. The storage_name and relative_path attributes must be provided.
   Repository repository = 1 [(target_repository)=true];
   // default_branch is the branch name to set as the default branch of the newly created
   // repository. Note, this will be treated as the branch name and not a
@@ -609,7 +609,8 @@ message CreateRepositoryRequest {
   ObjectFormat object_format = 3;
 }
 
-// CreateRepositoryResponse ...
+// CreateRepositoryResponse is a response for the CreateRepository RPC. An empty
+// response denotes a successful request.
 message CreateRepositoryResponse {
 }
 

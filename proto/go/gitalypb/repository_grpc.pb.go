@@ -62,7 +62,7 @@ type RepositoryServiceClient interface {
 	// FetchRemote fetches references from a remote repository into the local
 	// repository.
 	FetchRemote(ctx context.Context, in *FetchRemoteRequest, opts ...grpc.CallOption) (*FetchRemoteResponse, error)
-	// CreateRepository ...
+	// CreateRepository creates a new empty repository.
 	CreateRepository(ctx context.Context, in *CreateRepositoryRequest, opts ...grpc.CallOption) (*CreateRepositoryResponse, error)
 	// GetArchive ...
 	GetArchive(ctx context.Context, in *GetArchiveRequest, opts ...grpc.CallOption) (RepositoryService_GetArchiveClient, error)
@@ -1029,7 +1029,7 @@ type RepositoryServiceServer interface {
 	// FetchRemote fetches references from a remote repository into the local
 	// repository.
 	FetchRemote(context.Context, *FetchRemoteRequest) (*FetchRemoteResponse, error)
-	// CreateRepository ...
+	// CreateRepository creates a new empty repository.
 	CreateRepository(context.Context, *CreateRepositoryRequest) (*CreateRepositoryResponse, error)
 	// GetArchive ...
 	GetArchive(*GetArchiveRequest, RepositoryService_GetArchiveServer) error

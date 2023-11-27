@@ -1110,13 +1110,13 @@ func (x *FetchRemoteResponse) GetTagsChanged() bool {
 	return false
 }
 
-// CreateRepositoryRequest ...
+// CreateRepositoryRequest is a request for the CreateRepository RPC.
 type CreateRepositoryRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// repository ...
+	// repository represents the repo to create. The storage_name and relative_path attributes must be provided.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
 	// default_branch is the branch name to set as the default branch of the newly created
 	// repository. Note, this will be treated as the branch name and not a
@@ -1181,7 +1181,8 @@ func (x *CreateRepositoryRequest) GetObjectFormat() ObjectFormat {
 	return ObjectFormat_OBJECT_FORMAT_UNSPECIFIED
 }
 
-// CreateRepositoryResponse ...
+// CreateRepositoryResponse is a response for the CreateRepository RPC. An empty
+// response denotes a successful request.
 type CreateRepositoryResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
