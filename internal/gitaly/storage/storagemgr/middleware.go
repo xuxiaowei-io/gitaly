@@ -50,9 +50,6 @@ var nonTransactionalRPCs = map[string]struct{}{
 	// Below RPCs implement functionality which isn't going to be supported by WAL.
 	// Handle these as non-transactional. Their usage must be removed prior to enabling WAL.
 	//
-	// Attributes are going to be read from HEAD. Writing out a separate attributes file
-	// won't be supported.
-	"/gitaly.RepositoryService/ApplyGitattributes": {},
 	// SetFullPath writes the full path into git config and is the last RPC that writes into the
 	// git config. Writing into the config won't be supported.
 	"/gitaly.RepositoryService/SetFullPath": {},

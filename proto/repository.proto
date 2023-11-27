@@ -68,15 +68,6 @@ service RepositoryService {
     };
   }
 
-  // ApplyGitattributes writes the attributes from the given revision to info/attributes.
-  // This RPC will be removed in 17.0.
-  rpc ApplyGitattributes(ApplyGitattributesRequest) returns (ApplyGitattributesResponse) {
-    option (op_type) = {
-      op: MUTATOR
-    };
-    option deprecated = true;
-  }
-
   // FetchRemote fetches references from a remote repository into the local
   // repository.
   rpc FetchRemote(FetchRemoteRequest) returns (FetchRemoteResponse) {
@@ -527,18 +518,6 @@ message ObjectFormatRequest {
 message ObjectFormatResponse {
   // format is the object format that the repository uses.
   ObjectFormat format = 1;
-}
-
-// ApplyGitattributesRequest ...
-message ApplyGitattributesRequest {
-  // repository ...
-  Repository repository = 1 [(target_repository)=true];
-  // revision ...
-  bytes revision = 2;
-}
-
-// ApplyGitattributesResponse ...
-message ApplyGitattributesResponse {
 }
 
 // FetchBundleRequest ...

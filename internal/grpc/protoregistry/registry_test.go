@@ -90,7 +90,6 @@ func TestNewProtoRegistry(t *testing.T) {
 			"UpdateRemoteMirror":   OpAccessor,
 		},
 		"RepositoryService": {
-			"ApplyGitattributes":           OpMutator,
 			"BackupCustomHooks":            OpAccessor,
 			"CalculateChecksum":            OpAccessor,
 			"CreateBundle":                 OpAccessor,

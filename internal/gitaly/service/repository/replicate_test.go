@@ -41,6 +41,18 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+type testTransactionServer struct {
+	gitalypb.UnimplementedRefTransactionServer
+	vote func(*gitalypb.VoteTransactionRequest) (*gitalypb.VoteTransactionResponse, error)
+}
+
+func (s *testTransactionServer) VoteTransaction(ctx context.Context, in *gitalypb.VoteTransactionRequest) (*gitalypb.VoteTransactionResponse, error) {
+	if s.vote != nil {
+		return s.vote(in)
+	}
+	return nil, nil
+}
+
 func TestReplicateRepository(t *testing.T) {
 	testhelper.SkipWithWAL(t, `
 ReplicateRepository is replicating git attributes as a separate file. WAL doesn't
