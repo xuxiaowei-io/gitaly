@@ -17,6 +17,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config/prometheus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage/storagemgr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitlab"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/text"
@@ -27,6 +28,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/transaction/txinfo"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v16/streamio"
+	"google.golang.org/grpc/metadata"
 )
 
 func TestPreReceiveInvalidArgument(t *testing.T) {
@@ -168,6 +170,19 @@ func TestPreReceiveHook_GitlabAPIAccess(t *testing.T) {
 			hooksPayload,
 		},
 	}
+
+	// Rails sends the repository's relative path from the access checks as provided by Gitaly. If transactions are enabled,
+	// this is the snapshot's relative path.
+	//
+	// Transaction middleware fails if this metadata is not present but this is not correct. We only start transactions when
+	// they come through the external API, not when it comes through the internal socket used by hooks to call into Gitaly.
+	// This test setup however is calling the HookService through the external API.
+	//
+	// For now, include the header so the test runs. In the longer term, we should stop serving HookService on the external
+	// socket given it is a service intended only to be used internally by Gitaly for hook callbacks.
+	//
+	// Related issue: https://gitlab.com/gitlab-org/gitaly/-/issues/3746
+	ctx = metadata.AppendToOutgoingContext(ctx, storagemgr.MetadataKeySnapshotRelativePath, repo.RelativePath)
 
 	stream, err := client.PreReceiveHook(ctx)
 	require.NoError(t, err)

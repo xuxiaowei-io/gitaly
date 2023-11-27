@@ -16,6 +16,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/quarantine"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage/storagemgr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
@@ -281,6 +282,19 @@ size 12345`
 			t.Parallel()
 
 			setup := tc.setup(t)
+
+			ctx := ctx
+			if setup.repo.GetGitObjectDirectory() != "" {
+				// Rails sends the repository's relative path from the access checks as provided by Gitaly. If transactions are enabled,
+				// this is the snapshot's relative path. Include the metadata in the test as well as we're testing requests with quarantine
+				// as if they were coming from access checks.
+				ctx = metadata.AppendToOutgoingContext(ctx, storagemgr.MetadataKeySnapshotRelativePath,
+					// Gitaly sends the snapshot's relative path to Rails from `pre-receive` and Rails
+					// sends it back to Gitaly when it performs requests in the access checks. The repository
+					// would have already been rewritten by Praefect, so we have to adjust for that as well.
+					gittest.RewrittenRepository(t, ctx, cfg, setup.repo).RelativePath,
+				)
+			}
 
 			stream, err := client.ListAllLFSPointers(ctx, &gitalypb.ListAllLFSPointersRequest{
 				Repository: setup.repo,

@@ -7,15 +7,26 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage/storagectx"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/metadata"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/protoregistry"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
+	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/proto"
 )
 
-// ErrQuarantineConfiguredOnMutator is returned when a mutator request is received with a quarantine configured.
-var ErrQuarantineConfiguredOnMutator = errors.New("quarantine configured on a mutator request")
+// MetadataKeySnapshotRelativePath is the header key that contains the snapshot's relative path. Rails relays
+// the relative path in the RPC calls performed as part of access checks.
+const MetadataKeySnapshotRelativePath = "relative-path-bin"
+
+var (
+	// ErrQuarantineConfiguredOnMutator is returned when a mutator request is received with a quarantine configured.
+	ErrQuarantineConfiguredOnMutator = errors.New("quarantine configured on a mutator request")
+	// ErrQuarantineWithoutSnapshotRelativePath is returned when a request is configured with a quarantine but the snapshot's
+	// relative path was not sent in a header.
+	ErrQuarantineWithoutSnapshotRelativePath = errors.New("quarantined request did not contain snapshot relative path")
+)
 
 var nonTransactionalRPCs = map[string]struct{}{
 	// This isn't registered in protoregistry so mark it here as non-transactional.
@@ -222,10 +233,6 @@ func transactionalizeRequest(ctx context.Context, logger log.Logger, txRegistry 
 		// object directory. This allows for circumventing the transaction management by configuring the either
 		// of the object directories. We'll leave this unaddressed for now and later address this by removing
 		// the options to configure object directories and alternates in a request.
-		//
-		// The relative path in quarantined requests is currently still pointing to the original repository.
-		// https://gitlab.com/gitlab-org/gitaly/-/issues/5483 tracks having Rails send the snapshot's relative
-		// path instead.
 
 		if methodInfo.Operation == protoregistry.OpMutator {
 			// Accessor requests may come with quarantine configured from Rails' access checks. Since the
@@ -235,7 +242,12 @@ func transactionalizeRequest(ctx context.Context, logger log.Logger, txRegistry 
 			return transactionalizedRequest{}, ErrQuarantineConfiguredOnMutator
 		}
 
-		return nonTransactionalRequest(ctx, req), nil
+		rewrittenReq, err := restoreSnapshotRelativePath(ctx, methodInfo, req)
+		if err != nil {
+			return transactionalizedRequest{}, fmt.Errorf("restore snapshot relative path: %w", err)
+		}
+
+		return nonTransactionalRequest(ctx, rewrittenReq), nil
 	}
 
 	// While the PartitionManager already verifies the repository's storage and relative path, it does not
@@ -291,12 +303,41 @@ func transactionalizeRequest(ctx context.Context, logger log.Logger, txRegistry 
 	}, nil
 }
 
-func rewriteRequest(tx *finalizableTransaction, methodInfo protoregistry.MethodInfo, req proto.Message) (proto.Message, error) {
+func rewritableRequest(methodInfo protoregistry.MethodInfo, req proto.Message) (proto.Message, *gitalypb.Repository, error) {
 	// Clone the request in order to not rewrite the request in the earlier interceptors.
 	rewrittenReq := proto.Clone(req)
 	targetRepo, err := methodInfo.TargetRepo(rewrittenReq)
 	if err != nil {
-		return nil, fmt.Errorf("extract target repository: %w", err)
+		return nil, nil, fmt.Errorf("extract target repository: %w", err)
+	}
+
+	return rewrittenReq, targetRepo, nil
+}
+
+func restoreSnapshotRelativePath(ctx context.Context, methodInfo protoregistry.MethodInfo, req proto.Message) (proto.Message, error) {
+	// Rails sends RPCs from its access checks with quarantine applied. The quarantine paths are relative to the
+	// snapshot repository of the original transaction. While the relative path of the request is the original relative
+	// path of the repository before snapshotting, Rails sends the snapshot repository's path in a header. For the
+	// quarantine paths to apply correctly, we must thus rewrite the request to point to the snapshot repository here.
+	snapshotRelativePath := metadata.GetValue(ctx, MetadataKeySnapshotRelativePath)
+	if snapshotRelativePath == "" {
+		return nil, ErrQuarantineWithoutSnapshotRelativePath
+	}
+
+	rewrittenReq, targetRepo, err := rewritableRequest(methodInfo, req)
+	if err != nil {
+		return nil, fmt.Errorf("rewritable request: %w", err)
+	}
+
+	targetRepo.RelativePath = snapshotRelativePath
+
+	return rewrittenReq, nil
+}
+
+func rewriteRequest(tx *finalizableTransaction, methodInfo protoregistry.MethodInfo, req proto.Message) (proto.Message, error) {
+	rewrittenReq, targetRepo, err := rewritableRequest(methodInfo, req)
+	if err != nil {
+		return nil, fmt.Errorf("rewritable request: %w", err)
 	}
 
 	*targetRepo = *tx.RewriteRepository(targetRepo)
