@@ -20,17 +20,17 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// Format ...
+// Format is the format which the archive should be packaged in.
 type GetArchiveRequest_Format int32
 
 const (
-	// ZIP ...
+	// ZIP
 	GetArchiveRequest_ZIP GetArchiveRequest_Format = 0 // protolint:disable:this ENUM_FIELD_NAMES_PREFIX ENUM_FIELD_NAMES_ZERO_VALUE_END_WITH
-	// TAR ...
+	// TAR
 	GetArchiveRequest_TAR GetArchiveRequest_Format = 1 // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
-	// TAR_GZ ...
+	// TAR_GZ
 	GetArchiveRequest_TAR_GZ GetArchiveRequest_Format = 2 // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
-	// TAR_BZ2 ...
+	// TAR_BZ2
 	GetArchiveRequest_TAR_BZ2 GetArchiveRequest_Format = 3 // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
 )
 
@@ -1221,23 +1221,24 @@ func (*CreateRepositoryResponse) Descriptor() ([]byte, []int) {
 	return file_repository_proto_rawDescGZIP(), []int{17}
 }
 
-// GetArchiveRequest ...
+// GetArchiveRequest is a request for the GetArchive RPC.
 type GetArchiveRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// repository ...
+	// repository is the repo to archive. The storage_name and relative_path attributes must be provided.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// commit_id ...
+	// commit_id is the commit at which to perform the archive.
 	CommitId string `protobuf:"bytes,2,opt,name=commit_id,json=commitId,proto3" json:"commit_id,omitempty"`
-	// prefix ...
+	// prefix is an optional prefix to add to paths in the archive.
 	Prefix string `protobuf:"bytes,3,opt,name=prefix,proto3" json:"prefix,omitempty"`
-	// format ...
+	// format is the archive format to stream in the response.
 	Format GetArchiveRequest_Format `protobuf:"varint,4,opt,name=format,proto3,enum=gitaly.GetArchiveRequest_Format" json:"format,omitempty"`
-	// path ...
+	// path is the subdirectory of the repo to archive. Provide "." for the entire repo.
 	Path []byte `protobuf:"bytes,5,opt,name=path,proto3" json:"path,omitempty"`
-	// exclude ...
+	// exclude is a set of paths to exclude from the archive. The paths must exist in the
+	// tree of the provided commit_id.
 	Exclude [][]byte `protobuf:"bytes,6,rep,name=exclude,proto3" json:"exclude,omitempty"` // protolint:disable:this REPEATED_FIELD_NAMES_PLURALIZED
 	// elide_path whether to elide subdirectories. If it is true and `path` refers
 	// to a subdirectory, that subdirectory will be elided from archive entries.
@@ -1246,7 +1247,7 @@ type GetArchiveRequest struct {
 	// entry will be `README.md`. `elide_path` has no effect if `path` refers to the
 	// repository root. `elide_path = true` is not supported if `path` refers to a file.
 	ElidePath bool `protobuf:"varint,7,opt,name=elide_path,json=elidePath,proto3" json:"elide_path,omitempty"`
-	// include_lfs_blobs ...
+	// include_lfs_blobs controls whether Git LFS Objects are included in the archive.
 	IncludeLfsBlobs bool `protobuf:"varint,8,opt,name=include_lfs_blobs,json=includeLfsBlobs,proto3" json:"include_lfs_blobs,omitempty"`
 }
 
@@ -1338,13 +1339,13 @@ func (x *GetArchiveRequest) GetIncludeLfsBlobs() bool {
 	return false
 }
 
-// GetArchiveResponse ...
+// GetArchiveResponse is a response for the GetArchive RPC.
 type GetArchiveResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// data ...
+	// data contains the archive in the requested format.
 	Data []byte `protobuf:"bytes,1,opt,name=data,proto3" json:"data,omitempty"`
 }
 

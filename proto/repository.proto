@@ -92,7 +92,7 @@ service RepositoryService {
     };
   }
 
-  // GetArchive ...
+  // GetArchive produces and returns an archive of a repository.
   rpc GetArchive(GetArchiveRequest) returns (stream GetArchiveResponse) {
     option (op_type) = {
       op: ACCESSOR
@@ -614,31 +614,32 @@ message CreateRepositoryRequest {
 message CreateRepositoryResponse {
 }
 
-// GetArchiveRequest ...
+// GetArchiveRequest is a request for the GetArchive RPC.
 message GetArchiveRequest {
-  // Format ...
+  // Format is the format which the archive should be packaged in.
   enum Format {
-    // ZIP ...
+    // ZIP
     ZIP = 0; // protolint:disable:this ENUM_FIELD_NAMES_PREFIX ENUM_FIELD_NAMES_ZERO_VALUE_END_WITH
-    // TAR ...
+    // TAR
     TAR = 1; // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
-    // TAR_GZ ...
+    // TAR_GZ
     TAR_GZ = 2; // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
-    // TAR_BZ2 ...
+    // TAR_BZ2
     TAR_BZ2 = 3; // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
   }
 
-  // repository ...
+  // repository is the repo to archive. The storage_name and relative_path attributes must be provided.
   Repository repository = 1 [(target_repository)=true];
-  // commit_id ...
+  // commit_id is the commit at which to perform the archive.
   string commit_id = 2;
-  // prefix ...
+  // prefix is an optional prefix to add to paths in the archive.
   string prefix = 3;
-  // format ...
+  // format is the archive format to stream in the response.
   Format format = 4;
-  // path ...
+  // path is the subdirectory of the repo to archive. Provide "." for the entire repo.
   bytes path = 5;
-  // exclude ...
+  // exclude is a set of paths to exclude from the archive. The paths must exist in the
+  // tree of the provided commit_id.
   repeated bytes exclude = 6; // protolint:disable:this REPEATED_FIELD_NAMES_PLURALIZED
   // elide_path whether to elide subdirectories. If it is true and `path` refers
   // to a subdirectory, that subdirectory will be elided from archive entries.
@@ -647,13 +648,13 @@ message GetArchiveRequest {
   // entry will be `README.md`. `elide_path` has no effect if `path` refers to the
   // repository root. `elide_path = true` is not supported if `path` refers to a file.
   bool elide_path = 7;
-  // include_lfs_blobs ...
+  // include_lfs_blobs controls whether Git LFS Objects are included in the archive.
   bool include_lfs_blobs = 8;
 }
 
-// GetArchiveResponse ...
+// GetArchiveResponse is a response for the GetArchive RPC.
 message GetArchiveResponse {
-  // data ...
+  // data contains the archive in the requested format.
   bytes data = 1;
 }
 
