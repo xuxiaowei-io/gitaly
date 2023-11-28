@@ -1831,13 +1831,14 @@ func (*WriteRefResponse) Descriptor() ([]byte, []int) {
 	return file_repository_proto_rawDescGZIP(), []int{27}
 }
 
-// FindMergeBaseRequest ...
+// FindMergeBaseRequest is a request for the FindMergeBase RPC.
 type FindMergeBaseRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// repository ...
+	// repository is the repo to find the merge base in. The storage_name and
+	// relative_path attributes must be provided.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
 	// revisions is the revisions to find the merge base for.
 	// We use a repeated field because rugged supports finding a base
@@ -1892,13 +1893,13 @@ func (x *FindMergeBaseRequest) GetRevisions() [][]byte {
 	return nil
 }
 
-// FindMergeBaseResponse ...
+// FindMergeBaseResponse is a response for the FindMergeBase RPC.
 type FindMergeBaseResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// base ...
+	// base is the commit ID of the best ancestor between the provided revisions.
 	Base string `protobuf:"bytes,1,opt,name=base,proto3" json:"base,omitempty"`
 }
 

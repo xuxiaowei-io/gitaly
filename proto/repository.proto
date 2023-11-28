@@ -129,7 +129,8 @@ service RepositoryService {
     };
   }
 
-  // FindMergeBase ...
+  // FindMergeBase returns the best common ancestor between two or more commits. Consult the man
+  // pages of git-merge-base(1) for more information on how this is calculated.
   rpc FindMergeBase(FindMergeBaseRequest) returns (FindMergeBaseResponse) {
     option (op_type) = {
       op: ACCESSOR
@@ -733,9 +734,10 @@ message WriteRefResponse {
   reserved 1;
 }
 
-// FindMergeBaseRequest ...
+// FindMergeBaseRequest is a request for the FindMergeBase RPC.
 message FindMergeBaseRequest {
-  // repository ...
+  // repository is the repo to find the merge base in. The storage_name and
+  // relative_path attributes must be provided.
   Repository repository = 1 [(target_repository)=true];
   // revisions is the revisions to find the merge base for.
   // We use a repeated field because rugged supports finding a base
@@ -744,9 +746,9 @@ message FindMergeBaseRequest {
   repeated bytes revisions = 2;
 }
 
-// FindMergeBaseResponse ...
+// FindMergeBaseResponse is a response for the FindMergeBase RPC.
 message FindMergeBaseResponse {
-  // base ...
+  // base is the commit ID of the best ancestor between the provided revisions.
   string base = 1;
 }
 

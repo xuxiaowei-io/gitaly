@@ -76,7 +76,8 @@ type RepositoryServiceClient interface {
 	Fsck(ctx context.Context, in *FsckRequest, opts ...grpc.CallOption) (*FsckResponse, error)
 	// WriteRef creates or updates a ref in a repository to point to a new value.
 	WriteRef(ctx context.Context, in *WriteRefRequest, opts ...grpc.CallOption) (*WriteRefResponse, error)
-	// FindMergeBase ...
+	// FindMergeBase returns the best common ancestor between two or more commits. Consult the man
+	// pages of git-merge-base(1) for more information on how this is calculated.
 	FindMergeBase(ctx context.Context, in *FindMergeBaseRequest, opts ...grpc.CallOption) (*FindMergeBaseResponse, error)
 	// CreateFork creates a new repository from a specific source repository. This new repository will
 	// have the same branches and tags as the source repository. Internal references will not be
@@ -1043,7 +1044,8 @@ type RepositoryServiceServer interface {
 	Fsck(context.Context, *FsckRequest) (*FsckResponse, error)
 	// WriteRef creates or updates a ref in a repository to point to a new value.
 	WriteRef(context.Context, *WriteRefRequest) (*WriteRefResponse, error)
-	// FindMergeBase ...
+	// FindMergeBase returns the best common ancestor between two or more commits. Consult the man
+	// pages of git-merge-base(1) for more information on how this is calculated.
 	FindMergeBase(context.Context, *FindMergeBaseRequest) (*FindMergeBaseResponse, error)
 	// CreateFork creates a new repository from a specific source repository. This new repository will
 	// have the same branches and tags as the source repository. Internal references will not be
