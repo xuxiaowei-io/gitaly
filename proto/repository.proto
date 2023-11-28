@@ -223,7 +223,8 @@ service RepositoryService {
     };
   }
 
-  // GetSnapshot ...
+  // GetSnapshot returns a snapshot of the repository. A snapshot comprises all Git references
+  // and objects required to recreate the state of a repository at a point in time.
   rpc GetSnapshot(GetSnapshotRequest) returns (stream GetSnapshotResponse) {
     option (op_type) = {
       op: ACCESSOR
@@ -962,15 +963,16 @@ message CalculateChecksumResponse {
   string checksum = 1;
 }
 
-// GetSnapshotRequest ...
+// GetSnapshotRequest is a request for the GetSnapshot RPC.
 message GetSnapshotRequest {
-  // repository ...
+  // repository is the repository to snapshot. The storage_name and relative_path
+  // attributes must be provided.
   Repository repository = 1 [(target_repository)=true];
 }
 
-// GetSnapshotResponse ...
+// GetSnapshotResponse is a response for the GetSnapshot RPC.
 message GetSnapshotResponse {
-  // data ...
+  // data is the snapshot of the repo compressed as a TAR archive.
   bytes data = 1;
 }
 

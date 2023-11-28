@@ -115,7 +115,8 @@ type RepositoryServiceClient interface {
 	// CalculateChecksum returns a checksum of the repository by hashing its references. Refs
 	// outside of well-known namespaces are not considered when computing the checksum.
 	CalculateChecksum(ctx context.Context, in *CalculateChecksumRequest, opts ...grpc.CallOption) (*CalculateChecksumResponse, error)
-	// GetSnapshot ...
+	// GetSnapshot returns a snapshot of the repository. A snapshot comprises all Git references
+	// and objects required to recreate the state of a repository at a point in time.
 	GetSnapshot(ctx context.Context, in *GetSnapshotRequest, opts ...grpc.CallOption) (RepositoryService_GetSnapshotClient, error)
 	// CreateRepositoryFromSnapshot ...
 	CreateRepositoryFromSnapshot(ctx context.Context, in *CreateRepositoryFromSnapshotRequest, opts ...grpc.CallOption) (*CreateRepositoryFromSnapshotResponse, error)
@@ -1085,7 +1086,8 @@ type RepositoryServiceServer interface {
 	// CalculateChecksum returns a checksum of the repository by hashing its references. Refs
 	// outside of well-known namespaces are not considered when computing the checksum.
 	CalculateChecksum(context.Context, *CalculateChecksumRequest) (*CalculateChecksumResponse, error)
-	// GetSnapshot ...
+	// GetSnapshot returns a snapshot of the repository. A snapshot comprises all Git references
+	// and objects required to recreate the state of a repository at a point in time.
 	GetSnapshot(*GetSnapshotRequest, RepositoryService_GetSnapshotServer) error
 	// CreateRepositoryFromSnapshot ...
 	CreateRepositoryFromSnapshot(context.Context, *CreateRepositoryFromSnapshotRequest) (*CreateRepositoryFromSnapshotResponse, error)

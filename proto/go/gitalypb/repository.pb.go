@@ -3321,13 +3321,14 @@ func (x *CalculateChecksumResponse) GetChecksum() string {
 	return ""
 }
 
-// GetSnapshotRequest ...
+// GetSnapshotRequest is a request for the GetSnapshot RPC.
 type GetSnapshotRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// repository ...
+	// repository is the repository to snapshot. The storage_name and relative_path
+	// attributes must be provided.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
 }
 
@@ -3370,13 +3371,13 @@ func (x *GetSnapshotRequest) GetRepository() *Repository {
 	return nil
 }
 
-// GetSnapshotResponse ...
+// GetSnapshotResponse is a response for the GetSnapshot RPC.
 type GetSnapshotResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// data ...
+	// data is the snapshot of the repo compressed as a TAR archive.
 	Data []byte `protobuf:"bytes,1,opt,name=data,proto3" json:"data,omitempty"`
 }
 
