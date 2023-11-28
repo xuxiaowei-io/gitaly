@@ -99,7 +99,7 @@ service RepositoryService {
     };
   }
 
-  // HasLocalBranches ...
+  // HasLocalBranches returns whether the given repo contains any branches.
   rpc HasLocalBranches(HasLocalBranchesRequest) returns (HasLocalBranchesResponse) {
     option (op_type) = {
       op: ACCESSOR
@@ -658,15 +658,15 @@ message GetArchiveResponse {
   bytes data = 1;
 }
 
-// HasLocalBranchesRequest ...
+// HasLocalBranchesRequest is a request for the HasLocalBranches RPC.
 message HasLocalBranchesRequest {
-  // repository ...
+  // repository is the repo to check. The storage_name and relative_path attributes must be provided.
   Repository repository = 1 [(target_repository)=true];
 }
 
-// HasLocalBranchesResponse ...
+// HasLocalBranchesResponse is a response for the HasLocalBranches RPC.
 message HasLocalBranchesResponse {
-  // value ...
+  // value indicates whether branches exist in the repo.
   bool value = 1;
 }
 

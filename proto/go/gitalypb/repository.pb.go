@@ -1388,13 +1388,13 @@ func (x *GetArchiveResponse) GetData() []byte {
 	return nil
 }
 
-// HasLocalBranchesRequest ...
+// HasLocalBranchesRequest is a request for the HasLocalBranches RPC.
 type HasLocalBranchesRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// repository ...
+	// repository is the repo to check. The storage_name and relative_path attributes must be provided.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
 }
 
@@ -1437,13 +1437,13 @@ func (x *HasLocalBranchesRequest) GetRepository() *Repository {
 	return nil
 }
 
-// HasLocalBranchesResponse ...
+// HasLocalBranchesResponse is a response for the HasLocalBranches RPC.
 type HasLocalBranchesResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// value ...
+	// value indicates whether branches exist in the repo.
 	Value bool `protobuf:"varint,1,opt,name=value,proto3" json:"value,omitempty"`
 }
 

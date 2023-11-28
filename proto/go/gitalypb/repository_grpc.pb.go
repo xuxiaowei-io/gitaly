@@ -66,7 +66,7 @@ type RepositoryServiceClient interface {
 	CreateRepository(ctx context.Context, in *CreateRepositoryRequest, opts ...grpc.CallOption) (*CreateRepositoryResponse, error)
 	// GetArchive produces and returns an archive of a repository.
 	GetArchive(ctx context.Context, in *GetArchiveRequest, opts ...grpc.CallOption) (RepositoryService_GetArchiveClient, error)
-	// HasLocalBranches ...
+	// HasLocalBranches returns whether the given repo contains any branches.
 	HasLocalBranches(ctx context.Context, in *HasLocalBranchesRequest, opts ...grpc.CallOption) (*HasLocalBranchesResponse, error)
 	// FetchSourceBranch fetches a branch from a second (potentially remote)
 	// repository into the given repository.
@@ -1033,7 +1033,7 @@ type RepositoryServiceServer interface {
 	CreateRepository(context.Context, *CreateRepositoryRequest) (*CreateRepositoryResponse, error)
 	// GetArchive produces and returns an archive of a repository.
 	GetArchive(*GetArchiveRequest, RepositoryService_GetArchiveServer) error
-	// HasLocalBranches ...
+	// HasLocalBranches returns whether the given repo contains any branches.
 	HasLocalBranches(context.Context, *HasLocalBranchesRequest) (*HasLocalBranchesResponse, error)
 	// FetchSourceBranch fetches a branch from a second (potentially remote)
 	// repository into the given repository.
