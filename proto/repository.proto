@@ -231,7 +231,8 @@ service RepositoryService {
     };
   }
 
-  // CreateRepositoryFromSnapshot ...
+  // CreateRepositoryFromSnapshot creates a new repository based on a snapshot created with
+  // the GetSnapshot RPC. The snapshot is fetched via HTTP.
   rpc CreateRepositoryFromSnapshot(CreateRepositoryFromSnapshotRequest) returns (CreateRepositoryFromSnapshotResponse) {
     option (op_type) = {
       op: MUTATOR
@@ -976,13 +977,14 @@ message GetSnapshotResponse {
   bytes data = 1;
 }
 
-// CreateRepositoryFromSnapshotRequest ...
+// CreateRepositoryFromSnapshotRequest is a request for the CreateRepositoryFromSnapshot RPC.
 message CreateRepositoryFromSnapshotRequest {
-  // repository ...
+  // repository indicates where the new repo should be created. The storage_name and
+  // relative_path attributes must be provided.
   Repository repository = 1 [(target_repository)=true];
-  // http_url ...
+  // http_url is the full URL of the location of the snapshot TAR.
   string http_url = 2;
-  // http_auth ...
+  // http_auth is the value of the Authorization header to send to http_url.
   string http_auth = 3;
   // resolved_address holds the resolved IP address of the remote_url. This is
   // used to avoid DNS rebinding by mapping the url to the resolved address.
@@ -992,12 +994,12 @@ message CreateRepositoryFromSnapshotRequest {
   // Optional.
   string resolved_address = 5;
 
-  // HttpHost has been removed in favor of ResolvedAddress.
+  // http_host has been removed in favor of ResolvedAddress.
   reserved 4;
   reserved "http_host";
 }
 
-// CreateRepositoryFromSnapshotResponse ...
+// CreateRepositoryFromSnapshotResponse is a response for the CreateRepositoryFromSnapshot RPC.
 message CreateRepositoryFromSnapshotResponse {
 }
 

@@ -118,7 +118,8 @@ type RepositoryServiceClient interface {
 	// GetSnapshot returns a snapshot of the repository. A snapshot comprises all Git references
 	// and objects required to recreate the state of a repository at a point in time.
 	GetSnapshot(ctx context.Context, in *GetSnapshotRequest, opts ...grpc.CallOption) (RepositoryService_GetSnapshotClient, error)
-	// CreateRepositoryFromSnapshot ...
+	// CreateRepositoryFromSnapshot creates a new repository based on a snapshot created with
+	// the GetSnapshot RPC. The snapshot is fetched via HTTP.
 	CreateRepositoryFromSnapshot(ctx context.Context, in *CreateRepositoryFromSnapshotRequest, opts ...grpc.CallOption) (*CreateRepositoryFromSnapshotResponse, error)
 	// GetRawChanges ...
 	GetRawChanges(ctx context.Context, in *GetRawChangesRequest, opts ...grpc.CallOption) (RepositoryService_GetRawChangesClient, error)
@@ -1089,7 +1090,8 @@ type RepositoryServiceServer interface {
 	// GetSnapshot returns a snapshot of the repository. A snapshot comprises all Git references
 	// and objects required to recreate the state of a repository at a point in time.
 	GetSnapshot(*GetSnapshotRequest, RepositoryService_GetSnapshotServer) error
-	// CreateRepositoryFromSnapshot ...
+	// CreateRepositoryFromSnapshot creates a new repository based on a snapshot created with
+	// the GetSnapshot RPC. The snapshot is fetched via HTTP.
 	CreateRepositoryFromSnapshot(context.Context, *CreateRepositoryFromSnapshotRequest) (*CreateRepositoryFromSnapshotResponse, error)
 	// GetRawChanges ...
 	GetRawChanges(*GetRawChangesRequest, RepositoryService_GetRawChangesServer) error

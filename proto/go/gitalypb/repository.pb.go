@@ -3420,17 +3420,18 @@ func (x *GetSnapshotResponse) GetData() []byte {
 	return nil
 }
 
-// CreateRepositoryFromSnapshotRequest ...
+// CreateRepositoryFromSnapshotRequest is a request for the CreateRepositoryFromSnapshot RPC.
 type CreateRepositoryFromSnapshotRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// repository ...
+	// repository indicates where the new repo should be created. The storage_name and
+	// relative_path attributes must be provided.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// http_url ...
+	// http_url is the full URL of the location of the snapshot TAR.
 	HttpUrl string `protobuf:"bytes,2,opt,name=http_url,json=httpUrl,proto3" json:"http_url,omitempty"`
-	// http_auth ...
+	// http_auth is the value of the Authorization header to send to http_url.
 	HttpAuth string `protobuf:"bytes,3,opt,name=http_auth,json=httpAuth,proto3" json:"http_auth,omitempty"`
 	// resolved_address holds the resolved IP address of the remote_url. This is
 	// used to avoid DNS rebinding by mapping the url to the resolved address.
@@ -3501,7 +3502,7 @@ func (x *CreateRepositoryFromSnapshotRequest) GetResolvedAddress() string {
 	return ""
 }
 
-// CreateRepositoryFromSnapshotResponse ...
+// CreateRepositoryFromSnapshotResponse is a response for the CreateRepositoryFromSnapshot RPC.
 type CreateRepositoryFromSnapshotResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
