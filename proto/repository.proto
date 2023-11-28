@@ -215,7 +215,8 @@ service RepositoryService {
     option deprecated = true;
   }
 
-  // CalculateChecksum ...
+  // CalculateChecksum returns a checksum of the repository by hashing its references. Refs
+  // outside of well-known namespaces are not considered when computing the checksum.
   rpc CalculateChecksum(CalculateChecksumRequest) returns (CalculateChecksumResponse) {
     option (op_type) = {
       op: ACCESSOR
@@ -948,15 +949,16 @@ message GetInfoAttributesResponse {
   bytes attributes = 1;
 }
 
-// CalculateChecksumRequest ...
+// CalculateChecksumRequest is a request for the CalculateChecksum RPC.
 message CalculateChecksumRequest {
-  // repository ...
+  // repository is the repo to calculate the checksum for. The storage_name and relative_path
+  // attributes must be provided.
   Repository repository = 1 [(target_repository)=true];
 }
 
-// CalculateChecksumResponse ...
+// CalculateChecksumResponse is a response for the CalculateChecksum RPC.
 message CalculateChecksumResponse {
-  // checksum ...
+  // checksum is the checksum of the repo's references.
   string checksum = 1;
 }
 

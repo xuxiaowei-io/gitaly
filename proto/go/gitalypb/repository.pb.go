@@ -3222,13 +3222,14 @@ func (x *GetInfoAttributesResponse) GetAttributes() []byte {
 	return nil
 }
 
-// CalculateChecksumRequest ...
+// CalculateChecksumRequest is a request for the CalculateChecksum RPC.
 type CalculateChecksumRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// repository ...
+	// repository is the repo to calculate the checksum for. The storage_name and relative_path
+	// attributes must be provided.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
 }
 
@@ -3271,13 +3272,13 @@ func (x *CalculateChecksumRequest) GetRepository() *Repository {
 	return nil
 }
 
-// CalculateChecksumResponse ...
+// CalculateChecksumResponse is a response for the CalculateChecksum RPC.
 type CalculateChecksumResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// checksum ...
+	// checksum is the checksum of the repo's references.
 	Checksum string `protobuf:"bytes,1,opt,name=checksum,proto3" json:"checksum,omitempty"`
 }
 

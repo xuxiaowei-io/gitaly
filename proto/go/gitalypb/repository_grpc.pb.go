@@ -112,7 +112,8 @@ type RepositoryServiceClient interface {
 	// GetInfoAttributes reads the contents from info/attributes.
 	// This RPC will be removed in 17.0.
 	GetInfoAttributes(ctx context.Context, in *GetInfoAttributesRequest, opts ...grpc.CallOption) (RepositoryService_GetInfoAttributesClient, error)
-	// CalculateChecksum ...
+	// CalculateChecksum returns a checksum of the repository by hashing its references. Refs
+	// outside of well-known namespaces are not considered when computing the checksum.
 	CalculateChecksum(ctx context.Context, in *CalculateChecksumRequest, opts ...grpc.CallOption) (*CalculateChecksumResponse, error)
 	// GetSnapshot ...
 	GetSnapshot(ctx context.Context, in *GetSnapshotRequest, opts ...grpc.CallOption) (RepositoryService_GetSnapshotClient, error)
@@ -1081,7 +1082,8 @@ type RepositoryServiceServer interface {
 	// GetInfoAttributes reads the contents from info/attributes.
 	// This RPC will be removed in 17.0.
 	GetInfoAttributes(*GetInfoAttributesRequest, RepositoryService_GetInfoAttributesServer) error
-	// CalculateChecksum ...
+	// CalculateChecksum returns a checksum of the repository by hashing its references. Refs
+	// outside of well-known namespaces are not considered when computing the checksum.
 	CalculateChecksum(context.Context, *CalculateChecksumRequest) (*CalculateChecksumResponse, error)
 	// GetSnapshot ...
 	GetSnapshot(*GetSnapshotRequest, RepositoryService_GetSnapshotServer) error
