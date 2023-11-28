@@ -150,7 +150,8 @@ service RepositoryService {
     };
   }
 
-  // CreateRepositoryFromURL ...
+  // CreateRepositoryFromURL creates a new repo and seeds it with the contents of an existing Git repo
+  // reachable at the provided URL.
   rpc CreateRepositoryFromURL(CreateRepositoryFromURLRequest) returns (CreateRepositoryFromURLResponse) {
     option (op_type) = {
       op: MUTATOR
@@ -772,11 +773,12 @@ message CreateForkRequest {
 message CreateForkResponse {
 }
 
-// CreateRepositoryFromURLRequest ...
+// CreateRepositoryFromURLRequest is a request for the CreateRepositoryFromURL RPC.
 message CreateRepositoryFromURLRequest {
-  // repository ...
+  // repository represents where the repo should be created. The storage_name and
+  // relative_path attributes must be provided.
   Repository repository = 1 [(target_repository)=true];
-  // url ...
+  // url is the URL of the existing Git repository.
   string url = 2;
   // http_authorization_header is the HTTP header which can be added to
   // the request in order to authenticate against the repository.
@@ -800,7 +802,7 @@ message CreateRepositoryFromURLRequest {
   reserved "http_host";
 }
 
-// CreateRepositoryFromURLResponse ...
+// CreateRepositoryFromURLResponse is a response for the CreateRepositoryFromURL RPC.
 message CreateRepositoryFromURLResponse {
 }
 

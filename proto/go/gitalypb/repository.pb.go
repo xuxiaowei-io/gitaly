@@ -2054,15 +2054,16 @@ func (*CreateForkResponse) Descriptor() ([]byte, []int) {
 	return file_repository_proto_rawDescGZIP(), []int{31}
 }
 
-// CreateRepositoryFromURLRequest ...
+// CreateRepositoryFromURLRequest is a request for the CreateRepositoryFromURL RPC.
 type CreateRepositoryFromURLRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// repository ...
+	// repository represents where the repo should be created. The storage_name and
+	// relative_path attributes must be provided.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// url ...
+	// url is the URL of the existing Git repository.
 	Url string `protobuf:"bytes,2,opt,name=url,proto3" json:"url,omitempty"`
 	// http_authorization_header is the HTTP header which can be added to
 	// the request in order to authenticate against the repository.
@@ -2149,7 +2150,7 @@ func (x *CreateRepositoryFromURLRequest) GetResolvedAddress() string {
 	return ""
 }
 
-// CreateRepositoryFromURLResponse ...
+// CreateRepositoryFromURLResponse is a response for the CreateRepositoryFromURL RPC.
 type CreateRepositoryFromURLResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache

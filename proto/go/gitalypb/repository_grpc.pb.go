@@ -87,7 +87,8 @@ type RepositoryServiceClient interface {
 	// creating the repository like this. The newly created repository does not join the object pool
 	// of the source repository, if there is any.
 	CreateFork(ctx context.Context, in *CreateForkRequest, opts ...grpc.CallOption) (*CreateForkResponse, error)
-	// CreateRepositoryFromURL ...
+	// CreateRepositoryFromURL creates a new repo and seeds it with the contents of an existing Git repo
+	// reachable at the provided URL.
 	CreateRepositoryFromURL(ctx context.Context, in *CreateRepositoryFromURLRequest, opts ...grpc.CallOption) (*CreateRepositoryFromURLResponse, error)
 	// CreateBundle creates a bundle from all refs
 	CreateBundle(ctx context.Context, in *CreateBundleRequest, opts ...grpc.CallOption) (RepositoryService_CreateBundleClient, error)
@@ -1055,7 +1056,8 @@ type RepositoryServiceServer interface {
 	// creating the repository like this. The newly created repository does not join the object pool
 	// of the source repository, if there is any.
 	CreateFork(context.Context, *CreateForkRequest) (*CreateForkResponse, error)
-	// CreateRepositoryFromURL ...
+	// CreateRepositoryFromURL creates a new repo and seeds it with the contents of an existing Git repo
+	// reachable at the provided URL.
 	CreateRepositoryFromURL(context.Context, *CreateRepositoryFromURLRequest) (*CreateRepositoryFromURLResponse, error)
 	// CreateBundle creates a bundle from all refs
 	CreateBundle(*CreateBundleRequest, RepositoryService_CreateBundleServer) error
