@@ -158,8 +158,8 @@ func TestTransactionManager(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 
-	// partitionID is the partition ID used in the tests for the TransactionManager.
-	const partitionID partitionID = 1
+	// testPartitionID is the partition ID used in the tests for the TransactionManager.
+	const testPartitionID partitionID = 1
 
 	setupTest := func(t *testing.T, relativePath string) testTransactionSetup {
 		t.Helper()
@@ -211,7 +211,7 @@ func TestTransactionManager(t *testing.T) {
 		}
 
 		return testTransactionSetup{
-			PartitionID:       partitionID,
+			PartitionID:       testPartitionID,
 			RelativePath:      relativePath,
 			RepositoryPath:    repoPath,
 			Repo:              localRepo,
@@ -1620,8 +1620,8 @@ func BenchmarkTransactionManager(b *testing.B) {
 				require.NoError(b, os.MkdirAll(stagingDir, perm.PrivateDir))
 
 				// Valid partition IDs are >=1.
-				partitionID := partitionID(i + 1)
-				manager := NewTransactionManager(partitionID, logger, database, storagePath, stateDir, stagingDir, cmdFactory, housekeepingManager, repositoryFactory)
+				testPartitionID := partitionID(i + 1)
+				manager := NewTransactionManager(testPartitionID, logger, database, storagePath, stateDir, stagingDir, cmdFactory, housekeepingManager, repositoryFactory)
 
 				managers = append(managers, manager)
 
