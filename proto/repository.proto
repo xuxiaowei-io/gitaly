@@ -717,8 +717,10 @@ message WriteRefRequest {
   // If an all-zero object ID is provided, the ref will only be updated if it did not
   // previously exist.
   bytes old_revision = 4;
-  // force ...
-  bool force = 5;
+  // This was previously a no-op boolean for the user to indicate if the write
+  // should be forced.
+  reserved 5;
+  reserved "force";
   // This used to be a boolean indicating whether or not to shell out or use
   // the rugged implementation
   reserved 6;
