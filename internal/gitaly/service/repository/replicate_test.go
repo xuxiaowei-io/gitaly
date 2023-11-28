@@ -49,7 +49,6 @@ attributes from HEAD.`)
 
 	t.Parallel()
 	testhelper.NewFeatureSets(
-		featureflag.ReplicateRepositoryObjectPool,
 		featureflag.InterceptReplicateRepository,
 		featureflag.TransactionalAlternatesDisconnect,
 	).Run(t, testReplicateRepository)
@@ -398,7 +397,7 @@ func testReplicateRepository(t *testing.T, ctx context.Context) {
 			// Consequently, this test case is executed with Praefect disabled.
 			serverOpts: []testserver.GitalyServerOpt{testserver.WithDisablePraefect()},
 			setup: func(t *testing.T, cfg config.Cfg) setupData {
-				sourceProto, _, targetProto, targetPath := setupSourceAndTarget(t, cfg, true)
+				sourceProto, _, targetProto, _ := setupSourceAndTarget(t, cfg, true)
 
 				// If only the target repository is linked to an object pool, repository replication
 				// results in the target repository disconnecting from its object pool to match the
@@ -407,16 +406,10 @@ func testReplicateRepository(t *testing.T, ctx context.Context) {
 					LinkRepositoryToObjectPool: true,
 				})
 
-				expectedAltInfo, err := stats.AlternatesInfoForRepository(targetPath)
-				require.NoError(t, err)
-				if featureflag.ReplicateRepositoryObjectPool.IsEnabled(ctx) {
-					expectedAltInfo = stats.AlternatesInfo{Exists: false}
-				}
-
 				return setupData{
 					source:              sourceProto,
 					target:              targetProto,
-					expectedAltInfo:     expectedAltInfo,
+					expectedAltInfo:     stats.AlternatesInfo{Exists: false},
 					replicateObjectPool: true,
 				}
 			},
@@ -460,7 +453,7 @@ func testReplicateRepository(t *testing.T, ctx context.Context) {
 			// Consequently, this test case is executed with Praefect disabled.
 			serverOpts: []testserver.GitalyServerOpt{testserver.WithDisablePraefect()},
 			setup: func(t *testing.T, cfg config.Cfg) setupData {
-				sourceProto, _, targetProto, targetPath := setupSourceAndTarget(t, cfg, true)
+				sourceProto, _, targetProto, _ := setupSourceAndTarget(t, cfg, true)
 
 				// Both the source and target repositories being linked to different object pools is
 				// an unexpected state. If this occurs replication is aborted and an error returned.
@@ -471,18 +464,6 @@ func testReplicateRepository(t *testing.T, ctx context.Context) {
 				gittest.CreateObjectPool(t, ctx, cfg, targetProto, gittest.CreateObjectPoolConfig{
 					LinkRepositoryToObjectPool: true,
 				})
-
-				if featureflag.ReplicateRepositoryObjectPool.IsDisabled(ctx) {
-					expectedAltInfo, err := stats.AlternatesInfoForRepository(targetPath)
-					require.NoError(t, err)
-
-					return setupData{
-						source:              sourceProto,
-						target:              targetProto,
-						replicateObjectPool: true,
-						expectedAltInfo:     expectedAltInfo,
-					}
-				}
 
 				return setupData{
 					source:              sourceProto,
@@ -518,10 +499,6 @@ func testReplicateRepository(t *testing.T, ctx context.Context) {
 				expectedAltInfo, err := stats.AlternatesInfoForRepository(sourcePath)
 				require.NoError(t, err)
 
-				if featureflag.ReplicateRepositoryObjectPool.IsDisabled(ctx) {
-					expectedAltInfo = stats.AlternatesInfo{Exists: false}
-				}
-
 				return setupData{
 					source:              sourceProto,
 					target:              targetProto,
@@ -551,10 +528,6 @@ func testReplicateRepository(t *testing.T, ctx context.Context) {
 
 				expectedAltInfo, err := stats.AlternatesInfoForRepository(sourcePath)
 				require.NoError(t, err)
-
-				if featureflag.ReplicateRepositoryObjectPool.IsDisabled(ctx) {
-					expectedAltInfo = stats.AlternatesInfo{Exists: false}
-				}
 
 				return setupData{
 					source:              sourceProto,
@@ -691,12 +664,8 @@ func testReplicateRepository(t *testing.T, ctx context.Context) {
 
 func TestReplicateRepository_transactional(t *testing.T) {
 	t.Parallel()
-	testhelper.NewFeatureSets(featureflag.ReplicateRepositoryObjectPool).Run(t, testReplicateRepositoryTransactional)
-}
 
-func testReplicateRepositoryTransactional(t *testing.T, ctx context.Context) {
-	t.Parallel()
-
+	ctx := testhelper.Context(t)
 	cfgBuilder := testcfg.NewGitalyCfgBuilder(testcfg.WithStorages("default", "replica"))
 	cfg := cfgBuilder.Build(t)
 
