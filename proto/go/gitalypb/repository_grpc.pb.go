@@ -74,7 +74,7 @@ type RepositoryServiceClient interface {
 	// Fsck checks the repository for consistency via git-fsck(1). This can be used to check for
 	// repository corruption.
 	Fsck(ctx context.Context, in *FsckRequest, opts ...grpc.CallOption) (*FsckResponse, error)
-	// WriteRef ...
+	// WriteRef creates or updates a ref in a repository to point to a new value.
 	WriteRef(ctx context.Context, in *WriteRefRequest, opts ...grpc.CallOption) (*WriteRefResponse, error)
 	// FindMergeBase ...
 	FindMergeBase(ctx context.Context, in *FindMergeBaseRequest, opts ...grpc.CallOption) (*FindMergeBaseResponse, error)
@@ -1041,7 +1041,7 @@ type RepositoryServiceServer interface {
 	// Fsck checks the repository for consistency via git-fsck(1). This can be used to check for
 	// repository corruption.
 	Fsck(context.Context, *FsckRequest) (*FsckResponse, error)
-	// WriteRef ...
+	// WriteRef creates or updates a ref in a repository to point to a new value.
 	WriteRef(context.Context, *WriteRefRequest) (*WriteRefResponse, error)
 	// FindMergeBase ...
 	FindMergeBase(context.Context, *FindMergeBaseRequest) (*FindMergeBaseResponse, error)

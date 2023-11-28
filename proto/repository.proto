@@ -122,7 +122,7 @@ service RepositoryService {
     };
   }
 
-  // WriteRef ...
+  // WriteRef creates or updates a ref in a repository to point to a new value.
   rpc WriteRef(WriteRefRequest) returns (WriteRefResponse) {
     option (op_type) = {
       op: MUTATOR
@@ -704,15 +704,18 @@ message FsckResponse {
   bytes error = 1;
 }
 
-// WriteRefRequest ...
+// WriteRefRequest is a request for the WriteRef RPC.
 message WriteRefRequest {
-  // repository ...
+  // repository is the repo in which to write a ref. The storage_name and relative_path
+  // attributes must be provided.
   Repository repository = 1 [(target_repository)=true];
-  // ref ...
+  // ref is the ref to create or update. It should be a fully-resolved value like refs/heads/main.
   bytes ref = 2;
-  // revision ...
+  // revision is the new value that the ref should point to.
   bytes revision = 3;
-  // old_revision ...
+  // old_revision is the previous value of the ref, used to prevent race conditions.
+  // If an all-zero object ID is provided, the ref will only be updated if it did not
+  // previously exist.
   bytes old_revision = 4;
   // force ...
   bool force = 5;
@@ -721,7 +724,7 @@ message WriteRefRequest {
   reserved 6;
 }
 
-// WriteRefResponse ...
+// WriteRefResponse is a response for the WriteRef RPC.
 message WriteRefResponse {
   // This used to contain an error message. Since we're shelling out
   // all exceptions are wrapped in GRPC errors.

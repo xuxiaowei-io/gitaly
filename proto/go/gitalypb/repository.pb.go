@@ -1713,19 +1713,22 @@ func (x *FsckResponse) GetError() []byte {
 	return nil
 }
 
-// WriteRefRequest ...
+// WriteRefRequest is a request for the WriteRef RPC.
 type WriteRefRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// repository ...
+	// repository is the repo in which to write a ref. The storage_name and relative_path
+	// attributes must be provided.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// ref ...
+	// ref is the ref to create or update. It should be a fully-resolved value like refs/heads/main.
 	Ref []byte `protobuf:"bytes,2,opt,name=ref,proto3" json:"ref,omitempty"`
-	// revision ...
+	// revision is the new value that the ref should point to.
 	Revision []byte `protobuf:"bytes,3,opt,name=revision,proto3" json:"revision,omitempty"`
-	// old_revision ...
+	// old_revision is the previous value of the ref, used to prevent race conditions.
+	// If an all-zero object ID is provided, the ref will only be updated if it did not
+	// previously exist.
 	OldRevision []byte `protobuf:"bytes,4,opt,name=old_revision,json=oldRevision,proto3" json:"old_revision,omitempty"`
 	// force ...
 	Force bool `protobuf:"varint,5,opt,name=force,proto3" json:"force,omitempty"`
@@ -1798,7 +1801,7 @@ func (x *WriteRefRequest) GetForce() bool {
 	return false
 }
 
-// WriteRefResponse ...
+// WriteRefResponse is a response for the WriteRef RPC.
 type WriteRefResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
