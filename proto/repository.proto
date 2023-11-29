@@ -1052,8 +1052,9 @@ message GetRawChangesResponse {
 
     // operation is the change that occurred on the file.
     Operation operation = 5;
-    // raw_operation ...
-    string raw_operation = 6;
+    // raw_operation has been deprecated as it was never populated.
+    reserved 6;
+    reserved "raw_operation";
     // old_mode is the previous mode of the file. This may be equal to new_mode.
     int32 old_mode = 7;
     // new_mode is the current mode of the file. This may be equal to old_mode.
