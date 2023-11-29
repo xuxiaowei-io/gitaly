@@ -18,8 +18,8 @@ func StreamErrorHandler(registry *protoregistry.Registry, errorTracker tracker.E
 
 		mi, lookupErr := registry.LookupMethod(method)
 		if err != nil {
-			//nolint:gitaly-linters
-			return nil, fmt.Errorf("error when looking up method: %w %v", err, lookupErr)
+			// TODO: use errors.Join() to combine errors instead
+			return nil, fmt.Errorf("error when looking up method: %w %s", err, lookupErr.Error())
 		}
 
 		return newCatchErrorStreamer(stream, errorTracker, mi.Operation, nodeStorage), err
