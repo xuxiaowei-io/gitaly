@@ -32,9 +32,9 @@ linters:
     - paralleltest
     - revive
     - rowserrcheck
+    - sqlclosecheck
     - staticcheck
     - stylecheck
-    - sqlclosecheck
     - tenv
     - thelper
     - unconvert
