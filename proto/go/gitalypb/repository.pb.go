@@ -829,7 +829,7 @@ func (*ApplyGitattributesResponse) Descriptor() ([]byte, []int) {
 	return file_repository_proto_rawDescGZIP(), []int{11}
 }
 
-// FetchBundleRequest ...
+// FetchBundleRequest is a request for the FetchBundle RPC.
 type FetchBundleRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -896,7 +896,7 @@ func (x *FetchBundleRequest) GetUpdateHead() bool {
 	return false
 }
 
-// FetchBundleResponse ...
+// FetchBundleResponse is a response for the FetchBundle RPC.
 type FetchBundleResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache

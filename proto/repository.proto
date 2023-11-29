@@ -548,7 +548,7 @@ message ApplyGitattributesRequest {
 message ApplyGitattributesResponse {
 }
 
-// FetchBundleRequest ...
+// FetchBundleRequest is a request for the FetchBundle RPC.
 message FetchBundleRequest {
   // repository into which the reference shall be fetched.
   Repository repository = 1 [(target_repository)=true];
@@ -560,7 +560,7 @@ message FetchBundleRequest {
   bool update_head = 3;
 }
 
-// FetchBundleResponse ...
+// FetchBundleResponse is a response for the FetchBundle RPC.
 message FetchBundleResponse {
 }
 
