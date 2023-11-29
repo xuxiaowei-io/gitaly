@@ -368,6 +368,7 @@ func ExtractMetadata(err error) map[string]any {
 	return metadata
 }
 
+//nolint:errorlint
 func combineMetadataItems(err error) []MetadataItem {
 	var metadataItems []MetadataItem
 

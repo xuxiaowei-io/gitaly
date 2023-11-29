@@ -3,6 +3,7 @@ package localrepo
 import (
 	"bytes"
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"sort"
@@ -194,11 +195,11 @@ func TestTreeEntry_Write(t *testing.T) {
 			err := tree.Write(ctx, repo)
 			oid := tree.OID
 			if tc.expectedErrString != "" {
-				switch e := err.(type) {
-				case structerr.Error:
-					stderr := e.Metadata()["stderr"].(string)
+				var structErr structerr.Error
+				if errors.As(err, &structErr) {
+					stderr := structErr.Metadata()["stderr"].(string)
 					strings.Contains(stderr, tc.expectedErrString)
-				default:
+				} else {
 					strings.Contains(err.Error(), tc.expectedErrString)
 				}
 				return
