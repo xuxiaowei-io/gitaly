@@ -34,6 +34,16 @@ func TestApplyBfgObjectMapStreamSuccess(t *testing.T) {
 		Message: "annotated tag",
 	})
 
+	otherBlobID := gittest.WriteBlob(t, cfg, repoPath, []byte("more contents"))
+	otherCommitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("feature"), gittest.WithTreeEntries(
+		gittest.TreeEntry{Path: "other", Mode: "100644", OID: otherBlobID},
+	))
+
+	// Create a commit that has a parent commit that will be removed,
+	// but is not itself on the list.
+	mergeID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("feature"), gittest.WithParents(commitID, otherCommitID))
+	gittest.WriteRef(t, cfg, repoPath, "refs/merge-requests/merge", mergeID)
+
 	// Create some refs pointing to HEAD
 	for _, ref := range []git.ReferenceName{
 		"refs/environments/1", "refs/keep-around/1", "refs/merge-requests/1", "refs/pipelines/1",
@@ -84,6 +94,7 @@ func TestApplyBfgObjectMapStreamSuccess(t *testing.T) {
 	assert.NotContains(t, refNames, "refs/environments/1")
 	assert.NotContains(t, refNames, "refs/keep-around/1")
 	assert.NotContains(t, refNames, "refs/merge-requests/1")
+	assert.NotContains(t, refNames, "refs/merge-requests/merge")
 	assert.NotContains(t, refNames, "refs/pipelines/1")
 	assert.Contains(t, refNames, "refs/heads/_keep")
 	assert.Contains(t, refNames, "refs/tags/_keep")
