@@ -58,7 +58,7 @@ func (pr *pipeReader) writeTo(w io.Writer) (int64, error) {
 
 			// If errSendfile is EAGAIN, ask Go runtime to wait for dst to become
 			// writeable again by returning false.
-			return errSendfile != syscall.EAGAIN
+			return !errors.Is(errSendfile, syscall.EAGAIN)
 		})
 
 		return true
@@ -109,7 +109,7 @@ func (pr *pipeReader) sendfile(dst int, src int) error {
 		}
 
 		// In case of EINTR, ignore the error and retry immediately
-		if err != nil && err != syscall.EINTR {
+		if err != nil && !errors.Is(err, syscall.EINTR) {
 			return err
 		}
 	}

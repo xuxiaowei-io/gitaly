@@ -54,7 +54,7 @@ func TestBackchannel_concurrentRequestsFromMultipleClients(t *testing.T) {
 	gitalypb.RegisterRefTransactionServer(srv, mockTransactionServer{
 		voteTransactionFunc: func(ctx context.Context, req *gitalypb.VoteTransactionRequest) (*gitalypb.VoteTransactionResponse, error) {
 			peerID, err := GetPeerID(ctx)
-			if err == ErrNonMultiplexedConnection {
+			if errors.Is(err, ErrNonMultiplexedConnection) {
 				return nil, errNonMultiplexed
 			}
 			assert.NoError(t, err)

@@ -2,6 +2,7 @@ package sidechannel
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 
@@ -20,7 +21,7 @@ func NewUnaryProxy(registry *Registry, log log.Logger) grpc.UnaryClientIntercept
 
 		ctx, waiter := RegisterSidechannel(ctx, registry, proxy(ctx))
 		defer func() {
-			if waiterErr := waiter.Close(); waiterErr != nil && waiterErr != ErrCallbackDidNotRun {
+			if waiterErr := waiter.Close(); waiterErr != nil && !errors.Is(waiterErr, ErrCallbackDidNotRun) {
 				if err == nil {
 					err = fmt.Errorf("sidechannel: proxy callback: %w", waiterErr)
 				} else {
@@ -72,7 +73,7 @@ func (sw *streamWrapper) RecvMsg(m interface{}) (err error) {
 		// on. Otherwise, when upstream returns an error, there is a race between the gRPC handler and
 		// Sidechannel connection. This race sometimes makes the error message not fully flushed.
 		// For more information: https://gitlab.com/gitlab-org/gitaly/-/issues/5552
-		if waiterErr := sw.waiter.Close(); waiterErr != nil && waiterErr != ErrCallbackDidNotRun {
+		if waiterErr := sw.waiter.Close(); waiterErr != nil && !errors.Is(waiterErr, ErrCallbackDidNotRun) {
 			if err == nil {
 				err = fmt.Errorf("sidechannel: proxy callback: %w", waiterErr)
 			} else {

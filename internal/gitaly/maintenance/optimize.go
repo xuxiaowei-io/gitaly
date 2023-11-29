@@ -50,7 +50,7 @@ func StartWorkers(
 		case <-time.After(timeout):
 			err = fmt.Errorf("timed out after %s", timeout)
 		}
-		if err != nil && err != context.Canceled {
+		if err != nil && !errors.Is(err, context.Canceled) {
 			l.WithError(err).Error("maintenance worker shutdown")
 		}
 	}
