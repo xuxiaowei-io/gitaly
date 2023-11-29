@@ -1,6 +1,7 @@
 package testhelper
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -81,13 +82,13 @@ func mustFindNoRunningChildProcess() error {
 		return fmt.Errorf("found running child processes %s:\n%s", pidsComma, psOut)
 	}
 
-	exitError, ok := err.(*exec.ExitError)
-	if !ok {
+	var exitErr *exec.ExitError
+	if !errors.As(err, &exitErr) {
 		//nolint:gitaly-linters
 		return fmt.Errorf("expected ExitError, got %T", err)
 	}
 
-	if exitError.ExitCode() == 1 {
+	if exitErr.ExitCode() == 1 {
 		return nil
 	}
 

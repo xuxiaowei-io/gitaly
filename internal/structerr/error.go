@@ -262,7 +262,8 @@ func (e Error) GRPCStatus() *status.Status {
 func (e Error) errorChain() []Error {
 	var result []Error
 	for err := error(e); err != nil; err = errors.Unwrap(err) {
-		if structErr, ok := err.(Error); ok {
+		var structErr Error
+		if errors.As(err, &structErr) {
 			result = append(result, structErr)
 		}
 	}

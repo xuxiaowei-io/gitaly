@@ -2,6 +2,7 @@ package gittest
 
 import (
 	"context"
+	"errors"
 	"io"
 	"os"
 	"os/exec"
@@ -67,11 +68,12 @@ func ExecOpts(tb testing.TB, cfg config.Cfg, execCfg ExecConfig, args ...string)
 
 func handleExecErr(tb testing.TB, cfg config.Cfg, execCfg ExecConfig, args []string, err error) {
 	var stderr []byte
-	if ee, ok := err.(*exec.ExitError); ok {
-		if execCfg.ExpectedExitCode == ee.ExitCode() {
+	var exitErr *exec.ExitError
+	if errors.As(err, &exitErr) {
+		if execCfg.ExpectedExitCode == exitErr.ExitCode() {
 			return
 		}
-		stderr = ee.Stderr
+		stderr = exitErr.Stderr
 	}
 	tb.Log(cfg.Git.BinPath, args)
 	if len(stderr) > 0 {

@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -215,10 +216,11 @@ func printInvalidRequests(w io.Writer, repoErrs []invalidRequest, pathLines map[
 	for _, l := range repoErrs {
 		fmt.Fprintf(w, "  line %v, relative_path: %q, replica_path: %q\n", l.line, l.relativePath, l.replicaPath)
 		for _, err := range l.errs {
-			if dup, ok := err.(*dupPathError); ok {
+			var dupPathErr *dupPathError
+			if errors.As(err, &dupPathErr) {
 				// The complete set of duplicate reqNums won't be known until input is
 				// fully processed, fetch them now.
-				err = &dupPathError{path: dup.path, reqNums: pathLines[dup.path]}
+				err = &dupPathError{path: dupPathErr.path, reqNums: pathLines[dupPathErr.path]}
 			}
 			fmt.Fprintf(w, "    %v\n", err)
 		}

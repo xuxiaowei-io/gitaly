@@ -2,6 +2,7 @@ package backup
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -24,8 +25,8 @@ func TestResolveSink(t *testing.T) {
 			sssink, ok := sink.(*StorageServiceSink)
 			require.True(t, ok)
 			_, err := sssink.bucket.List(nil).Next(ctx)
-			ierr, ok := err.(interface{ Unwrap() error })
-			require.True(t, ok)
+			var ierr interface{ Unwrap() error }
+			require.True(t, errors.As(err, &ierr))
 			terr := ierr.Unwrap()
 			require.Contains(t, terr.Error(), expErrMsg)
 		}

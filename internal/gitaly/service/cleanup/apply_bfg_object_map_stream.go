@@ -1,6 +1,7 @@
 package cleanup
 
 import (
+	"errors"
 	"io"
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
@@ -52,7 +53,8 @@ func (s *server) ApplyBfgObjectMapStream(server gitalypb.CleanupService_ApplyBfg
 	}
 
 	if err := cleaner.applyObjectMap(ctx, reader.streamReader()); err != nil {
-		if invalidErr, ok := err.(errInvalidObjectMap); ok {
+		var invalidErr errInvalidObjectMap
+		if errors.As(err, &invalidErr) {
 			return structerr.NewInvalidArgument("%w", invalidErr)
 		}
 
