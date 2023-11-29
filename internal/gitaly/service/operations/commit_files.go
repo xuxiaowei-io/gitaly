@@ -372,28 +372,29 @@ func applyAction(
 // translateLocalrepoError converts errors returned by the `localrepo` package into nice errors that we can return to the caller.
 // Most importantly, these errors will carry metadata that helps to figure out what exactly has gone wrong.
 func translateError(err error, path string) error {
-	switch err {
-	case localrepo.ErrEntryNotFound, localrepo.ErrObjectNotFound:
+	switch {
+	case errors.Is(err, localrepo.ErrEntryNotFound) ||
+		errors.Is(err, localrepo.ErrObjectNotFound):
 		return indexError{
 			path:      path,
 			errorType: errFileNotFound,
 		}
-	case localrepo.ErrEmptyPath,
-		localrepo.ErrPathTraversal,
-		localrepo.ErrAbsolutePath,
-		localrepo.ErrDisallowedPath:
+	case errors.Is(err, localrepo.ErrEmptyPath) ||
+		errors.Is(err, localrepo.ErrPathTraversal) ||
+		errors.Is(err, localrepo.ErrAbsolutePath) ||
+		errors.Is(err, localrepo.ErrDisallowedPath):
 		//The error coming back from git2go has the path in single
 		//quotes. This is to match the git2go error for now.
 		//nolint:gitaly-linters
 		return unknownIndexError(
 			fmt.Sprintf("invalid path: '%s'", path),
 		)
-	case localrepo.ErrPathTraversal:
+	case errors.Is(err, localrepo.ErrPathTraversal):
 		return indexError{
 			path:      path,
 			errorType: errDirectoryTraversal,
 		}
-	case localrepo.ErrEntryExists:
+	case errors.Is(err, localrepo.ErrEntryExists):
 		return indexError{
 			path:      path,
 			errorType: errFileExists,

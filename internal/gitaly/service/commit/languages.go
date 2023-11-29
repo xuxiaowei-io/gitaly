@@ -92,8 +92,7 @@ func (ls languageSorter) Less(i, j int) bool { return ls[i].Share > ls[j].Share 
 func (s *server) lookupRevision(ctx context.Context, repo git.RepositoryExecutor, revision string) (string, error) {
 	rev, err := s.checkRevision(ctx, repo, revision)
 	if err != nil {
-		switch err {
-		case errAmbigRef:
+		if errors.Is(err, errAmbigRef) {
 			fullRev, err := s.disambiguateRevision(ctx, repo, revision)
 			if err != nil {
 				return "", err
@@ -103,7 +102,7 @@ func (s *server) lookupRevision(ctx context.Context, repo git.RepositoryExecutor
 			if err != nil {
 				return "", err
 			}
-		default:
+		} else {
 			return "", err
 		}
 	}

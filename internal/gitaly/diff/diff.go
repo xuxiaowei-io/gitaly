@@ -453,10 +453,10 @@ func (parser *Parser) consumeChunkLine(updateLineStats bool) {
 		line, err = parser.patchReader.ReadSlice('\n')
 		n += len(line)
 
-		switch err {
-		case io.EOF, nil:
+		switch {
+		case err == nil || errors.Is(err, io.EOF):
 			done = true
-		case bufio.ErrBufferFull:
+		case errors.Is(err, bufio.ErrBufferFull):
 			// long line: keep reading
 		default:
 			parser.err = fmt.Errorf("read chunk line: %w", err)

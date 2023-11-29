@@ -209,10 +209,10 @@ func (c *DiskCache) Collect(metrics chan<- prometheus.Metric) {
 }
 
 func (c *DiskCache) countErr(err error) error {
-	switch err {
-	case ErrMissingLeaseFile:
+	switch {
+	case errors.Is(err, ErrMissingLeaseFile):
 		c.errTotal.WithLabelValues("ErrMissingLeaseFile").Inc()
-	case ErrPendingExists:
+	case errors.Is(err, ErrPendingExists):
 		c.errTotal.WithLabelValues("ErrPendingExists").Inc()
 	}
 	return err
