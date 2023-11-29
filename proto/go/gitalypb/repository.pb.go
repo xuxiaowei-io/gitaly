@@ -4042,13 +4042,14 @@ func (x *Remote) GetResolvedAddress() string {
 	return ""
 }
 
-// GetObjectDirectorySizeRequest ...
+// GetObjectDirectorySizeRequest is a request for the GetObjectDirectorySize RPC.
 type GetObjectDirectorySizeRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// repository ...
+	// repository is the repo to query. The storage_name and relative_path attributes
+	// must be provided.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
 }
 
@@ -4091,13 +4092,13 @@ func (x *GetObjectDirectorySizeRequest) GetRepository() *Repository {
 	return nil
 }
 
-// GetObjectDirectorySizeResponse ...
+// GetObjectDirectorySizeResponse is a response for the GetObjectDirectorySize RPC.
 type GetObjectDirectorySizeResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// size is the object directory size in kilobytes.
+	// size is the object directory size in kibibytes.
 	Size int64 `protobuf:"varint,1,opt,name=size,proto3" json:"size,omitempty"`
 }
 

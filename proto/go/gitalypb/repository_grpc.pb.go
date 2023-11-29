@@ -145,7 +145,7 @@ type RepositoryServiceClient interface {
 	// in a tar archive containing a `custom_hooks` directory. If no hooks are
 	// present in the repository, the response will have no data.
 	GetCustomHooks(ctx context.Context, in *GetCustomHooksRequest, opts ...grpc.CallOption) (RepositoryService_GetCustomHooksClient, error)
-	// GetObjectDirectorySize ...
+	// GetObjectDirectorySize returns the size in kibibytes of the object directory of a repository.
 	GetObjectDirectorySize(ctx context.Context, in *GetObjectDirectorySizeRequest, opts ...grpc.CallOption) (*GetObjectDirectorySizeResponse, error)
 	// RemoveRepository will move the repository to `+gitaly/tmp/<relative_path>_removed` and
 	// eventually remove it. This ensures that even on networked filesystems the
@@ -1117,7 +1117,7 @@ type RepositoryServiceServer interface {
 	// in a tar archive containing a `custom_hooks` directory. If no hooks are
 	// present in the repository, the response will have no data.
 	GetCustomHooks(*GetCustomHooksRequest, RepositoryService_GetCustomHooksServer) error
-	// GetObjectDirectorySize ...
+	// GetObjectDirectorySize returns the size in kibibytes of the object directory of a repository.
 	GetObjectDirectorySize(context.Context, *GetObjectDirectorySizeRequest) (*GetObjectDirectorySizeResponse, error)
 	// RemoveRepository will move the repository to `+gitaly/tmp/<relative_path>_removed` and
 	// eventually remove it. This ensures that even on networked filesystems the

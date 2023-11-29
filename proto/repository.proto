@@ -298,7 +298,7 @@ service RepositoryService {
     };
   }
 
-  // GetObjectDirectorySize ...
+  // GetObjectDirectorySize returns the size in kibibytes of the object directory of a repository.
   rpc GetObjectDirectorySize(GetObjectDirectorySizeRequest) returns (GetObjectDirectorySizeResponse) {
     option (op_type) = {
       op: ACCESSOR
@@ -1159,15 +1159,16 @@ message Remote {
   reserved "http_host";
 }
 
-// GetObjectDirectorySizeRequest ...
+// GetObjectDirectorySizeRequest is a request for the GetObjectDirectorySize RPC.
 message GetObjectDirectorySizeRequest {
-  // repository ...
+  // repository is the repo to query. The storage_name and relative_path attributes
+  // must be provided.
   Repository repository = 1 [(target_repository)=true];
 }
 
-// GetObjectDirectorySizeResponse ...
+// GetObjectDirectorySizeResponse is a response for the GetObjectDirectorySize RPC.
 message GetObjectDirectorySizeResponse {
-  // size is the object directory size in kilobytes.
+  // size is the object directory size in kibibytes.
   int64 size = 1;
 }
 
