@@ -121,7 +121,7 @@ type RepositoryServiceClient interface {
 	// CreateRepositoryFromSnapshot creates a new repository based on a snapshot created with
 	// the GetSnapshot RPC. The snapshot is fetched via HTTP.
 	CreateRepositoryFromSnapshot(ctx context.Context, in *CreateRepositoryFromSnapshotRequest, opts ...grpc.CallOption) (*CreateRepositoryFromSnapshotResponse, error)
-	// GetRawChanges ...
+	// GetRawChanges returns metadata in raw format on the changes between two revisions.
 	GetRawChanges(ctx context.Context, in *GetRawChangesRequest, opts ...grpc.CallOption) (RepositoryService_GetRawChangesClient, error)
 	// SearchFilesByContent ...
 	SearchFilesByContent(ctx context.Context, in *SearchFilesByContentRequest, opts ...grpc.CallOption) (RepositoryService_SearchFilesByContentClient, error)
@@ -1093,7 +1093,7 @@ type RepositoryServiceServer interface {
 	// CreateRepositoryFromSnapshot creates a new repository based on a snapshot created with
 	// the GetSnapshot RPC. The snapshot is fetched via HTTP.
 	CreateRepositoryFromSnapshot(context.Context, *CreateRepositoryFromSnapshotRequest) (*CreateRepositoryFromSnapshotResponse, error)
-	// GetRawChanges ...
+	// GetRawChanges returns metadata in raw format on the changes between two revisions.
 	GetRawChanges(*GetRawChangesRequest, RepositoryService_GetRawChangesServer) error
 	// SearchFilesByContent ...
 	SearchFilesByContent(*SearchFilesByContentRequest, RepositoryService_SearchFilesByContentServer) error

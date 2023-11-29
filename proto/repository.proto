@@ -239,7 +239,7 @@ service RepositoryService {
     };
   }
 
-  // GetRawChanges ...
+  // GetRawChanges returns metadata in raw format on the changes between two revisions.
   rpc GetRawChanges(GetRawChangesRequest) returns (stream GetRawChangesResponse) {
     option (op_type) = {
       op: ACCESSOR
@@ -1003,41 +1003,44 @@ message CreateRepositoryFromSnapshotRequest {
 message CreateRepositoryFromSnapshotResponse {
 }
 
-// GetRawChangesRequest ...
+// GetRawChangesRequest is a request for the GetRawChanges RPC.
 message GetRawChangesRequest {
-  // repository ...
+  // repository is the repository to run the diff in. The storage_name and
+  // relative_path attributes must be provided.
   Repository repository = 1 [(target_repository)=true];
-  // from_revision ...
+  // from_revision is the Git revision to start the diff at.
   string from_revision = 2;
-  // to_revision ...
+  // to_revision is the Git revision to end the diff at.
   string to_revision = 3;
 }
 
-// GetRawChangesResponse ...
+// GetRawChangesResponse is a response for the GetRawChanges RPC.
 message GetRawChangesResponse {
-  // RawChange ...
+  // RawChange represents the metadata for a single change between the two
+  // revisions.
   message RawChange {
-    // Operation ...
+    // Operation is the change that occurred on the file. Consult the man pages
+    // for git-diff(1) for additional detail on the semantics of each operation.
     enum Operation {
-      // UNKNOWN ...
+      // UNKNOWN
       UNKNOWN = 0; // protolint:disable:this ENUM_FIELD_NAMES_PREFIX ENUM_FIELD_NAMES_ZERO_VALUE_END_WITH
-      // ADDED ...
+      // ADDED
       ADDED = 1; // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
-      // COPIED ...
+      // COPIED
       COPIED = 2; // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
-      // DELETED ...
+      // DELETED
       DELETED = 3; // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
-      // MODIFIED ...
+      // MODIFIED
       MODIFIED = 4; // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
-      // RENAMED ...
+      // RENAMED
       RENAMED = 5; // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
-      // TYPE_CHANGED ...
+      // TYPE_CHANGED
       TYPE_CHANGED = 6; // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
     }
 
-    // blob_id ...
+    // blob_id is the OID of the file that was changed.
     string blob_id = 1;
-    // size ...
+    // size is the blob size in bytes.
     int64 size = 2;
 
     // This used to be a string that is now represented by the field 9 as byte array.
@@ -1047,23 +1050,22 @@ message GetRawChangesResponse {
     reserved 4;
     reserved "old_path";
 
-    // operation ...
+    // operation is the change that occurred on the file.
     Operation operation = 5;
     // raw_operation ...
     string raw_operation = 6;
-    // old_mode ...
+    // old_mode is the previous mode of the file. This may be equal to new_mode.
     int32 old_mode = 7;
-    // new_mode ...
+    // new_mode is the current mode of the file. This may be equal to old_mode.
     int32 new_mode = 8;
 
-    // new_path_bytes ...
-    // the following fields, 9 and 10, will eventually replace 3 and 4
+    // new_path_bytes is the new file path. This may be equal to old_path_bytes.
     bytes new_path_bytes = 9;
-    // old_path_bytes ...
+    // old_path_bytes is the old file path. This may be equal to new_path_bytes.
     bytes old_path_bytes = 10;
   }
 
-  // raw_changes ...
+  // raw_changes is the set of changes between the two revisions.
   repeated RawChange raw_changes = 1;
 }
 

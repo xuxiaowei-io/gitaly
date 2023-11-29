@@ -77,23 +77,24 @@ func (GetArchiveRequest_Format) EnumDescriptor() ([]byte, []int) {
 	return file_repository_proto_rawDescGZIP(), []int{18, 0}
 }
 
-// Operation ...
+// Operation is the change that occurred on the file. Consult the man pages
+// for git-diff(1) for additional detail on the semantics of each operation.
 type GetRawChangesResponse_RawChange_Operation int32
 
 const (
-	// UNKNOWN ...
+	// UNKNOWN
 	GetRawChangesResponse_RawChange_UNKNOWN GetRawChangesResponse_RawChange_Operation = 0 // protolint:disable:this ENUM_FIELD_NAMES_PREFIX ENUM_FIELD_NAMES_ZERO_VALUE_END_WITH
-	// ADDED ...
+	// ADDED
 	GetRawChangesResponse_RawChange_ADDED GetRawChangesResponse_RawChange_Operation = 1 // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
-	// COPIED ...
+	// COPIED
 	GetRawChangesResponse_RawChange_COPIED GetRawChangesResponse_RawChange_Operation = 2 // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
-	// DELETED ...
+	// DELETED
 	GetRawChangesResponse_RawChange_DELETED GetRawChangesResponse_RawChange_Operation = 3 // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
-	// MODIFIED ...
+	// MODIFIED
 	GetRawChangesResponse_RawChange_MODIFIED GetRawChangesResponse_RawChange_Operation = 4 // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
-	// RENAMED ...
+	// RENAMED
 	GetRawChangesResponse_RawChange_RENAMED GetRawChangesResponse_RawChange_Operation = 5 // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
-	// TYPE_CHANGED ...
+	// TYPE_CHANGED
 	GetRawChangesResponse_RawChange_TYPE_CHANGED GetRawChangesResponse_RawChange_Operation = 6 // protolint:disable:this ENUM_FIELD_NAMES_PREFIX
 )
 
@@ -3541,17 +3542,18 @@ func (*CreateRepositoryFromSnapshotResponse) Descriptor() ([]byte, []int) {
 	return file_repository_proto_rawDescGZIP(), []int{59}
 }
 
-// GetRawChangesRequest ...
+// GetRawChangesRequest is a request for the GetRawChanges RPC.
 type GetRawChangesRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// repository ...
+	// repository is the repository to run the diff in. The storage_name and
+	// relative_path attributes must be provided.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// from_revision ...
+	// from_revision is the Git revision to start the diff at.
 	FromRevision string `protobuf:"bytes,2,opt,name=from_revision,json=fromRevision,proto3" json:"from_revision,omitempty"`
-	// to_revision ...
+	// to_revision is the Git revision to end the diff at.
 	ToRevision string `protobuf:"bytes,3,opt,name=to_revision,json=toRevision,proto3" json:"to_revision,omitempty"`
 }
 
@@ -3608,13 +3610,13 @@ func (x *GetRawChangesRequest) GetToRevision() string {
 	return ""
 }
 
-// GetRawChangesResponse ...
+// GetRawChangesResponse is a response for the GetRawChanges RPC.
 type GetRawChangesResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// raw_changes ...
+	// raw_changes is the set of changes between the two revisions.
 	RawChanges []*GetRawChangesResponse_RawChange `protobuf:"bytes,1,rep,name=raw_changes,json=rawChanges,proto3" json:"raw_changes,omitempty"`
 }
 
@@ -5327,28 +5329,28 @@ func (x *RepositoryInfoResponse_ObjectsInfo) GetKeepSize() uint64 {
 	return 0
 }
 
-// RawChange ...
+// RawChange represents the metadata for a single change between the two
+// revisions.
 type GetRawChangesResponse_RawChange struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// blob_id ...
+	// blob_id is the OID of the file that was changed.
 	BlobId string `protobuf:"bytes,1,opt,name=blob_id,json=blobId,proto3" json:"blob_id,omitempty"`
-	// size ...
+	// size is the blob size in bytes.
 	Size int64 `protobuf:"varint,2,opt,name=size,proto3" json:"size,omitempty"`
-	// operation ...
+	// operation is the change that occurred on the file.
 	Operation GetRawChangesResponse_RawChange_Operation `protobuf:"varint,5,opt,name=operation,proto3,enum=gitaly.GetRawChangesResponse_RawChange_Operation" json:"operation,omitempty"`
 	// raw_operation ...
 	RawOperation string `protobuf:"bytes,6,opt,name=raw_operation,json=rawOperation,proto3" json:"raw_operation,omitempty"`
-	// old_mode ...
+	// old_mode is the previous mode of the file. This may be equal to new_mode.
 	OldMode int32 `protobuf:"varint,7,opt,name=old_mode,json=oldMode,proto3" json:"old_mode,omitempty"`
-	// new_mode ...
+	// new_mode is the current mode of the file. This may be equal to old_mode.
 	NewMode int32 `protobuf:"varint,8,opt,name=new_mode,json=newMode,proto3" json:"new_mode,omitempty"`
-	// new_path_bytes ...
-	// the following fields, 9 and 10, will eventually replace 3 and 4
+	// new_path_bytes is the new file path. This may be equal to old_path_bytes.
 	NewPathBytes []byte `protobuf:"bytes,9,opt,name=new_path_bytes,json=newPathBytes,proto3" json:"new_path_bytes,omitempty"`
-	// old_path_bytes ...
+	// old_path_bytes is the old file path. This may be equal to new_path_bytes.
 	OldPathBytes []byte `protobuf:"bytes,10,opt,name=old_path_bytes,json=oldPathBytes,proto3" json:"old_path_bytes,omitempty"`
 }
 
