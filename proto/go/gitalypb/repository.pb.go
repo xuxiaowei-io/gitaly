@@ -3807,17 +3807,19 @@ func (x *SearchFilesByNameResponse) GetFiles() [][]byte {
 	return nil
 }
 
-// SearchFilesByContentRequest ...
+// SearchFilesByContentRequest is a request for the SearchFilesByContent RPC.
 type SearchFilesByContentRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// repository ...
+	// repository is the repo to search. The storage_name and relative_path attributes must be provided.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// query ...
+	// query is the grep pattern to use. Queries are case-insensitive and are compatible
+	// with Perl regexp syntax.
 	Query string `protobuf:"bytes,2,opt,name=query,proto3" json:"query,omitempty"`
-	// ref ...
+	// ref is the reference to limit the search scope by, for example a commit or
+	// branch name.
 	Ref []byte `protobuf:"bytes,3,opt,name=ref,proto3" json:"ref,omitempty"`
 	// chunked_response ...
 	ChunkedResponse bool `protobuf:"varint,4,opt,name=chunked_response,json=chunkedResponse,proto3" json:"chunked_response,omitempty"`
@@ -3883,7 +3885,7 @@ func (x *SearchFilesByContentRequest) GetChunkedResponse() bool {
 	return false
 }
 
-// SearchFilesByContentResponse ...
+// SearchFilesByContentResponse is a response for the SearchFilesByContent RPC.
 type SearchFilesByContentResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -3891,9 +3893,11 @@ type SearchFilesByContentResponse struct {
 
 	// matches ...
 	Matches [][]byte `protobuf:"bytes,1,rep,name=matches,proto3" json:"matches,omitempty"`
-	// match_data ...
+	// match_data contains the results of the search. Data is streamed in chunks, where
+	// each chunk is an individual result.
 	MatchData []byte `protobuf:"bytes,2,opt,name=match_data,json=matchData,proto3" json:"match_data,omitempty"`
-	// end_of_match ...
+	// end_of_match indicates the end of an individual match results. Additional results
+	// may follow in subsequent gRPC messages.
 	EndOfMatch bool `protobuf:"varint,3,opt,name=end_of_match,json=endOfMatch,proto3" json:"end_of_match,omitempty"`
 }
 

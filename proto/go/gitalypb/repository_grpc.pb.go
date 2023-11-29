@@ -123,7 +123,8 @@ type RepositoryServiceClient interface {
 	CreateRepositoryFromSnapshot(ctx context.Context, in *CreateRepositoryFromSnapshotRequest, opts ...grpc.CallOption) (*CreateRepositoryFromSnapshotResponse, error)
 	// GetRawChanges returns metadata in raw format on the changes between two revisions.
 	GetRawChanges(ctx context.Context, in *GetRawChangesRequest, opts ...grpc.CallOption) (RepositoryService_GetRawChangesClient, error)
-	// SearchFilesByContent ...
+	// SearchFilesByContent searches files in the repository using the provided grep pattern.
+	// For each result, the matched line is returned along with the two previous and next lines.
 	SearchFilesByContent(ctx context.Context, in *SearchFilesByContentRequest, opts ...grpc.CallOption) (RepositoryService_SearchFilesByContentClient, error)
 	// SearchFilesByName ...
 	SearchFilesByName(ctx context.Context, in *SearchFilesByNameRequest, opts ...grpc.CallOption) (RepositoryService_SearchFilesByNameClient, error)
@@ -1095,7 +1096,8 @@ type RepositoryServiceServer interface {
 	CreateRepositoryFromSnapshot(context.Context, *CreateRepositoryFromSnapshotRequest) (*CreateRepositoryFromSnapshotResponse, error)
 	// GetRawChanges returns metadata in raw format on the changes between two revisions.
 	GetRawChanges(*GetRawChangesRequest, RepositoryService_GetRawChangesServer) error
-	// SearchFilesByContent ...
+	// SearchFilesByContent searches files in the repository using the provided grep pattern.
+	// For each result, the matched line is returned along with the two previous and next lines.
 	SearchFilesByContent(*SearchFilesByContentRequest, RepositoryService_SearchFilesByContentServer) error
 	// SearchFilesByName ...
 	SearchFilesByName(*SearchFilesByNameRequest, RepositoryService_SearchFilesByNameServer) error
