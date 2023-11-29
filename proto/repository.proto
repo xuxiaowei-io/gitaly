@@ -1108,14 +1108,16 @@ message SearchFilesByContentRequest {
   // ref is the reference to limit the search scope by, for example a commit or
   // branch name.
   bytes ref = 3;
-  // chunked_response ...
-  bool chunked_response = 4;
+  // chunked_response is deprecated as it was never used.
+  reserved 4;
+  reserved "chunked_response";
 }
 
 // SearchFilesByContentResponse is a response for the SearchFilesByContent RPC.
 message SearchFilesByContentResponse {
-  // matches ...
-  repeated bytes matches = 1;
+  // matches is deprecated as it was never used.
+  reserved 1;
+  reserved "matches";
   // match_data contains the results of the search. Data is streamed in chunks, where
   // each chunk is an individual result.
   bytes match_data = 2;
