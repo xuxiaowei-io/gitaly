@@ -1,6 +1,7 @@
 package commit
 
 import (
+	"errors"
 	"io"
 	"os"
 	"path/filepath"
@@ -213,7 +214,7 @@ func BenchmarkListAllCommits(b *testing.B) {
 
 			for {
 				_, err := stream.Recv()
-				if err == io.EOF {
+				if errors.Is(err, io.EOF) {
 					break
 				}
 				require.NoError(b, err)

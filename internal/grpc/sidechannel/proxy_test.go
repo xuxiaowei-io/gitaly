@@ -2,6 +2,7 @@ package sidechannel
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -237,7 +238,7 @@ func TestStreamProxy_upstreamError(t *testing.T) {
 			if err != nil {
 				return err
 			}
-			if _, err := client.Recv(); err != io.EOF {
+			if _, err := client.Recv(); !errors.Is(err, io.EOF) {
 				return err
 			}
 
@@ -304,7 +305,7 @@ func testStreamProxy(t *testing.T, closeWrite bool) {
 				return err
 			}
 
-			if _, err := client.Recv(); err != io.EOF {
+			if _, err := client.Recv(); !errors.Is(err, io.EOF) {
 				return fmt.Errorf("grpc proxy recv: %w", err)
 			}
 

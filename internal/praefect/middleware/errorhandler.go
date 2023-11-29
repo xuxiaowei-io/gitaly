@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 
@@ -60,7 +61,7 @@ func (c *catchErrorStreamer) SendMsg(m interface{}) error {
 // RecvMsg proxies the send but records any errors
 func (c *catchErrorStreamer) RecvMsg(m interface{}) error {
 	err := c.ClientStream.RecvMsg(m)
-	if err != nil && err != io.EOF {
+	if err != nil && !errors.Is(err, io.EOF) {
 		switch c.operation {
 		case protoregistry.OpAccessor:
 			c.errors.IncrReadErr(c.nodeStorage)

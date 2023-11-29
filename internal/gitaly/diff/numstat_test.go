@@ -1,6 +1,7 @@
 package diff
 
 import (
+	"errors"
 	"io"
 	"os"
 	"testing"
@@ -20,7 +21,7 @@ func TestNumStatParser(t *testing.T) {
 
 	for {
 		stat, err := parser.NextNumStat()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 

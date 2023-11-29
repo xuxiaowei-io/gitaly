@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -93,7 +94,7 @@ func (idx *Index) LoadBitmap() error {
 		}
 	}
 
-	if _, err := r.Peek(1); err != io.EOF {
+	if _, err := r.Peek(1); !errors.Is(err, io.EOF) {
 		return fmt.Errorf("expected EOF, got %w", err)
 	}
 

@@ -1,6 +1,7 @@
 package gitio
 
 import (
+	"errors"
 	"fmt"
 	"io"
 )
@@ -59,7 +60,7 @@ func (tr *TrailerReader) Read(p []byte) (int, error) {
 
 		n, err := tr.r.Read(tr.buf[tr.end:])
 		if err != nil {
-			if err != io.EOF {
+			if !errors.Is(err, io.EOF) {
 				return 0, err
 			}
 			tr.atEOF = true

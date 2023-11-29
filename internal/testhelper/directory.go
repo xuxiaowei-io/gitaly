@@ -3,6 +3,7 @@ package testhelper
 import (
 	"archive/tar"
 	"bytes"
+	"errors"
 	"io"
 	"io/fs"
 	"os"
@@ -94,7 +95,7 @@ func RequireTarState(tb testing.TB, tarball io.Reader, expected DirectoryState) 
 	tr := tar.NewReader(tarball)
 	for {
 		header, err := tr.Next()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		require.NoError(tb, err)

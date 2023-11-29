@@ -3,6 +3,7 @@ package trace2
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -100,7 +101,7 @@ func (p *parser) parse() (*Trace, error) {
 func (p *parser) readEvent() (*jsonEvent, error) {
 	var event jsonEvent
 	if err := p.decoder.Decode(&event); err != nil {
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			return nil, nil
 		}
 		return nil, fmt.Errorf("decoding event: %w", err)

@@ -3,6 +3,7 @@ package lines
 import (
 	"bufio"
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"regexp"
@@ -98,7 +99,7 @@ func (w *writer) consume(r io.Reader) error {
 		for {
 			// delim can be multiple bytes, so we read till the end byte of it ...
 			chunk, err := buf.ReadBytes(w.delimiter())
-			if err != nil && err != io.EOF {
+			if err != nil && !errors.Is(err, io.EOF) {
 				return err
 			}
 
@@ -108,7 +109,7 @@ func (w *writer) consume(r io.Reader) error {
 				break
 			}
 
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				i = w.options.Limit // Implicit exit clause for the loop
 				break
 			}

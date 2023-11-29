@@ -2,6 +2,7 @@ package ref
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -747,7 +748,7 @@ func BenchmarkFindAllTags(b *testing.B) {
 
 			for {
 				_, err := stream.Recv()
-				if err == io.EOF {
+				if errors.Is(err, io.EOF) {
 					break
 				}
 				require.NoError(b, err)

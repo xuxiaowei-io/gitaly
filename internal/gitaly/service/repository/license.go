@@ -219,7 +219,7 @@ func (f *gitFiler) ReadDir(string) ([]filer.File, error) {
 	for {
 		entry, err := tree.NextEntry()
 		if err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				break
 			}
 			return nil, err

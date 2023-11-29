@@ -194,7 +194,7 @@ func parseLsTree(objectHash git.ObjectHash, cmd *command.Command, filter *regexp
 	for {
 		path, err := parser.NextEntryPath()
 		if err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				break
 			}
 			return nil, err

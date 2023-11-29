@@ -20,7 +20,7 @@ func (s *server) CheckObjectsExist(
 
 	request, err := stream.Recv()
 	if err != nil {
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			// Ideally, we'd return an invalid-argument error in case there aren't any
 			// requests. We can't do this though as this would diverge from Praefect's
 			// behaviour, which always returns `io.EOF`.
@@ -60,7 +60,7 @@ func (s *server) CheckObjectsExist(
 
 		request, err = stream.Recv()
 		if err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				break
 			}
 

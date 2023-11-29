@@ -2,6 +2,7 @@ package commit
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"sort"
@@ -99,7 +100,7 @@ func getLSTreeEntries(parser *localrepo.Parser) (localrepo.Entries, error) {
 	for {
 		entry, err := parser.NextEntry()
 		if err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				break
 			}
 

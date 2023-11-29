@@ -1,6 +1,7 @@
 package chunk
 
 import (
+	"errors"
 	"io"
 	"net"
 	"strconv"
@@ -50,7 +51,7 @@ func TestChunker(t *testing.T) {
 
 	for {
 		resp, err := stream.Recv()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		require.Less(t, proto.Size(resp), maxMessageSize)

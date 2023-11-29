@@ -2,6 +2,7 @@ package conflicts
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -645,7 +646,7 @@ func getConflictFiles(t *testing.T, c gitalypb.ConflictsService_ListConflictFile
 	for {
 		var r *gitalypb.ListConflictFilesResponse
 		r, err = c.Recv()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		} else if err != nil {
 			return files, err

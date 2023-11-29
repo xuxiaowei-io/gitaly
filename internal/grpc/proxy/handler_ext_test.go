@@ -175,7 +175,7 @@ func testHandlerFullDuplex(t *testing.T) {
 
 		for i := 0; ; i++ {
 			request, err := stream.Recv()
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				break
 			}
 			require.NoError(t, err)

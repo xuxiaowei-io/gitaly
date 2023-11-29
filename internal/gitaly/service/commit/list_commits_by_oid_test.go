@@ -1,6 +1,7 @@
 package commit
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"testing"
@@ -102,7 +103,7 @@ func TestListCommitsByOid(t *testing.T) {
 			receivedCommits := getAllCommits(t, func() (gitCommitsGetter, error) {
 				getter, err := c.Recv()
 
-				if tc.expectedErr != nil || err != nil && err != io.EOF {
+				if tc.expectedErr != nil || err != nil && !errors.Is(err, io.EOF) {
 					testhelper.RequireGrpcError(t, tc.expectedErr, err)
 					return getter, io.EOF
 				}

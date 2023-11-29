@@ -1,6 +1,7 @@
 package diff
 
 import (
+	"errors"
 	"io"
 	"testing"
 
@@ -718,7 +719,7 @@ func TestFindChangedPathsRequest_success(t *testing.T) {
 			var paths []*gitalypb.ChangedPaths
 			for {
 				fetchedPaths, err := stream.Recv()
-				if err == io.EOF {
+				if errors.Is(err, io.EOF) {
 					break
 				}
 
@@ -911,7 +912,7 @@ func TestFindChangedPathsRequest_deprecated(t *testing.T) {
 			var paths []*gitalypb.ChangedPaths
 			for {
 				fetchedPaths, err := stream.Recv()
-				if err == io.EOF {
+				if errors.Is(err, io.EOF) {
 					break
 				}
 

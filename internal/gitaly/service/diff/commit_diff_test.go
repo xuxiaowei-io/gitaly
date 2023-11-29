@@ -1,6 +1,7 @@
 package diff
 
 import (
+	"errors"
 	"io"
 	"strings"
 	"testing"
@@ -1146,7 +1147,7 @@ func getDiffsFromCommitDiffClient(t *testing.T, client gitalypb.DiffService_Comm
 
 	for {
 		fetchedDiff, err := client.Recv()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		require.NoError(t, err)

@@ -3,6 +3,7 @@ package gitio
 import (
 	"bytes"
 	"crypto/sha1"
+	"errors"
 	"fmt"
 	"hash"
 	"io"
@@ -32,7 +33,7 @@ func NewHashfileReader(r io.Reader) *HashfileReader {
 
 func (hr *HashfileReader) Read(p []byte) (int, error) {
 	n, err := hr.tee.Read(p)
-	if err == io.EOF {
+	if errors.Is(err, io.EOF) {
 		return n, hr.validateChecksum()
 	}
 

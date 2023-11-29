@@ -777,7 +777,7 @@ func TestProxyWrites(t *testing.T) {
 	for {
 		resp, err := stream.Recv()
 		if err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				break
 			}
 			require.FailNowf(t, "unexpected non io.EOF error: %v", err.Error())

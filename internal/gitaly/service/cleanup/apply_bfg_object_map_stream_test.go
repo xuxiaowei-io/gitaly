@@ -2,6 +2,7 @@ package cleanup
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -155,7 +156,7 @@ func doStreamingRequest(
 		if rsp != nil {
 			entries = append(entries, rsp.GetEntries()...)
 		}
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {

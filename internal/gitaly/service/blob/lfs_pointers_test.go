@@ -3,6 +3,7 @@ package blob
 import (
 	"bytes"
 	"context"
+	"errors"
 	"io"
 	"sort"
 	"strings"
@@ -123,7 +124,7 @@ func TestListLFSPointers(t *testing.T) {
 			var actualLFSPointers []*gitalypb.LFSPointer
 			for {
 				resp, err := stream.Recv()
-				if err == io.EOF {
+				if errors.Is(err, io.EOF) {
 					break
 				}
 				testhelper.RequireGrpcError(t, tc.expectedErr, err)
@@ -290,7 +291,7 @@ size 12345`
 			var pointers []*gitalypb.LFSPointer
 			for {
 				resp, err := stream.Recv()
-				if err == io.EOF {
+				if errors.Is(err, io.EOF) {
 					break
 				}
 
@@ -381,7 +382,7 @@ func TestGetLFSPointers(t *testing.T) {
 			var receivedPointers []*gitalypb.LFSPointer
 			for {
 				resp, err := stream.Recv()
-				if err == io.EOF {
+				if errors.Is(err, io.EOF) {
 					break
 				}
 

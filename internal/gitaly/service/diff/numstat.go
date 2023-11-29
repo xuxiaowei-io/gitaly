@@ -1,6 +1,7 @@
 package diff
 
 import (
+	"errors"
 	"io"
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
@@ -31,7 +32,7 @@ func (s *server) DiffStats(in *gitalypb.DiffStatsRequest, stream gitalypb.DiffSe
 	for {
 		stat, err := parser.NextNumStat()
 		if err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				break
 			}
 

@@ -1,6 +1,7 @@
 package ref
 
 import (
+	"errors"
 	"io"
 	"strings"
 	"testing"
@@ -88,7 +89,7 @@ func TestFailedGetTagMessagesRequest(t *testing.T) {
 func readAllMessagesFromClient(t *testing.T, c gitalypb.RefService_GetTagMessagesClient) (messages []*gitalypb.GetTagMessagesResponse) {
 	for {
 		resp, err := c.Recv()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		require.NoError(t, err)

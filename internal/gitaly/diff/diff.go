@@ -3,6 +3,7 @@ package diff
 import (
 	"bufio"
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"path/filepath"
@@ -165,7 +166,7 @@ func (parser *Parser) Parse() bool {
 	for currentPatchDone := false; !currentPatchDone || parser.patchReader.Buffered() > 0; {
 		// We cannot use bufio.Scanner because the line may be very long.
 		line, err := parser.patchReader.Peek(10)
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			// If the last diff has an empty patch (e.g. --ignore-space-change),
 			// patchReader will read EOF, but Parser not finished.
 			currentPatchDone = true
@@ -304,7 +305,7 @@ func (parser *Parser) cacheRawLines(reader *bufio.Reader) {
 	for {
 		line, err := reader.ReadBytes('\n')
 		if err != nil {
-			if err != io.EOF {
+			if !errors.Is(err, io.EOF) {
 				parser.err = err
 				parser.finished = true
 			}
@@ -361,10 +362,10 @@ func (parser *Parser) findNextPatchFromPath() error {
 	}
 
 	line, err := parser.patchReader.ReadBytes('\n')
-	if err != nil && err != io.EOF {
+	if err != nil && !errors.Is(err, io.EOF) {
 		parser.err = fmt.Errorf("read diff header line: %w", err)
 		return parser.err
-	} else if err == io.EOF {
+	} else if errors.Is(err, io.EOF) {
 		return nil
 	}
 
@@ -475,7 +476,7 @@ func (parser *Parser) consumeChunkLine(updateLineStats bool) {
 
 func (parser *Parser) consumeLine(updateStats bool) {
 	line, err := parser.patchReader.ReadBytes('\n')
-	if err != nil && err != io.EOF {
+	if err != nil && !errors.Is(err, io.EOF) {
 		parser.err = fmt.Errorf("read line: %w", err)
 		return
 	}

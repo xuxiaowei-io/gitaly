@@ -3,6 +3,7 @@ package gitalybackup
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"runtime"
@@ -151,7 +152,7 @@ func (cmd *createSubcommand) run(ctx context.Context, logger log.Logger, stdin i
 	decoder := json.NewDecoder(stdin)
 	for {
 		var sr serverRepository
-		if err := decoder.Decode(&sr); err == io.EOF {
+		if err := decoder.Decode(&sr); errors.Is(err, io.EOF) {
 			break
 		} else if err != nil {
 			return fmt.Errorf("create: %w", err)

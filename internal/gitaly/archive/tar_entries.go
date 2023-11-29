@@ -2,6 +2,7 @@ package archive
 
 import (
 	"archive/tar"
+	"errors"
 	"io"
 )
 
@@ -13,7 +14,7 @@ func TarEntries(r io.Reader) ([]string, error) {
 
 	for {
 		hdr, err := tr.Next()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {

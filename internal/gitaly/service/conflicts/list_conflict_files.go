@@ -149,7 +149,7 @@ func (s *server) conflictFilesWithGitMergeTree(
 
 		var content bytes.Buffer
 		_, err = content.ReadFrom(object)
-		if err != nil && err != io.EOF {
+		if err != nil && !errors.Is(err, io.EOF) {
 			return structerr.NewInternal("reading conflict object: %w", err)
 		}
 

@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"regexp"
@@ -88,7 +89,7 @@ func (s *server) getRawChanges(stream gitalypb.RepositoryService_GetRawChangesSe
 
 	for {
 		d, err := p.NextDiff()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break // happy path
 		}
 		if err != nil {

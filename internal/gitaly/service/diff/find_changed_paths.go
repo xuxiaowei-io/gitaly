@@ -101,7 +101,7 @@ func parsePaths(reader *bufio.Reader, chunker *chunk.Chunker) error {
 	for {
 		paths, err := nextPath(reader)
 		if err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				break
 			}
 

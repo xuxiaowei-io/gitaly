@@ -214,7 +214,7 @@ func getAlternateObjectDir(repo *localrepo.Repo) (string, error) {
 
 	r := bufio.NewReader(altFile)
 	b, err := r.ReadBytes('\n')
-	if err != nil && err != io.EOF {
+	if err != nil && !errors.Is(err, io.EOF) {
 		return "", fmt.Errorf("reading alternates file: %w", err)
 	}
 

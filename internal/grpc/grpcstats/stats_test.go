@@ -2,6 +2,7 @@ package grpcstats
 
 import (
 	"context"
+	"errors"
 	"io"
 	"net"
 	"os"
@@ -35,7 +36,7 @@ func (ts testService) UnaryCall(context.Context, *grpc_testing.SimpleRequest) (*
 func (ts testService) HalfDuplexCall(stream grpc_testing.TestService_HalfDuplexCallServer) error {
 	for {
 		if _, err := stream.Recv(); err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				break
 			}
 			return err
@@ -127,7 +128,7 @@ func TestPayloadBytes(t *testing.T) {
 				defer close(done)
 				for {
 					_, err := call.Recv()
-					if err == io.EOF {
+					if errors.Is(err, io.EOF) {
 						return
 					}
 					assert.NoError(t, err)
