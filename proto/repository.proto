@@ -254,7 +254,8 @@ service RepositoryService {
     };
   }
 
-  // SearchFilesByName ...
+  // SearchFilesByName searches files in the repository based on its name and an
+  // optional filter.
   rpc SearchFilesByName(SearchFilesByNameRequest) returns (stream SearchFilesByNameResponse) {
     option (op_type) = {
       op: ACCESSOR
@@ -1071,13 +1072,14 @@ message GetRawChangesResponse {
   repeated RawChange raw_changes = 1;
 }
 
-// SearchFilesByNameRequest ...
+// SearchFilesByNameRequest is a request for the SearchFilesByName RPC.
 message SearchFilesByNameRequest {
-  // repository ...
+  // repository is the repo to execute the search in. The storage_name and
+  // relative_path attributes must be provided.
   Repository repository = 1 [(target_repository)=true];
-  // query ...
+  // query is the search query.
   string query = 2;
-  // ref ...
+  // ref is the Git reference whose tree should be searched.
   bytes ref = 3;
   // filter is a regular expression used to filter the result set before it is
   // transmitted. It is parsed using Go's `regexp` package, which is closely related
@@ -1092,7 +1094,7 @@ message SearchFilesByNameRequest {
   uint32 offset = 6;
 }
 
-// SearchFilesByNameResponse ...
+// SearchFilesByNameResponse is a response for the SearchFilesByName RPC.
 message SearchFilesByNameResponse {
   // files contains the paths of files that have been found to match the query.
   repeated bytes files = 1;

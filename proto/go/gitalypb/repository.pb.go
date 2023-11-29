@@ -3659,17 +3659,18 @@ func (x *GetRawChangesResponse) GetRawChanges() []*GetRawChangesResponse_RawChan
 	return nil
 }
 
-// SearchFilesByNameRequest ...
+// SearchFilesByNameRequest is a request for the SearchFilesByName RPC.
 type SearchFilesByNameRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// repository ...
+	// repository is the repo to execute the search in. The storage_name and
+	// relative_path attributes must be provided.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// query ...
+	// query is the search query.
 	Query string `protobuf:"bytes,2,opt,name=query,proto3" json:"query,omitempty"`
-	// ref ...
+	// ref is the Git reference whose tree should be searched.
 	Ref []byte `protobuf:"bytes,3,opt,name=ref,proto3" json:"ref,omitempty"`
 	// filter is a regular expression used to filter the result set before it is
 	// transmitted. It is parsed using Go's `regexp` package, which is closely related
@@ -3758,7 +3759,7 @@ func (x *SearchFilesByNameRequest) GetOffset() uint32 {
 	return 0
 }
 
-// SearchFilesByNameResponse ...
+// SearchFilesByNameResponse is a response for the SearchFilesByName RPC.
 type SearchFilesByNameResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache

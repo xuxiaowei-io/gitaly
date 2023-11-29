@@ -126,7 +126,8 @@ type RepositoryServiceClient interface {
 	// SearchFilesByContent searches files in the repository using the provided grep pattern.
 	// For each result, the matched line is returned along with the two previous and next lines.
 	SearchFilesByContent(ctx context.Context, in *SearchFilesByContentRequest, opts ...grpc.CallOption) (RepositoryService_SearchFilesByContentClient, error)
-	// SearchFilesByName ...
+	// SearchFilesByName searches files in the repository based on its name and an
+	// optional filter.
 	SearchFilesByName(ctx context.Context, in *SearchFilesByNameRequest, opts ...grpc.CallOption) (RepositoryService_SearchFilesByNameClient, error)
 	// Deprecated: Do not use.
 	// RestoreCustomHooks sets the git hooks for a repository. The hooks are sent
@@ -1099,7 +1100,8 @@ type RepositoryServiceServer interface {
 	// SearchFilesByContent searches files in the repository using the provided grep pattern.
 	// For each result, the matched line is returned along with the two previous and next lines.
 	SearchFilesByContent(*SearchFilesByContentRequest, RepositoryService_SearchFilesByContentServer) error
-	// SearchFilesByName ...
+	// SearchFilesByName searches files in the repository based on its name and an
+	// optional filter.
 	SearchFilesByName(*SearchFilesByNameRequest, RepositoryService_SearchFilesByNameServer) error
 	// Deprecated: Do not use.
 	// RestoreCustomHooks sets the git hooks for a repository. The hooks are sent
