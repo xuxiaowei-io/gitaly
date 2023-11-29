@@ -935,13 +935,14 @@ func (*FetchBundleResponse) Descriptor() ([]byte, []int) {
 	return file_repository_proto_rawDescGZIP(), []int{13}
 }
 
-// FetchRemoteRequest ...
+// FetchRemoteRequest is a request for the FetchRemote RPC.
 type FetchRemoteRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// repository ...
+	// repository is the repository to fetch the remote into. The storage_name
+	// and relative_path attributes must be provided.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
 	// force determines if references should be force-updated in case they have
 	// diverged.
@@ -950,9 +951,10 @@ type FetchRemoteRequest struct {
 	NoTags bool `protobuf:"varint,4,opt,name=no_tags,json=noTags,proto3" json:"no_tags,omitempty"`
 	// timeout specifies a timeout for the fetch.
 	Timeout int32 `protobuf:"varint,5,opt,name=timeout,proto3" json:"timeout,omitempty"`
-	// ssh_key ...
+	// ssh_key is an optional SSH key to use for fetching the remote.
 	SshKey string `protobuf:"bytes,6,opt,name=ssh_key,json=sshKey,proto3" json:"ssh_key,omitempty"`
-	// known_hosts ...
+	// known_hosts is the optional content of an SSH known-hosts file to use
+	// for the SSH session.
 	KnownHosts string `protobuf:"bytes,7,opt,name=known_hosts,json=knownHosts,proto3" json:"known_hosts,omitempty"`
 	// no_prune will the fetch to not prune remote references which do not exist
 	// in the remote repository anymore.
@@ -1060,7 +1062,7 @@ func (x *FetchRemoteRequest) GetCheckTagsChanged() bool {
 	return false
 }
 
-// FetchRemoteResponse ...
+// FetchRemoteResponse is a response for the FetchRemote RPC.
 type FetchRemoteResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache

@@ -60,7 +60,8 @@ type RepositoryServiceClient interface {
 	// This RPC will be removed in 17.0.
 	ApplyGitattributes(ctx context.Context, in *ApplyGitattributesRequest, opts ...grpc.CallOption) (*ApplyGitattributesResponse, error)
 	// FetchRemote fetches references from a remote repository into the local
-	// repository.
+	// repository. The remote can be fetched via HTTP or SSH depending on the
+	// request options provided.
 	FetchRemote(ctx context.Context, in *FetchRemoteRequest, opts ...grpc.CallOption) (*FetchRemoteResponse, error)
 	// CreateRepository creates a new empty repository.
 	CreateRepository(ctx context.Context, in *CreateRepositoryRequest, opts ...grpc.CallOption) (*CreateRepositoryResponse, error)
@@ -1034,7 +1035,8 @@ type RepositoryServiceServer interface {
 	// This RPC will be removed in 17.0.
 	ApplyGitattributes(context.Context, *ApplyGitattributesRequest) (*ApplyGitattributesResponse, error)
 	// FetchRemote fetches references from a remote repository into the local
-	// repository.
+	// repository. The remote can be fetched via HTTP or SSH depending on the
+	// request options provided.
 	FetchRemote(context.Context, *FetchRemoteRequest) (*FetchRemoteResponse, error)
 	// CreateRepository creates a new empty repository.
 	CreateRepository(context.Context, *CreateRepositoryRequest) (*CreateRepositoryResponse, error)

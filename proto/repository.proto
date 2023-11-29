@@ -78,7 +78,8 @@ service RepositoryService {
   }
 
   // FetchRemote fetches references from a remote repository into the local
-  // repository.
+  // repository. The remote can be fetched via HTTP or SSH depending on the
+  // request options provided.
   rpc FetchRemote(FetchRemoteRequest) returns (FetchRemoteResponse) {
     option (op_type) = {
       op: MUTATOR
@@ -564,9 +565,10 @@ message FetchBundleRequest {
 message FetchBundleResponse {
 }
 
-// FetchRemoteRequest ...
+// FetchRemoteRequest is a request for the FetchRemote RPC.
 message FetchRemoteRequest {
-  // repository ...
+  // repository is the repository to fetch the remote into. The storage_name
+  // and relative_path attributes must be provided.
   Repository repository = 1 [(target_repository)=true];
   // force determines if references should be force-updated in case they have
   // diverged.
@@ -575,9 +577,10 @@ message FetchRemoteRequest {
   bool no_tags = 4;
   // timeout specifies a timeout for the fetch.
   int32 timeout = 5;
-  // ssh_key ...
+  // ssh_key is an optional SSH key to use for fetching the remote.
   string ssh_key = 6;
-  // known_hosts ...
+  // known_hosts is the optional content of an SSH known-hosts file to use
+  // for the SSH session.
   string known_hosts = 7;
   reserved 8;
   // no_prune will the fetch to not prune remote references which do not exist
@@ -594,7 +597,7 @@ message FetchRemoteRequest {
   reserved "remote";
 }
 
-// FetchRemoteResponse ...
+// FetchRemoteResponse is a response for the FetchRemote RPC.
 message FetchRemoteResponse {
   // tags_changed is set based to true if tags were changed or cannot be determined
   // and false when no tags were change. It is only calculated when check_tags_changed
