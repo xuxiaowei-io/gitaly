@@ -139,15 +139,16 @@ func (rl *ResilientListener) Listen(ctx context.Context, handler glsql.ListenHan
 		}
 
 		handler := metricsHandlerMiddleware{ListenHandler: handler, counter: rl.reconnectTotal}
-		if err := lis.Listen(ctx, handler, channels...); err != nil {
-			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
-				return err
-			}
 
-			rl.logger.WithError(err).
-				WithField("channels", channels).
-				Error("listening was interrupted")
+		// Listen always returns an error, so we don't need to check for nil.
+		err = lis.Listen(ctx, handler, channels...)
+		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+			return err
 		}
+
+		rl.logger.WithError(err).
+			WithField("channels", channels).
+			Error("listening was interrupted")
 
 		rl.ticker.Reset()
 		select {
