@@ -1,5 +1,9 @@
 # Gitaly changelog
 
+## 16.6.1 (2023-11-30)
+
+No changes.
+
 ## 16.6.0 (2023-11-15)
 
 ### Added (2 changes)
@@ -25,6 +29,10 @@
 ### Performance (1 change)
 
 - [backup: Use --all when creating an incremental backup bundle](gitlab-org/gitaly@d874d8c3eb0d0c9b9362b583ba8ccc42221140cd) ([merge request](gitlab-org/gitaly!6421))
+
+## 16.5.3 (2023-11-30)
+
+No changes.
 
 ## 16.5.2 (2023-11-14)
 
@@ -59,6 +67,10 @@ No changes.
 
 - [gitaly: Don't block on preloading licensedb](gitlab-org/gitaly@d96964bf6fe4a17adfded56a28bc276377351bc8) ([merge request](gitlab-org/gitaly!6397))
 - [packed_binaries: Extract binaries in parallel](gitlab-org/gitaly@2f5d4f93bdd27d3299f9ccc005ee7bcca35efcc9) ([merge request](gitlab-org/gitaly!6401))
+
+## 16.4.3 (2023-11-30)
+
+No changes.
 
 ## 16.4.2 (2023-10-30)
 
