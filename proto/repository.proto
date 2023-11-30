@@ -680,7 +680,7 @@ message HasLocalBranchesResponse {
   bool value = 1;
 }
 
-// FetchSourceBranchRequest ...
+// FetchSourceBranchRequest is a request for the FetchSourceBranch RPC.
 message FetchSourceBranchRequest {
   // repository into which the reference shall be fetched. After a successful
   // call, it should contain the target reference which points to the same
@@ -695,7 +695,7 @@ message FetchSourceBranchRequest {
   bytes target_ref = 4;
 }
 
-// FetchSourceBranchResponse ...
+// FetchSourceBranchResponse is a response for the FetchSourceBranch RPC.
 message FetchSourceBranchResponse {
   // result denotes if the source branch was successfully fetched into the target
   // repository. It is false if resolving the remote reference or fetching it failed.

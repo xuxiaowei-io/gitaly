@@ -1489,7 +1489,7 @@ func (x *HasLocalBranchesResponse) GetValue() bool {
 	return false
 }
 
-// FetchSourceBranchRequest ...
+// FetchSourceBranchRequest is a request for the FetchSourceBranch RPC.
 type FetchSourceBranchRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -1568,7 +1568,7 @@ func (x *FetchSourceBranchRequest) GetTargetRef() []byte {
 	return nil
 }
 
-// FetchSourceBranchResponse ...
+// FetchSourceBranchResponse is a response for the FetchSourceBranch RPC.
 type FetchSourceBranchResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
