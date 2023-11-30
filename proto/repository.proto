@@ -888,9 +888,10 @@ message BackupCustomHooksRequest {
   Repository repository = 1 [(target_repository)=true];
 }
 
-// GetCustomHooksRequest ...
+// GetCustomHooksRequest is a request for the GetCustomHooks RPC.
 message GetCustomHooksRequest {
-  // repository ...
+  // repository is the repo to retrieve custom hooks from. The storage_name and relative_path
+  // attributes must be provided.
   Repository repository = 1 [(target_repository)=true];
 }
 
@@ -900,9 +901,9 @@ message BackupCustomHooksResponse {
   bytes data = 1;
 }
 
-// GetCustomHooksResponse ...
+// GetCustomHooksResponse is a response for the GetCustomHooks RPC.
 message GetCustomHooksResponse {
-  // data ...
+  // data is the tarball containing the `custom_hooks` directory.
   bytes data = 1;
 }
 

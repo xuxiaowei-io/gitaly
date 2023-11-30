@@ -2743,13 +2743,14 @@ func (x *BackupCustomHooksRequest) GetRepository() *Repository {
 	return nil
 }
 
-// GetCustomHooksRequest ...
+// GetCustomHooksRequest is a request for the GetCustomHooks RPC.
 type GetCustomHooksRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// repository ...
+	// repository is the repo to retrieve custom hooks from. The storage_name and relative_path
+	// attributes must be provided.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
 }
 
@@ -2841,13 +2842,13 @@ func (x *BackupCustomHooksResponse) GetData() []byte {
 	return nil
 }
 
-// GetCustomHooksResponse ...
+// GetCustomHooksResponse is a response for the GetCustomHooks RPC.
 type GetCustomHooksResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// data ...
+	// data is the tarball containing the `custom_hooks` directory.
 	Data []byte `protobuf:"bytes,1,opt,name=data,proto3" json:"data,omitempty"`
 }
 
