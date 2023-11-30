@@ -1248,7 +1248,8 @@ message OptimizeRepositoryResponse {
 // PruneUnreachableObjectsRequest is a request for the PruneUnreachableObjects
 // RPC call.
 message PruneUnreachableObjectsRequest {
-  // repository ...
+  // repository is the repo to prune. The storage_name and relative_path
+  // attributes must be provided.
   Repository repository = 1 [(target_repository)=true];
 }
 
