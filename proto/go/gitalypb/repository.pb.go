@@ -2557,15 +2557,16 @@ func (x *RestoreCustomHooksRequest) GetData() []byte {
 	return nil
 }
 
-// SetCustomHooksRequest ...
+// SetCustomHooksRequest is a request for the SetCustomHooks RPC.
 type SetCustomHooksRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// repository ...
+	// repository is the repo to set the custom hooks in. The storage_name and relative_path
+	// attributes must be provided. The repository can be omitted in subsequent requests.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// data ...
+	// data is a tarball containing a `custom_hooks` directory.
 	Data []byte `protobuf:"bytes,2,opt,name=data,proto3" json:"data,omitempty"`
 }
 
@@ -2654,7 +2655,7 @@ func (*RestoreCustomHooksResponse) Descriptor() ([]byte, []int) {
 	return file_repository_proto_rawDescGZIP(), []int{42}
 }
 
-// SetCustomHooksResponse ...
+// SetCustomHooksResponse is a response for the SetCustomHooks RPC.
 type SetCustomHooksResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache

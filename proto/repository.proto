@@ -274,8 +274,8 @@ service RepositoryService {
   }
 
   // SetCustomHooks sets the git hooks for a repository. The hooks are sent in a
-  // tar archive containing a `custom_hooks` directory. This directory is
-  // ultimately extracted to the repository.
+  // tar archive containing a `custom_hooks` directory (i.e. the response from the
+  // GetCustomHooksResponse RPC. This directory will be extracted into the repository.
   rpc SetCustomHooks(stream SetCustomHooksRequest) returns (SetCustomHooksResponse) {
     option (op_type) = {
       op: MUTATOR
@@ -865,11 +865,12 @@ message RestoreCustomHooksRequest {
   bytes data = 2;
 }
 
-// SetCustomHooksRequest ...
+// SetCustomHooksRequest is a request for the SetCustomHooks RPC.
 message SetCustomHooksRequest {
-  // repository ...
+  // repository is the repo to set the custom hooks in. The storage_name and relative_path
+  // attributes must be provided. The repository can be omitted in subsequent requests.
   Repository repository = 1 [(target_repository)=true];
-  // data ...
+  // data is a tarball containing a `custom_hooks` directory.
   bytes data = 2;
 }
 
@@ -877,7 +878,7 @@ message SetCustomHooksRequest {
 message RestoreCustomHooksResponse {
 }
 
-// SetCustomHooksResponse ...
+// SetCustomHooksResponse is a response for the SetCustomHooks RPC.
 message SetCustomHooksResponse {
 }
 

@@ -136,8 +136,8 @@ type RepositoryServiceClient interface {
 	// ultimately extracted to the repository.
 	RestoreCustomHooks(ctx context.Context, opts ...grpc.CallOption) (RepositoryService_RestoreCustomHooksClient, error)
 	// SetCustomHooks sets the git hooks for a repository. The hooks are sent in a
-	// tar archive containing a `custom_hooks` directory. This directory is
-	// ultimately extracted to the repository.
+	// tar archive containing a `custom_hooks` directory (i.e. the response from the
+	// GetCustomHooksResponse RPC. This directory will be extracted into the repository.
 	SetCustomHooks(ctx context.Context, opts ...grpc.CallOption) (RepositoryService_SetCustomHooksClient, error)
 	// Deprecated: Do not use.
 	// BackupCustomHooks fetches the git hooks for a repository. The hooks are
@@ -1111,8 +1111,8 @@ type RepositoryServiceServer interface {
 	// ultimately extracted to the repository.
 	RestoreCustomHooks(RepositoryService_RestoreCustomHooksServer) error
 	// SetCustomHooks sets the git hooks for a repository. The hooks are sent in a
-	// tar archive containing a `custom_hooks` directory. This directory is
-	// ultimately extracted to the repository.
+	// tar archive containing a `custom_hooks` directory (i.e. the response from the
+	// GetCustomHooksResponse RPC. This directory will be extracted into the repository.
 	SetCustomHooks(RepositoryService_SetCustomHooksServer) error
 	// Deprecated: Do not use.
 	// BackupCustomHooks fetches the git hooks for a repository. The hooks are
