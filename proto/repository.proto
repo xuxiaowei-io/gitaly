@@ -827,7 +827,7 @@ message CreateBundleResponse {
   bytes data = 1;
 }
 
-// CreateBundleFromRefListRequest ...
+// CreateBundleFromRefListRequest is a request for the CreateBundleFromRefList RPC.
 message CreateBundleFromRefListRequest {
   // repository is the repository that the bundle is created from.
   Repository repository = 1 [(target_repository)=true];
@@ -838,9 +838,9 @@ message CreateBundleFromRefListRequest {
   repeated bytes patterns = 2;
 }
 
-// CreateBundleFromRefListResponse ...
+// CreateBundleFromRefListResponse is a response for the CreateBundleFromRefList RPC.
 message CreateBundleFromRefListResponse {
-  // data ...
+  // data contains the content of the created bundle.
   bytes data = 1;
 }
 

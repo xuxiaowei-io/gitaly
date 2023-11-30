@@ -2291,7 +2291,7 @@ func (x *CreateBundleResponse) GetData() []byte {
 	return nil
 }
 
-// CreateBundleFromRefListRequest ...
+// CreateBundleFromRefListRequest is a request for the CreateBundleFromRefList RPC.
 type CreateBundleFromRefListRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -2351,13 +2351,13 @@ func (x *CreateBundleFromRefListRequest) GetPatterns() [][]byte {
 	return nil
 }
 
-// CreateBundleFromRefListResponse ...
+// CreateBundleFromRefListResponse is a response for the CreateBundleFromRefList RPC.
 type CreateBundleFromRefListResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// data ...
+	// data contains the content of the created bundle.
 	Data []byte `protobuf:"bytes,1,opt,name=data,proto3" json:"data,omitempty"`
 }
 
