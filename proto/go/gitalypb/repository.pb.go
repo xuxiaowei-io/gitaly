@@ -4133,13 +4133,14 @@ func (x *GetObjectDirectorySizeResponse) GetSize() int64 {
 	return 0
 }
 
-// RemoveRepositoryRequest ...
+// RemoveRepositoryRequest is a request for the RemoveRepository RPC.
 type RemoveRepositoryRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// repository ...
+	// repository is the repo to remove. The storage_name and relative_path attributes
+	// must be provided.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
 }
 
@@ -4182,7 +4183,7 @@ func (x *RemoveRepositoryRequest) GetRepository() *Repository {
 	return nil
 }
 
-// RemoveRepositoryResponse ...
+// RemoveRepositoryResponse is a response for the RemoveRepository RPC.
 type RemoveRepositoryResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache

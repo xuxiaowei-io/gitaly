@@ -1187,13 +1187,14 @@ message GetObjectDirectorySizeResponse {
   int64 size = 1;
 }
 
-// RemoveRepositoryRequest ...
+// RemoveRepositoryRequest is a request for the RemoveRepository RPC.
 message RemoveRepositoryRequest {
-  // repository ...
+  // repository is the repo to remove. The storage_name and relative_path attributes
+  // must be provided.
   Repository repository = 1 [(target_repository)=true];
 }
 
-// RemoveRepositoryResponse ...
+// RemoveRepositoryResponse is a response for the RemoveRepository RPC.
 message RemoveRepositoryResponse {
 }
 
