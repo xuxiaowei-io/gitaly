@@ -814,15 +814,16 @@ message CreateRepositoryFromURLRequest {
 message CreateRepositoryFromURLResponse {
 }
 
-// CreateBundleRequest ...
+// CreateBundleRequest is a request for the CreateBundle RPC.
 message CreateBundleRequest {
-  // repository ...
+  // repository is the repository to create a bundle from. The storage_name and
+  // relative_path attributes must be provided.
   Repository repository = 1 [(target_repository)=true];
 }
 
-// CreateBundleResponse ...
+// CreateBundleResponse is a response for the CreateBundle RPC.
 message CreateBundleResponse {
-  // data ...
+  // data contains the content of the created bundle.
   bytes data = 1;
 }
 

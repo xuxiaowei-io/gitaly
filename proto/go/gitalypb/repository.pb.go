@@ -2192,13 +2192,14 @@ func (*CreateRepositoryFromURLResponse) Descriptor() ([]byte, []int) {
 	return file_repository_proto_rawDescGZIP(), []int{33}
 }
 
-// CreateBundleRequest ...
+// CreateBundleRequest is a request for the CreateBundle RPC.
 type CreateBundleRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// repository ...
+	// repository is the repository to create a bundle from. The storage_name and
+	// relative_path attributes must be provided.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
 }
 
@@ -2241,13 +2242,13 @@ func (x *CreateBundleRequest) GetRepository() *Repository {
 	return nil
 }
 
-// CreateBundleResponse ...
+// CreateBundleResponse is a response for the CreateBundle RPC.
 type CreateBundleResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// data ...
+	// data contains the content of the created bundle.
 	Data []byte `protobuf:"bytes,1,opt,name=data,proto3" json:"data,omitempty"`
 }
 
