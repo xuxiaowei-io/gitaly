@@ -8,6 +8,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 )
 
 // InfoRefsGitConfig return a slice of git.ConfigPairs you can inject into the
@@ -56,6 +57,8 @@ func UploadPackGitConfig(
 		if err != nil {
 			return []git.ConfigPair{}
 		}
+
+		log.AddFields(ctx, log.Fields{"bundle_uri": true})
 
 		return []git.ConfigPair{
 			{

@@ -10,11 +10,13 @@ import (
 	"path/filepath"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	promtest "github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/require"
 	gitalyauth "gitlab.com/gitlab-org/gitaly/v16/auth"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/backup"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
@@ -374,6 +376,128 @@ func testServerPostUploadPackSidechannelValidation(t *testing.T, ctx context.Con
 	t.Parallel()
 
 	runTestWithAndWithoutConfigOptions(t, ctx, testServerPostUploadPackWithSideChannelValidation, makePostUploadPackWithSidechannelRequest, testcfg.WithPackObjectsCacheEnabled())
+}
+
+type mockBackupLocator struct {
+	backup *backup.Backup
+}
+
+func (l *mockBackupLocator) BeginFull(ctx context.Context, repo storage.Repository, backupID string) *backup.Backup {
+	return l.backup
+}
+
+func (l *mockBackupLocator) BeginIncremental(ctx context.Context, repo storage.Repository, backupID string) (*backup.Backup, error) {
+	return nil, nil
+}
+
+func (l *mockBackupLocator) Commit(ctx context.Context, backup *backup.Backup) error {
+	return nil
+}
+
+func (l *mockBackupLocator) FindLatest(ctx context.Context, repo storage.Repository) (*backup.Backup, error) {
+	return l.backup, nil
+}
+
+func (l *mockBackupLocator) Find(ctx context.Context, repo storage.Repository, backupID string) (*backup.Backup, error) {
+	return l.backup, nil
+}
+
+type mockBackupSink struct {
+	signedURL string
+}
+
+func (s *mockBackupSink) GetWriter(ctx context.Context, relativePath string) (io.WriteCloser, error) {
+	return nil, nil
+}
+
+func (s *mockBackupSink) GetReader(ctx context.Context, relativePath string) (io.ReadCloser, error) {
+	return nil, nil
+}
+
+func (s *mockBackupSink) SignedURL(ctx context.Context, relativePath string, expiry time.Duration) (string, error) {
+	return s.signedURL, nil
+}
+
+func (s *mockBackupSink) Close() error {
+	return nil
+}
+
+func TestServer_PostUploadPackWithBundleURI(t *testing.T) {
+	t.Parallel()
+
+	testhelper.NewFeatureSets(
+		featureflag.UploadPackBoundaryBitmapTraversal,
+	).Run(t, testServerPostUploadPackWithBundleURI)
+}
+
+func testServerPostUploadPackWithBundleURI(t *testing.T, ctx context.Context) {
+	cfg := testcfg.Build(t)
+	ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.BundleURI, true)
+
+	signedURL := "http://signedurl.com/my-bundle-here"
+	testCases := []struct {
+		desc              string
+		backup            *backup.Backup
+		expectedBundleURI string
+	}{
+		{
+			desc: "with backup",
+			backup: &backup.Backup{
+				Steps: []backup.Step{
+					{
+						BundlePath: "path/to/bundle",
+					},
+				},
+			},
+			expectedBundleURI: signedURL,
+		},
+		{
+			desc:              "without backup",
+			backup:            nil,
+			expectedBundleURI: "",
+		},
+	}
+
+	var l mockBackupLocator
+	s := mockBackupSink{
+		signedURL: signedURL,
+	}
+
+	logger := testhelper.NewLogger(t)
+	hook := testhelper.AddLoggerHook(logger)
+
+	server := startSmartHTTPServerWithOptions(t, cfg, nil, []testserver.GitalyServerOpt{
+		testserver.WithBackupLocator(&l),
+		testserver.WithBackupSink(&s),
+		testserver.WithLogger(logger),
+	})
+	cfg.SocketPath = server.Address()
+
+	repo, _ := gittest.CreateRepository(t, ctx, cfg)
+
+	for _, tc := range testCases {
+		l.backup = tc.backup
+		requestBody := &bytes.Buffer{}
+		gittest.WritePktlineString(t, requestBody, "command=bundle-uri\n")
+		gittest.WritePktlineString(t, requestBody, fmt.Sprintf("object-format=%s\n", gittest.DefaultObjectHash.Format))
+		gittest.WritePktlineFlush(t, requestBody)
+
+		req := &gitalypb.PostUploadPackWithSidechannelRequest{Repository: repo, GitProtocol: git.ProtocolV2}
+		responseBuffer, err := makePostUploadPackWithSidechannelRequest(t, ctx, cfg.SocketPath, cfg.Auth.Token, req, bytes.NewReader(requestBody.Bytes()))
+
+		entry := hook.LastEntry()
+		bundleURI, ok := entry.Data["bundle_uri"]
+
+		if tc.expectedBundleURI != "" {
+			require.NoError(t, err)
+			require.Contains(t, responseBuffer.String(), "bundle.some.uri=http://signedurl.com/my-bundle-here")
+			require.True(t, ok)
+			require.True(t, bundleURI.(bool))
+		} else {
+			require.False(t, ok)
+			require.NotContains(t, responseBuffer.String(), "bundle.some.uri")
+		}
+	}
 }
 
 func testServerPostUploadPackWithSideChannelValidation(t *testing.T, ctx context.Context, makeRequest requestMaker, opts ...testcfg.Option) {
