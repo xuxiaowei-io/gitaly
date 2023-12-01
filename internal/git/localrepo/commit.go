@@ -159,9 +159,19 @@ func (repo *Repo) WriteCommit(ctx context.Context, cfg WriteCommitConfig) (git.O
 		fmt.Sprintf("GIT_AUTHOR_NAME=%s", cfg.AuthorName),
 		fmt.Sprintf("GIT_AUTHOR_EMAIL=%s", cfg.AuthorEmail),
 		fmt.Sprintf("GIT_COMMITTER_DATE=%s", git.FormatTime(cfg.CommitterDate)),
-		fmt.Sprintf("GIT_COMMITTER_NAME=%s", cfg.CommitterName),
-		fmt.Sprintf("GIT_COMMITTER_EMAIL=%s", cfg.CommitterEmail),
 	)
+
+	if featureflag.GPGSigning.IsEnabled(ctx) && cfg.GitConfig.CommitterName != "" && cfg.GitConfig.CommitterEmail != "" {
+		env = append(env,
+			fmt.Sprintf("GIT_COMMITTER_NAME=%s", cfg.GitConfig.CommitterName),
+			fmt.Sprintf("GIT_COMMITTER_EMAIL=%s", cfg.GitConfig.CommitterEmail),
+		)
+	} else {
+		env = append(env,
+			fmt.Sprintf("GIT_COMMITTER_NAME=%s", cfg.CommitterName),
+			fmt.Sprintf("GIT_COMMITTER_EMAIL=%s", cfg.CommitterEmail),
+		)
+	}
 
 	var flags []git.Option
 

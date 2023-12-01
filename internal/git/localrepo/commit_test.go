@@ -344,6 +344,39 @@ func testWriteCommit(t *testing.T, ctx context.Context) {
 		})
 	}
 
+	t.Run("committer email and name are set", func(tb *testing.T) {
+		if !featureflag.GPGSigning.IsEnabled(ctx) {
+			tb.Skip()
+		}
+
+		cfg := WriteCommitConfig{
+			TreeID:         treeA.OID,
+			AuthorName:     gittest.DefaultCommitterName,
+			AuthorEmail:    gittest.DefaultCommitterMail,
+			CommitterName:  gittest.DefaultCommitterName,
+			CommitterEmail: gittest.DefaultCommitterMail,
+			AuthorDate:     gittest.DefaultCommitTime,
+			CommitterDate:  gittest.DefaultCommitTime,
+			Message:        "my custom message",
+			GitConfig: config.Git{
+				CommitterEmail: "noreply@gitlab.com",
+				CommitterName:  "GitLab",
+			},
+		}
+
+		oid, err := repo.WriteCommit(ctx, cfg)
+		require.Nil(t, err)
+
+		commit, err := repo.ReadCommit(ctx, git.Revision(oid))
+		require.NoError(t, err)
+
+		require.Equal(t, gittest.DefaultCommitAuthor, commit.Author)
+		require.Equal(t, "my custom message", string(commit.Body))
+
+		require.Equal(t, "noreply@gitlab.com", string(commit.Committer.Email))
+		require.Equal(t, "GitLab", string(commit.Committer.Name))
+	})
+
 	t.Run("signed", func(tb *testing.T) {
 		if !featureflag.GPGSigning.IsEnabled(ctx) {
 			tb.Skip()
