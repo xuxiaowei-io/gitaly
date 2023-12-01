@@ -15,9 +15,8 @@ import (
 )
 
 // revisionNotFoundRegexp is used to parse the standard error of git-rev-list(1) in order to figure out whether the
-// actual error condition was that the revision could not be found. Checking for ambiguous arguments is kind of awkward,
-// but we can't really get around that until we have migrated to `--stdin` with Git v2.42 and later.
-var revisionNotFoundRegexp = regexp.MustCompile("^fatal: ambiguous argument '([^']*)': unknown revision or path not in the working tree.")
+// actual error condition was that the revision could not be found.
+var revisionNotFoundRegexp = regexp.MustCompile("^fatal: bad revision '([^']*)'")
 
 // ObjectsSize calculates the on-disk object size via a graph walk. The intent of this RPC is to
 // calculate the on-disk size as accurately as possible.
@@ -35,11 +34,23 @@ func (s *server) ObjectsSize(server gitalypb.RepositoryService_ObjectsSizeServer
 
 	repo := s.localrepo(request.GetRepository())
 
-	revlistArgs := make([]string, 0, len(request.GetRevisions()))
+	var stderr, stdout strings.Builder
+	cmd, err := repo.Exec(ctx,
+		git.Command{
+			Name: "rev-list",
+			Flags: []git.Option{
+				git.Flag{Name: "--disk-usage"},
+				git.Flag{Name: "--objects"},
+				git.Flag{Name: "--stdin"},
+			},
+		},
+		git.WithStderr(&stderr),
+		git.WithStdout(&stdout),
+		git.WithSetupStdin())
+	if err != nil {
+		return fmt.Errorf("start rev-list command: %w", err)
+	}
 
-	// TODO: Git v2.41 and older do not support passing pseudo-options via `--stdin`. We have upstreamed patches to
-	// fix this in Git v2.42, so once we have upgraded our Git version we should convert this loop to instead stream
-	// to git-rev-list(1)'s standard input.
 	for i := 0; ; i++ {
 		if i != 0 && request.GetRepository() != nil {
 			return structerr.NewInvalidArgument("subsequent requests must not contain repository")
@@ -54,7 +65,11 @@ func (s *server) ObjectsSize(server gitalypb.RepositoryService_ObjectsSizeServer
 				return structerr.NewInvalidArgument("validating revision: %w", err).WithMetadata("revision", revision)
 			}
 
-			revlistArgs = append(revlistArgs, string(revision))
+			// Each revision must be separated by a newline when the `--stdin` option is used, as Git
+			// parses these differently to command-line arguments.
+			if _, err := cmd.Write([]byte(fmt.Sprintf("%s\n", revision))); err != nil {
+				return structerr.NewInvalidArgument("process revision: %w", err).WithMetadata("revision", revision)
+			}
 		}
 
 		request, err = server.Recv()
@@ -67,15 +82,7 @@ func (s *server) ObjectsSize(server gitalypb.RepositoryService_ObjectsSizeServer
 		}
 	}
 
-	var stderr, stdout strings.Builder
-	if err := repo.ExecAndWait(ctx, git.Command{
-		Name: "rev-list",
-		Flags: []git.Option{
-			git.Flag{Name: "--disk-usage"},
-			git.Flag{Name: "--objects"},
-		},
-		Args: revlistArgs,
-	}, git.WithStderr(&stderr), git.WithStdout(&stdout)); err != nil {
+	if err := cmd.Wait(); err != nil {
 		var exitErr *exec.ExitError
 		if errors.As(err, &exitErr) {
 			if matches := revisionNotFoundRegexp.FindStringSubmatch(stderr.String()); len(matches) == 2 {

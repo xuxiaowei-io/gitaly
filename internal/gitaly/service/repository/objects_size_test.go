@@ -130,6 +130,27 @@ func TestObjectsSize(t *testing.T) {
 			},
 		},
 		{
+			desc: "revision with newline character",
+			setup: func(t *testing.T) setupData {
+				repo, _ := gittest.CreateRepository(t, ctx, cfg)
+
+				return setupData{
+					requests: []*gitalypb.ObjectsSizeRequest{
+						{
+							Repository: repo,
+							Revisions: [][]byte{
+								[]byte("HEAD\n"),
+							},
+						},
+					},
+					expectedErr: testhelper.WithInterceptedMetadata(
+						structerr.NewInvalidArgument("validating revision: revision can't contain whitespace"),
+						"revision", []byte("HEAD\n"),
+					),
+				}
+			},
+		},
+		{
 			desc: "missing revision",
 			setup: func(t *testing.T) setupData {
 				repo, _ := gittest.CreateRepository(t, ctx, cfg)
