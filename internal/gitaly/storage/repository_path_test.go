@@ -58,9 +58,25 @@ func TestIsPoolRepository(t *testing.T) {
 			isRailsPoolPath:    false,
 		},
 		{
+			desc: "praefect replica path with prefix",
+			repo: &gitalypb.Repository{
+				RelativePath: "prefix/" + storage.DeriveReplicaPath(1),
+			},
+			isPraefectPoolPath: false,
+			isRailsPoolPath:    false,
+		},
+		{
 			desc: "rails pool path",
 			repo: &gitalypb.Repository{
 				RelativePath: gittest.NewObjectPoolName(t),
+			},
+			isPraefectPoolPath: false,
+			isRailsPoolPath:    true,
+		},
+		{
+			desc: "rails pool path with prefix",
+			repo: &gitalypb.Repository{
+				RelativePath: "prefix/" + gittest.NewObjectPoolName(t),
 			},
 			isPraefectPoolPath: false,
 			isRailsPoolPath:    true,
