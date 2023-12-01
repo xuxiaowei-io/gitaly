@@ -22,7 +22,7 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type RepositoryServiceClient interface {
-	// RepositoryExists ...
+	// RepositoryExists returns whether a given repository exists.
 	RepositoryExists(ctx context.Context, in *RepositoryExistsRequest, opts ...grpc.CallOption) (*RepositoryExistsResponse, error)
 	// RepositorySize returns information on the complete on-disk repository size. If you need more
 	// detailed information about the size of various sub-structures you should instead use the
@@ -60,13 +60,14 @@ type RepositoryServiceClient interface {
 	// This RPC will be removed in 17.0.
 	ApplyGitattributes(ctx context.Context, in *ApplyGitattributesRequest, opts ...grpc.CallOption) (*ApplyGitattributesResponse, error)
 	// FetchRemote fetches references from a remote repository into the local
-	// repository.
+	// repository. The remote can be fetched via HTTP or SSH depending on the
+	// request options provided.
 	FetchRemote(ctx context.Context, in *FetchRemoteRequest, opts ...grpc.CallOption) (*FetchRemoteResponse, error)
-	// CreateRepository ...
+	// CreateRepository creates a new empty repository.
 	CreateRepository(ctx context.Context, in *CreateRepositoryRequest, opts ...grpc.CallOption) (*CreateRepositoryResponse, error)
-	// GetArchive ...
+	// GetArchive produces and returns an archive of a repository.
 	GetArchive(ctx context.Context, in *GetArchiveRequest, opts ...grpc.CallOption) (RepositoryService_GetArchiveClient, error)
-	// HasLocalBranches ...
+	// HasLocalBranches returns whether the given repo contains any branches.
 	HasLocalBranches(ctx context.Context, in *HasLocalBranchesRequest, opts ...grpc.CallOption) (*HasLocalBranchesResponse, error)
 	// FetchSourceBranch fetches a branch from a second (potentially remote)
 	// repository into the given repository.
@@ -74,9 +75,10 @@ type RepositoryServiceClient interface {
 	// Fsck checks the repository for consistency via git-fsck(1). This can be used to check for
 	// repository corruption.
 	Fsck(ctx context.Context, in *FsckRequest, opts ...grpc.CallOption) (*FsckResponse, error)
-	// WriteRef ...
+	// WriteRef creates or updates a ref in a repository to point to a new value.
 	WriteRef(ctx context.Context, in *WriteRefRequest, opts ...grpc.CallOption) (*WriteRefResponse, error)
-	// FindMergeBase ...
+	// FindMergeBase returns the best common ancestor between two or more commits. Consult the man
+	// pages of git-merge-base(1) for more information on how this is calculated.
 	FindMergeBase(ctx context.Context, in *FindMergeBaseRequest, opts ...grpc.CallOption) (*FindMergeBaseResponse, error)
 	// CreateFork creates a new repository from a specific source repository. This new repository will
 	// have the same branches and tags as the source repository. Internal references will not be
@@ -86,7 +88,8 @@ type RepositoryServiceClient interface {
 	// creating the repository like this. The newly created repository does not join the object pool
 	// of the source repository, if there is any.
 	CreateFork(ctx context.Context, in *CreateForkRequest, opts ...grpc.CallOption) (*CreateForkResponse, error)
-	// CreateRepositoryFromURL ...
+	// CreateRepositoryFromURL creates a new repo and seeds it with the contents of an existing Git repo
+	// reachable at the provided URL.
 	CreateRepositoryFromURL(ctx context.Context, in *CreateRepositoryFromURLRequest, opts ...grpc.CallOption) (*CreateRepositoryFromURLResponse, error)
 	// CreateBundle creates a bundle from all refs
 	CreateBundle(ctx context.Context, in *CreateBundleRequest, opts ...grpc.CallOption) (RepositoryService_CreateBundleClient, error)
@@ -110,17 +113,22 @@ type RepositoryServiceClient interface {
 	// GetInfoAttributes reads the contents from info/attributes.
 	// This RPC will be removed in 17.0.
 	GetInfoAttributes(ctx context.Context, in *GetInfoAttributesRequest, opts ...grpc.CallOption) (RepositoryService_GetInfoAttributesClient, error)
-	// CalculateChecksum ...
+	// CalculateChecksum returns a checksum of the repository by hashing its references. Refs
+	// outside of well-known namespaces are not considered when computing the checksum.
 	CalculateChecksum(ctx context.Context, in *CalculateChecksumRequest, opts ...grpc.CallOption) (*CalculateChecksumResponse, error)
-	// GetSnapshot ...
+	// GetSnapshot returns a snapshot of the repository. A snapshot comprises all Git references
+	// and objects required to recreate the state of a repository at a point in time.
 	GetSnapshot(ctx context.Context, in *GetSnapshotRequest, opts ...grpc.CallOption) (RepositoryService_GetSnapshotClient, error)
-	// CreateRepositoryFromSnapshot ...
+	// CreateRepositoryFromSnapshot creates a new repository based on a snapshot created with
+	// the GetSnapshot RPC. The snapshot is fetched via HTTP.
 	CreateRepositoryFromSnapshot(ctx context.Context, in *CreateRepositoryFromSnapshotRequest, opts ...grpc.CallOption) (*CreateRepositoryFromSnapshotResponse, error)
-	// GetRawChanges ...
+	// GetRawChanges returns metadata in raw format on the changes between two revisions.
 	GetRawChanges(ctx context.Context, in *GetRawChangesRequest, opts ...grpc.CallOption) (RepositoryService_GetRawChangesClient, error)
-	// SearchFilesByContent ...
+	// SearchFilesByContent searches files in the repository using the provided grep pattern.
+	// For each result, the matched line is returned along with the two previous and next lines.
 	SearchFilesByContent(ctx context.Context, in *SearchFilesByContentRequest, opts ...grpc.CallOption) (RepositoryService_SearchFilesByContentClient, error)
-	// SearchFilesByName ...
+	// SearchFilesByName searches files in the repository based on its name and an
+	// optional filter.
 	SearchFilesByName(ctx context.Context, in *SearchFilesByNameRequest, opts ...grpc.CallOption) (RepositoryService_SearchFilesByNameClient, error)
 	// Deprecated: Do not use.
 	// RestoreCustomHooks sets the git hooks for a repository. The hooks are sent
@@ -128,8 +136,8 @@ type RepositoryServiceClient interface {
 	// ultimately extracted to the repository.
 	RestoreCustomHooks(ctx context.Context, opts ...grpc.CallOption) (RepositoryService_RestoreCustomHooksClient, error)
 	// SetCustomHooks sets the git hooks for a repository. The hooks are sent in a
-	// tar archive containing a `custom_hooks` directory. This directory is
-	// ultimately extracted to the repository.
+	// tar archive containing a `custom_hooks` directory (i.e. the response from the
+	// GetCustomHooksResponse RPC. This directory will be extracted into the repository.
 	SetCustomHooks(ctx context.Context, opts ...grpc.CallOption) (RepositoryService_SetCustomHooksClient, error)
 	// Deprecated: Do not use.
 	// BackupCustomHooks fetches the git hooks for a repository. The hooks are
@@ -140,7 +148,7 @@ type RepositoryServiceClient interface {
 	// in a tar archive containing a `custom_hooks` directory. If no hooks are
 	// present in the repository, the response will have no data.
 	GetCustomHooks(ctx context.Context, in *GetCustomHooksRequest, opts ...grpc.CallOption) (RepositoryService_GetCustomHooksClient, error)
-	// GetObjectDirectorySize ...
+	// GetObjectDirectorySize returns the size in kibibytes of the object directory of a repository.
 	GetObjectDirectorySize(ctx context.Context, in *GetObjectDirectorySizeRequest, opts ...grpc.CallOption) (*GetObjectDirectorySizeResponse, error)
 	// RemoveRepository will move the repository to `+gitaly/tmp/<relative_path>_removed` and
 	// eventually remove it. This ensures that even on networked filesystems the
@@ -989,7 +997,7 @@ func (c *repositoryServiceClient) GetFileAttributes(ctx context.Context, in *Get
 // All implementations must embed UnimplementedRepositoryServiceServer
 // for forward compatibility
 type RepositoryServiceServer interface {
-	// RepositoryExists ...
+	// RepositoryExists returns whether a given repository exists.
 	RepositoryExists(context.Context, *RepositoryExistsRequest) (*RepositoryExistsResponse, error)
 	// RepositorySize returns information on the complete on-disk repository size. If you need more
 	// detailed information about the size of various sub-structures you should instead use the
@@ -1027,13 +1035,14 @@ type RepositoryServiceServer interface {
 	// This RPC will be removed in 17.0.
 	ApplyGitattributes(context.Context, *ApplyGitattributesRequest) (*ApplyGitattributesResponse, error)
 	// FetchRemote fetches references from a remote repository into the local
-	// repository.
+	// repository. The remote can be fetched via HTTP or SSH depending on the
+	// request options provided.
 	FetchRemote(context.Context, *FetchRemoteRequest) (*FetchRemoteResponse, error)
-	// CreateRepository ...
+	// CreateRepository creates a new empty repository.
 	CreateRepository(context.Context, *CreateRepositoryRequest) (*CreateRepositoryResponse, error)
-	// GetArchive ...
+	// GetArchive produces and returns an archive of a repository.
 	GetArchive(*GetArchiveRequest, RepositoryService_GetArchiveServer) error
-	// HasLocalBranches ...
+	// HasLocalBranches returns whether the given repo contains any branches.
 	HasLocalBranches(context.Context, *HasLocalBranchesRequest) (*HasLocalBranchesResponse, error)
 	// FetchSourceBranch fetches a branch from a second (potentially remote)
 	// repository into the given repository.
@@ -1041,9 +1050,10 @@ type RepositoryServiceServer interface {
 	// Fsck checks the repository for consistency via git-fsck(1). This can be used to check for
 	// repository corruption.
 	Fsck(context.Context, *FsckRequest) (*FsckResponse, error)
-	// WriteRef ...
+	// WriteRef creates or updates a ref in a repository to point to a new value.
 	WriteRef(context.Context, *WriteRefRequest) (*WriteRefResponse, error)
-	// FindMergeBase ...
+	// FindMergeBase returns the best common ancestor between two or more commits. Consult the man
+	// pages of git-merge-base(1) for more information on how this is calculated.
 	FindMergeBase(context.Context, *FindMergeBaseRequest) (*FindMergeBaseResponse, error)
 	// CreateFork creates a new repository from a specific source repository. This new repository will
 	// have the same branches and tags as the source repository. Internal references will not be
@@ -1053,7 +1063,8 @@ type RepositoryServiceServer interface {
 	// creating the repository like this. The newly created repository does not join the object pool
 	// of the source repository, if there is any.
 	CreateFork(context.Context, *CreateForkRequest) (*CreateForkResponse, error)
-	// CreateRepositoryFromURL ...
+	// CreateRepositoryFromURL creates a new repo and seeds it with the contents of an existing Git repo
+	// reachable at the provided URL.
 	CreateRepositoryFromURL(context.Context, *CreateRepositoryFromURLRequest) (*CreateRepositoryFromURLResponse, error)
 	// CreateBundle creates a bundle from all refs
 	CreateBundle(*CreateBundleRequest, RepositoryService_CreateBundleServer) error
@@ -1077,17 +1088,22 @@ type RepositoryServiceServer interface {
 	// GetInfoAttributes reads the contents from info/attributes.
 	// This RPC will be removed in 17.0.
 	GetInfoAttributes(*GetInfoAttributesRequest, RepositoryService_GetInfoAttributesServer) error
-	// CalculateChecksum ...
+	// CalculateChecksum returns a checksum of the repository by hashing its references. Refs
+	// outside of well-known namespaces are not considered when computing the checksum.
 	CalculateChecksum(context.Context, *CalculateChecksumRequest) (*CalculateChecksumResponse, error)
-	// GetSnapshot ...
+	// GetSnapshot returns a snapshot of the repository. A snapshot comprises all Git references
+	// and objects required to recreate the state of a repository at a point in time.
 	GetSnapshot(*GetSnapshotRequest, RepositoryService_GetSnapshotServer) error
-	// CreateRepositoryFromSnapshot ...
+	// CreateRepositoryFromSnapshot creates a new repository based on a snapshot created with
+	// the GetSnapshot RPC. The snapshot is fetched via HTTP.
 	CreateRepositoryFromSnapshot(context.Context, *CreateRepositoryFromSnapshotRequest) (*CreateRepositoryFromSnapshotResponse, error)
-	// GetRawChanges ...
+	// GetRawChanges returns metadata in raw format on the changes between two revisions.
 	GetRawChanges(*GetRawChangesRequest, RepositoryService_GetRawChangesServer) error
-	// SearchFilesByContent ...
+	// SearchFilesByContent searches files in the repository using the provided grep pattern.
+	// For each result, the matched line is returned along with the two previous and next lines.
 	SearchFilesByContent(*SearchFilesByContentRequest, RepositoryService_SearchFilesByContentServer) error
-	// SearchFilesByName ...
+	// SearchFilesByName searches files in the repository based on its name and an
+	// optional filter.
 	SearchFilesByName(*SearchFilesByNameRequest, RepositoryService_SearchFilesByNameServer) error
 	// Deprecated: Do not use.
 	// RestoreCustomHooks sets the git hooks for a repository. The hooks are sent
@@ -1095,8 +1111,8 @@ type RepositoryServiceServer interface {
 	// ultimately extracted to the repository.
 	RestoreCustomHooks(RepositoryService_RestoreCustomHooksServer) error
 	// SetCustomHooks sets the git hooks for a repository. The hooks are sent in a
-	// tar archive containing a `custom_hooks` directory. This directory is
-	// ultimately extracted to the repository.
+	// tar archive containing a `custom_hooks` directory (i.e. the response from the
+	// GetCustomHooksResponse RPC. This directory will be extracted into the repository.
 	SetCustomHooks(RepositoryService_SetCustomHooksServer) error
 	// Deprecated: Do not use.
 	// BackupCustomHooks fetches the git hooks for a repository. The hooks are
@@ -1107,7 +1123,7 @@ type RepositoryServiceServer interface {
 	// in a tar archive containing a `custom_hooks` directory. If no hooks are
 	// present in the repository, the response will have no data.
 	GetCustomHooks(*GetCustomHooksRequest, RepositoryService_GetCustomHooksServer) error
-	// GetObjectDirectorySize ...
+	// GetObjectDirectorySize returns the size in kibibytes of the object directory of a repository.
 	GetObjectDirectorySize(context.Context, *GetObjectDirectorySizeRequest) (*GetObjectDirectorySizeResponse, error)
 	// RemoveRepository will move the repository to `+gitaly/tmp/<relative_path>_removed` and
 	// eventually remove it. This ensures that even on networked filesystems the

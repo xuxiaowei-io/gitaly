@@ -33,7 +33,7 @@ func TestSearchFilesByContent(t *testing.T) {
 
 	largeFilesCommit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
 		gittest.TreeEntry{Path: "huge-file", Mode: "100644", Content: strings.Repeat("abcdefghi\n", 210000)},
-		gittest.TreeEntry{Path: "huge-utf8", Mode: "100644", Content: strings.Repeat("你见天吃了什么东西?\n", 70000)},
+		gittest.TreeEntry{Path: "huge-utf8", Mode: "100644", Content: strings.Repeat("你今天吃了什么东西?\n", 70000)},
 	))
 
 	dashedCommit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithTreeEntries(
@@ -95,10 +95,9 @@ func TestSearchFilesByContent(t *testing.T) {
 		{
 			desc: "single matching file",
 			request: &gitalypb.SearchFilesByContentRequest{
-				Repository:      repoProto,
-				Query:           "a-6",
-				Ref:             []byte("branch"),
-				ChunkedResponse: true,
+				Repository: repoProto,
+				Query:      "a-6",
+				Ref:        []byte("branch"),
 			},
 			expectedMatches: []string{
 				generateMatch("branch", "a", 4, 6, prefixedLine("a")),
@@ -107,10 +106,9 @@ func TestSearchFilesByContent(t *testing.T) {
 		{
 			desc: "multiple matching files",
 			request: &gitalypb.SearchFilesByContentRequest{
-				Repository:      repoProto,
-				Query:           "6",
-				Ref:             []byte("branch"),
-				ChunkedResponse: true,
+				Repository: repoProto,
+				Query:      "6",
+				Ref:        []byte("branch"),
 			},
 			expectedMatches: []string{
 				generateMatch("branch", "a", 4, 6, prefixedLine("a")),
@@ -121,10 +119,9 @@ func TestSearchFilesByContent(t *testing.T) {
 		{
 			desc: "multiple matching files with multiple matching lines",
 			request: &gitalypb.SearchFilesByContentRequest{
-				Repository:      repoProto,
-				Query:           "[ac]-[16]",
-				Ref:             []byte("branch"),
-				ChunkedResponse: true,
+				Repository: repoProto,
+				Query:      "[ac]-[16]",
+				Ref:        []byte("branch"),
 			},
 			expectedMatches: []string{
 				generateMatch("branch", "a", 1, 6, prefixedLine("a")),
@@ -134,20 +131,18 @@ func TestSearchFilesByContent(t *testing.T) {
 		{
 			desc: "no results",
 			request: &gitalypb.SearchFilesByContentRequest{
-				Repository:      repoProto,
-				Query:           "这个应该没有结果",
-				Ref:             []byte("branch"),
-				ChunkedResponse: true,
+				Repository: repoProto,
+				Query:      "这个应该没有结果",
+				Ref:        []byte("branch"),
 			},
 			expectedMatches: nil,
 		},
 		{
 			desc: "with regexp limiter only recognized by pcre",
 			request: &gitalypb.SearchFilesByContentRequest{
-				Repository:      repoProto,
-				Query:           "(*LIMIT_MATCH=1)a",
-				Ref:             []byte("branch"),
-				ChunkedResponse: true,
+				Repository: repoProto,
+				Query:      "(*LIMIT_MATCH=1)a",
+				Ref:        []byte("branch"),
 			},
 			expectedMatches: []string{
 				generateMatch("branch", "a", 1, 6, prefixedLine("a")),
@@ -156,10 +151,9 @@ func TestSearchFilesByContent(t *testing.T) {
 		{
 			desc: "large file",
 			request: &gitalypb.SearchFilesByContentRequest{
-				Repository:      repoProto,
-				Query:           "abcdefg",
-				Ref:             []byte(largeFilesCommit),
-				ChunkedResponse: true,
+				Repository: repoProto,
+				Query:      "abcdefg",
+				Ref:        []byte(largeFilesCommit),
 			},
 			expectedMatches: []string{
 				generateMatch(largeFilesCommit.String(), "huge-file", 1, 210000, staticLine("abcdefghi")),
@@ -168,22 +162,20 @@ func TestSearchFilesByContent(t *testing.T) {
 		{
 			desc: "large file with unicode",
 			request: &gitalypb.SearchFilesByContentRequest{
-				Repository:      repoProto,
-				Query:           "什么东西",
-				Ref:             []byte(largeFilesCommit),
-				ChunkedResponse: true,
+				Repository: repoProto,
+				Query:      "什么东西",
+				Ref:        []byte(largeFilesCommit),
 			},
 			expectedMatches: []string{
-				generateMatch(largeFilesCommit.String(), "huge-utf8", 1, 70000, staticLine("你见天吃了什么东西?")),
+				generateMatch(largeFilesCommit.String(), "huge-utf8", 1, 70000, staticLine("你今天吃了什么东西?")),
 			},
 		},
 		{
 			desc: "query with leading dash",
 			request: &gitalypb.SearchFilesByContentRequest{
-				Repository:      repoProto,
-				Query:           "-dashed",
-				Ref:             []byte(dashedCommit),
-				ChunkedResponse: true,
+				Repository: repoProto,
+				Query:      "-dashed",
+				Ref:        []byte(dashedCommit),
 			},
 			expectedMatches: []string{
 				generateMatch(dashedCommit.String(), "-dashed", 1, 1, staticLine("-dashed")),
