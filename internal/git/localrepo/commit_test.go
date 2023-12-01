@@ -14,6 +14,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/signature"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
@@ -357,7 +358,9 @@ func testWriteCommit(t *testing.T, ctx context.Context) {
 			AuthorDate:     gittest.DefaultCommitTime,
 			CommitterDate:  gittest.DefaultCommitTime,
 			Message:        "my custom message",
-			SigningKey:     "testdata/signing_gpg_key",
+			GitConfig: config.Git{
+				SigningKey: "testdata/signing_gpg_key",
+			},
 		}
 
 		oid, err := repo.WriteCommit(ctx, cfg)

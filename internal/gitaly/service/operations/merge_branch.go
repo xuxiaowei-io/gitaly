@@ -74,7 +74,6 @@ func (s *Server) UserMergeBranch(stream gitalypb.OperationService_UserMergeBranc
 		revision.String(),
 		firstRequest.CommitId,
 		false,
-		true,
 	)
 	if err != nil {
 		var conflictErr *localrepo.MergeTreeConflictError

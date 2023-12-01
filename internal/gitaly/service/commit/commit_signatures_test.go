@@ -297,7 +297,7 @@ func testGetCommitSignatures(t *testing.T, ctx context.Context) {
 					AuthorDate:     gittest.DefaultCommitTime,
 					CommitterDate:  gittest.DefaultCommitTime,
 					Message:        "message",
-					SigningKey:     cfg.Git.SigningKey,
+					GitConfig:      cfg.Git,
 				})
 				require.NoError(t, err)
 
@@ -310,7 +310,9 @@ func testGetCommitSignatures(t *testing.T, ctx context.Context) {
 					AuthorDate:     gittest.DefaultCommitTime,
 					CommitterDate:  gittest.DefaultCommitTime,
 					Message:        "rotated key commit message",
-					SigningKey:     cfg.Git.RotatedSigningKeys[0],
+					GitConfig: config.Git{
+						SigningKey: cfg.Git.RotatedSigningKeys[0],
+					},
 				})
 				require.NoError(t, err)
 

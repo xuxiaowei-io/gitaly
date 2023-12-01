@@ -100,7 +100,6 @@ func (s *Server) UserMergeToRef(ctx context.Context, request *gitalypb.UserMerge
 		oid.String(),
 		sourceOID.String(),
 		false,
-		false,
 	)
 	if err != nil {
 		s.logger.WithError(err).WithFields(

@@ -7,6 +7,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/quarantine"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/hook/updateref"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
@@ -29,7 +30,7 @@ type Server struct {
 	gitCmdFactory git.CommandFactory
 	catfileCache  catfile.Cache
 	updater       *updateref.UpdaterWithHooks
-	signingKey    string
+	gitConfig     config.Git
 }
 
 // NewServer creates a new instance of a grpc OperationServiceServer
@@ -43,7 +44,7 @@ func NewServer(deps *service.Dependencies) *Server {
 		gitCmdFactory: deps.GetGitCmdFactory(),
 		catfileCache:  deps.GetCatfileCache(),
 		updater:       deps.GetUpdaterWithHooks(),
-		signingKey:    deps.GetCfg().Git.SigningKey,
+		gitConfig:     deps.GetCfg().Git,
 	}
 }
 

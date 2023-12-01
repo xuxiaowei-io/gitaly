@@ -14,6 +14,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/catfile"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
@@ -94,7 +95,7 @@ type WriteCommitConfig struct {
 	TreeEntries        []TreeEntry
 	TreeID             git.ObjectID
 	AlternateObjectDir string
-	SigningKey         string
+	GitConfig          config.Git
 }
 
 func validateWriteCommitConfig(cfg WriteCommitConfig) error {
@@ -179,8 +180,8 @@ func (repo *Repo) WriteCommit(ctx context.Context, cfg WriteCommitConfig) (git.O
 		git.WithEnv(env...),
 	}
 
-	if featureflag.GPGSigning.IsEnabled(ctx) && cfg.SigningKey != "" {
-		flags = append(flags, git.Flag{Name: "--gpg-sign=" + cfg.SigningKey})
+	if featureflag.GPGSigning.IsEnabled(ctx) && cfg.GitConfig.SigningKey != "" {
+		flags = append(flags, git.Flag{Name: "--gpg-sign=" + cfg.GitConfig.SigningKey})
 		opts = append(opts, git.WithGitalyGPG())
 	}
 
