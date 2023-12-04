@@ -141,6 +141,14 @@ func ResolveLocator(layout string, sink Sink) (Locator, error) {
 	var locator Locator = LegacyLocator{}
 
 	switch layout {
+	case "manifest":
+		// This locator reads manifest files. So there is not need for a
+		// fallback since ManifestInteropLocator has been generating these
+		// manifests for the other locators. The goal is to transition solely
+		// to the ManifestLocator and remove the rest.
+		return ManifestLocator{
+			Sink: sink,
+		}, nil
 	case "legacy":
 	case "pointer":
 		locator = PointerLocator{
