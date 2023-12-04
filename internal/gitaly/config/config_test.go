@@ -487,7 +487,9 @@ func TestLoadConfigCommand(t *testing.T) {
 					{
 						"git": {
 							"signing_key": "signing_key",
-							"rotated_signing_keys": ["rotated_key_1", "rotated_key_2"]
+							"rotated_signing_keys": ["rotated_key_1", "rotated_key_2"],
+							"committer_email": "noreply@gitlab.com",
+							"committer_name": "GitLab"
 						}
 					}
 					EOF
@@ -505,6 +507,8 @@ func TestLoadConfigCommand(t *testing.T) {
 						cfg.Git.BinPath = "foo/bar"
 						cfg.Git.SigningKey = "signing_key"
 						cfg.Git.RotatedSigningKeys = []string{"rotated_key_1", "rotated_key_2"}
+						cfg.Git.CommitterEmail = "noreply@gitlab.com"
+						cfg.Git.CommitterName = "GitLab"
 					}),
 				}
 			},

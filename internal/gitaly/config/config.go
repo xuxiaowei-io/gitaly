@@ -308,8 +308,15 @@ type Git struct {
 	BinPath            string      `toml:"bin_path,omitempty" json:"bin_path"`
 	CatfileCacheSize   int         `toml:"catfile_cache_size,omitempty" json:"catfile_cache_size"`
 	Config             []GitConfig `toml:"config,omitempty" json:"config"`
-	SigningKey         string      `toml:"signing_key,omitempty" json:"signing_key"`
-	RotatedSigningKeys []string    `toml:"rotated_signing_keys,omitempty" json:"rotated_signing_keys"`
+	// SigningKey is the private key used for signing commits created by Gitaly
+	SigningKey string `toml:"signing_key,omitempty" json:"signing_key"`
+	// RotatedSigningKeys are the private keys that have used for commit signing before.
+	// The keys from the SigningKey field is moved into this field for some time to rotate signing keys.
+	RotatedSigningKeys []string `toml:"rotated_signing_keys,omitempty" json:"rotated_signing_keys"`
+	// CommitterEmail is the committer email of the commits created by Gitaly, e.g. `noreply@gitlab.com`
+	CommitterEmail string `toml:"committer_email,omitempty" json:"committer_email"`
+	// CommitterName is the committer name of the commits created by Gitaly, e.g. `GitLab`
+	CommitterName string `toml:"committer_name,omitempty" json:"committer_name"`
 }
 
 // Validate runs validation on all fields and compose all found errors.

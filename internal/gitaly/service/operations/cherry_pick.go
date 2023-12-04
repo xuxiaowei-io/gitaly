@@ -114,7 +114,7 @@ func (s *Server) UserCherryPick(ctx context.Context, req *gitalypb.UserCherryPic
 			CommitterName:  committerSignature.Name,
 			CommitterEmail: committerSignature.Email,
 			CommitterDate:  committerSignature.When,
-			SigningKey:     s.signingKey,
+			GitConfig:      s.gitConfig,
 		},
 	)
 	if err != nil {

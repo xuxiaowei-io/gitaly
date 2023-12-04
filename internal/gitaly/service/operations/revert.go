@@ -117,7 +117,7 @@ func (s *Server) UserRevert(ctx context.Context, req *gitalypb.UserRevertRequest
 			CommitterName:  committerSignature.Name,
 			CommitterEmail: committerSignature.Email,
 			CommitterDate:  committerSignature.When,
-			SigningKey:     s.signingKey,
+			GitConfig:      s.gitConfig,
 		},
 	)
 	if err != nil {
