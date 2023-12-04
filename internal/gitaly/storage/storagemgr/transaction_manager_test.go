@@ -115,6 +115,16 @@ func packFileDirectoryEntry(cfg config.Cfg, expectedObjects []git.ObjectID) test
 	}
 }
 
+// packRefsDirectoryEntry returns a DirectoryEntry that checks for the existence of packed-refs file. The content does
+// not matter because it will be asserted in the repository state insteaad.
+func packRefsDirectoryEntry(cfg config.Cfg) testhelper.DirectoryEntry {
+	return testhelper.DirectoryEntry{
+		Mode:         perm.SharedFile,
+		Content:      "",
+		ParseContent: func(testing.TB, string, []byte) any { return "" },
+	}
+}
+
 // indexFileDirectoryEntry returns a DirectoryEntry that asserts the given pack file index is valid.
 func indexFileDirectoryEntry(cfg config.Cfg) testhelper.DirectoryEntry {
 	return testhelper.DirectoryEntry{
@@ -259,6 +269,7 @@ func TestTransactionManager(t *testing.T) {
 		generateDefaultBranchTests(t, setup),
 		generateAlternateTests(t, setup),
 		generateCustomHooksTests(t, setup),
+		generateHousekeepingTests(t, ctx, testPartitionID, relativePath),
 	}
 	for _, subCases := range subTests {
 		testCases = append(testCases, subCases...)
