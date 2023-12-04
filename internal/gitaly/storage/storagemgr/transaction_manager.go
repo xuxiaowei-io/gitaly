@@ -2,6 +2,7 @@ package storagemgr
 
 import (
 	"bytes"
+	"container/list"
 	"context"
 	"encoding/binary"
 	"errors"
@@ -259,6 +260,16 @@ func (mgr *TransactionManager) Begin(ctx context.Context, relativePath string, s
 	mgr.snapshotLocks[txn.snapshotLSN].activeSnapshotters.Add(1)
 	defer mgr.snapshotLocks[txn.snapshotLSN].activeSnapshotters.Done()
 	readReady := mgr.snapshotLocks[txn.snapshotLSN].applied
+
+	var entry *committedEntry
+	if !txn.readOnly {
+		var err error
+		entry, err = mgr.updateCommittedEntry(txn.snapshotLSN)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	mgr.mutex.Unlock()
 
 	txn.finish = func() error {
@@ -268,6 +279,12 @@ func (mgr *TransactionManager) Begin(ctx context.Context, relativePath string, s
 			if err := os.RemoveAll(txn.stagingDirectory); err != nil {
 				return fmt.Errorf("remove staging directory: %w", err)
 			}
+		}
+
+		if !txn.readOnly {
+			mgr.mutex.Lock()
+			defer mgr.mutex.Unlock()
+			mgr.cleanCommittedEntry(entry)
 		}
 
 		return nil
@@ -599,6 +616,17 @@ type snapshotLock struct {
 	activeSnapshotters sync.WaitGroup
 }
 
+// committedEntry is a wrapper for a log entry. It is used to keep track of entries in which their snapshots are still
+// accessed by other transactions.
+type committedEntry struct {
+	// lsn is the associated LSN of the entry
+	lsn LSN
+	// entry is the pointer to the corresponding log entry.
+	entry *gitalypb.LogEntry
+	// snapshotReaders accounts for the number of transaction readers of the snapshot.
+	snapshotReaders int
+}
+
 // TransactionManager is responsible for transaction management of a single repository. Each repository has
 // a single TransactionManager; it is the repository's single-writer. It accepts writes one at a time from
 // the admissionQueue. Each admitted write is processed in three steps:
@@ -683,7 +711,8 @@ type TransactionManager struct {
 	// Run and Begin which are ran in different goroutines.
 	mutex sync.Mutex
 
-	// snapshotLocks contains state used for synchronizing snapshotters with the log application.
+	// snapshotLocks contains state used for synchronizing snapshotters with the log application. The
+	// lock is released after the corresponding log entry is applied.
 	snapshotLocks map[LSN]*snapshotLock
 
 	// appendedLSN holds the LSN of the last log entry appended to the partition's write-ahead log.
@@ -697,6 +726,12 @@ type TransactionManager struct {
 	// the partition. It's keyed by the LSN the transaction is waiting to be applied and the
 	// value is the resultChannel that is waiting the result.
 	awaitingTransactions map[LSN]resultChannel
+	// committedEntries keeps some latest appended log entries around. Some types of transactions, such as
+	// housekeeping, operate on snapshot repository. There is a gap between transaction doing its work and the time
+	// when it is committed. They need to verify if concurrent operations can cause conflict. These log entries are
+	// still kept around even after they are applied. They are removed when there are no active readers accessing
+	// the corresponding snapshots.
+	committedEntries *list.List
 }
 
 // NewTransactionManager returns a new TransactionManager for the given repository.
@@ -730,6 +765,7 @@ func NewTransactionManager(
 		stagingDirectory:     stagingDir,
 		housekeepingManager:  housekeepingManager,
 		awaitingTransactions: make(map[LSN]resultChannel),
+		committedEntries:     list.New(),
 	}
 }
 
@@ -1713,6 +1749,10 @@ func (mgr *TransactionManager) appendLogEntry(nextLSN LSN, logEntry *gitalypb.Lo
 	mgr.mutex.Lock()
 	mgr.appendedLSN = nextLSN
 	mgr.snapshotLocks[nextLSN] = &snapshotLock{applied: make(chan struct{})}
+	mgr.committedEntries.PushBack(&committedEntry{
+		lsn:   nextLSN,
+		entry: logEntry,
+	})
 	mgr.mutex.Unlock()
 
 	return nil
@@ -2152,6 +2192,51 @@ func (mgr *TransactionManager) deleteKey(key []byte) error {
 
 		return nil
 	})
+}
+
+// updateCommittedEntry updates the reader counter of the committed entry of the snapshot that this transaction depends on.
+func (mgr *TransactionManager) updateCommittedEntry(snapshotLSN LSN) (*committedEntry, error) {
+	// Since the goroutine doing this is holding the lock, the snapshotLSN shouldn't change and no new transactions
+	// can be committed or added. That should guarantee .Back() is always the latest transaction and the one we're
+	// using to base our snapshot on.
+	if elm := mgr.committedEntries.Back(); elm != nil {
+		entry := elm.Value.(*committedEntry)
+		entry.snapshotReaders++
+		return entry, nil
+	}
+
+	entry := &committedEntry{
+		lsn:             snapshotLSN,
+		snapshotReaders: 1,
+		// The log entry is left nil. This doesn't matter as the conflict checking only
+		// needs it when checking for conflicts with transactions committed after we took
+		// our snapshot.
+		//
+		// This `committedEntry` only exists to record the `snapshotReaders` at this LSN.
+	}
+
+	mgr.committedEntries.PushBack(entry)
+
+	return entry, nil
+}
+
+// cleanCommittedEntry reduces the snapshot readers counter of the committed entry. It also removes entries with no more
+// readers at the head of the list.
+func (mgr *TransactionManager) cleanCommittedEntry(entry *committedEntry) {
+	entry.snapshotReaders--
+
+	elm := mgr.committedEntries.Front()
+	for elm != nil {
+		front := mgr.committedEntries.Front().Value.(*committedEntry)
+		if front.snapshotReaders > 0 {
+			// If the first entry had still some snapshot readers, that means
+			// our transaction was not the oldest reader. We can't remove any entries
+			// as they'll still be needed for conlict checking the older transactions.
+			return
+		}
+		mgr.committedEntries.Remove(elm)
+		elm = mgr.committedEntries.Front()
+	}
 }
 
 // keyAppliedLSN returns the database key storing a partition's last applied log entry's LSN.

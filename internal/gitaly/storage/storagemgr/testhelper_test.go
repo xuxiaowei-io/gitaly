@@ -392,6 +392,9 @@ type StateAssertion struct {
 	Repositories RepositoryStates
 }
 
+// AdhocAssertion allows a test to add some custom assertions apart from the built-in assertions above.
+type AdhocAssertion func(*testing.T, context.Context, *TransactionManager)
+
 // steps defines execution steps in a test. Each test case can define multiple steps to exercise
 // more complex behavior.
 type steps []any
@@ -694,6 +697,8 @@ func runTransactionTest(t *testing.T, ctx context.Context, tc transactionTestCas
 						}),
 					)
 				}, step.Repositories)
+		case AdhocAssertion:
+			step(t, ctx, transactionManager)
 		default:
 			t.Fatalf("unhandled step type: %T", step)
 		}

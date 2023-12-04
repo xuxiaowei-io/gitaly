@@ -3,6 +3,7 @@ package storagemgr
 import (
 	"archive/tar"
 	"bytes"
+	"container/list"
 	"context"
 	"encoding/hex"
 	"errors"
@@ -250,6 +251,7 @@ func TestTransactionManager(t *testing.T) {
 	var testCases []transactionTestCase
 	subTests := [][]transactionTestCase{
 		generateCommonTests(t, ctx, setup),
+		generateCommittedEntriesTests(t, setup),
 		generateInvalidReferencesTests(t, setup),
 		generateModifyReferencesTests(t, setup),
 		generateCreateRepositoryTests(t, setup),
@@ -1502,6 +1504,258 @@ func generateCommonTests(t *testing.T, ctx context.Context, setup testTransactio
 				StartManager{},
 				Begin{
 					ExpectedError: errRelativePathNotSet,
+				},
+			},
+		},
+	}
+}
+
+func generateCommittedEntriesTests(t *testing.T, setup testTransactionSetup) []transactionTestCase {
+	assertCommittedEntries := func(t *testing.T, expected []*committedEntry, actualList *list.List) {
+		require.Equal(t, len(expected), actualList.Len())
+
+		i := 0
+		for elm := actualList.Front(); elm != nil; elm = elm.Next() {
+			actual := elm.Value.(*committedEntry)
+			require.Equal(t, expected[i].lsn, actual.lsn)
+			require.Equal(t, expected[i].snapshotReaders, actual.snapshotReaders)
+			testhelper.ProtoEqual(t, expected[i].entry, actual.entry)
+			i++
+		}
+	}
+
+	refChangeLogEntry := func(ref string, oid git.ObjectID) *gitalypb.LogEntry {
+		return &gitalypb.LogEntry{
+			RelativePath: setup.RelativePath,
+			ReferenceTransactions: []*gitalypb.LogEntry_ReferenceTransaction{
+				{
+					Changes: []*gitalypb.LogEntry_ReferenceTransaction_Change{
+						{
+							ReferenceName: []byte(ref),
+							NewOid:        []byte(oid),
+						},
+					},
+				},
+			},
+		}
+	}
+
+	return []transactionTestCase{
+		{
+			desc: "manager has just initialized",
+			steps: steps{
+				StartManager{},
+				AdhocAssertion(func(t *testing.T, ctx context.Context, tm *TransactionManager) {
+					assertCommittedEntries(t, []*committedEntry{}, tm.committedEntries)
+				}),
+			},
+		},
+		{
+			desc: "a transaction has one reader",
+			steps: steps{
+				StartManager{},
+				Begin{
+					TransactionID: 1,
+					RelativePath:  setup.RelativePath,
+				},
+				AdhocAssertion(func(t *testing.T, ctx context.Context, tm *TransactionManager) {
+					assertCommittedEntries(t, []*committedEntry{
+						{
+							lsn:             0,
+							snapshotReaders: 1,
+						},
+					}, tm.committedEntries)
+				}),
+				Commit{
+					TransactionID: 1,
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/branch-1": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
+					},
+				},
+				AdhocAssertion(func(t *testing.T, ctx context.Context, tm *TransactionManager) {
+					assertCommittedEntries(t, []*committedEntry{}, tm.committedEntries)
+				}),
+				Begin{
+					TransactionID:       2,
+					RelativePath:        setup.RelativePath,
+					ExpectedSnapshotLSN: 1,
+				},
+				AdhocAssertion(func(t *testing.T, ctx context.Context, tm *TransactionManager) {
+					assertCommittedEntries(t, []*committedEntry{
+						{
+							lsn:             1,
+							snapshotReaders: 1,
+						},
+					}, tm.committedEntries)
+				}),
+				Commit{
+					TransactionID: 2,
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
+					},
+				},
+				AdhocAssertion(func(t *testing.T, ctx context.Context, tm *TransactionManager) {
+					assertCommittedEntries(t, []*committedEntry{}, tm.committedEntries)
+				}),
+			},
+			expectedState: StateAssertion{
+				Database: DatabaseState{
+					string(keyAppliedLSN(setup.PartitionID)): LSN(2).toProto(),
+				},
+				Repositories: RepositoryStates{
+					setup.RelativePath: {
+						DefaultBranch: "refs/heads/main",
+						References: []git.Reference{
+							{Name: "refs/heads/branch-1", Target: string(setup.Commits.First.OID)},
+							{Name: "refs/heads/main", Target: string(setup.Commits.First.OID)},
+						},
+					},
+				},
+			},
+		},
+		{
+			desc: "a transaction has multiple readers",
+			steps: steps{
+				StartManager{},
+				Begin{
+					TransactionID: 1,
+					RelativePath:  setup.RelativePath,
+				},
+				Commit{
+					TransactionID: 1,
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
+					},
+				},
+				Begin{
+					TransactionID:       2,
+					RelativePath:        setup.RelativePath,
+					ExpectedSnapshotLSN: 1,
+				},
+				Begin{
+					TransactionID:       3,
+					RelativePath:        setup.RelativePath,
+					ExpectedSnapshotLSN: 1,
+				},
+				AdhocAssertion(func(t *testing.T, ctx context.Context, tm *TransactionManager) {
+					assertCommittedEntries(t, []*committedEntry{
+						{
+							lsn:             1,
+							snapshotReaders: 2,
+						},
+					}, tm.committedEntries)
+				}),
+				Commit{
+					TransactionID: 2,
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/branch-1": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
+					},
+				},
+				AdhocAssertion(func(t *testing.T, ctx context.Context, tm *TransactionManager) {
+					assertCommittedEntries(t, []*committedEntry{
+						{
+							lsn:             1,
+							snapshotReaders: 1,
+						},
+						{
+							lsn:   2,
+							entry: refChangeLogEntry("refs/heads/branch-1", setup.Commits.First.OID),
+						},
+					}, tm.committedEntries)
+				}),
+				Begin{
+					TransactionID:       4,
+					RelativePath:        setup.RelativePath,
+					ExpectedSnapshotLSN: 2,
+				},
+				AdhocAssertion(func(t *testing.T, ctx context.Context, tm *TransactionManager) {
+					assertCommittedEntries(t, []*committedEntry{
+						{
+							lsn:             1,
+							snapshotReaders: 1,
+						},
+						{
+							lsn:             2,
+							snapshotReaders: 1,
+							entry:           refChangeLogEntry("refs/heads/branch-1", setup.Commits.First.OID),
+						},
+					}, tm.committedEntries)
+				}),
+				Commit{
+					TransactionID: 3,
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/branch-2": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
+					},
+				},
+				AdhocAssertion(func(t *testing.T, ctx context.Context, tm *TransactionManager) {
+					assertCommittedEntries(t, []*committedEntry{
+						{
+							lsn:             2,
+							entry:           refChangeLogEntry("refs/heads/branch-1", setup.Commits.First.OID),
+							snapshotReaders: 1,
+						},
+						{
+							lsn:   3,
+							entry: refChangeLogEntry("refs/heads/branch-2", setup.Commits.First.OID),
+						},
+					}, tm.committedEntries)
+				}),
+				Rollback{
+					TransactionID: 4,
+				},
+				AdhocAssertion(func(t *testing.T, ctx context.Context, tm *TransactionManager) {
+					assertCommittedEntries(t, []*committedEntry{}, tm.committedEntries)
+				}),
+			},
+			expectedState: StateAssertion{
+				Database: DatabaseState{
+					string(keyAppliedLSN(setup.PartitionID)): LSN(3).toProto(),
+				},
+				Repositories: RepositoryStates{
+					setup.RelativePath: {
+						DefaultBranch: "refs/heads/main",
+						References: []git.Reference{
+							{Name: "refs/heads/branch-1", Target: string(setup.Commits.First.OID)},
+							{Name: "refs/heads/branch-2", Target: string(setup.Commits.First.OID)},
+							{Name: "refs/heads/main", Target: string(setup.Commits.First.OID)},
+						},
+					},
+				},
+			},
+		},
+		{
+			desc: "committed read-only transaction are not kept",
+			steps: steps{
+				StartManager{},
+				Begin{
+					TransactionID: 1,
+					RelativePath:  setup.RelativePath,
+					ReadOnly:      true,
+				},
+				Commit{
+					TransactionID: 1,
+				},
+				AdhocAssertion(func(t *testing.T, ctx context.Context, tm *TransactionManager) {
+					assertCommittedEntries(t, []*committedEntry{}, tm.committedEntries)
+				}),
+				Begin{
+					TransactionID: 2,
+					RelativePath:  setup.RelativePath,
+					ReadOnly:      true,
+				},
+				Commit{
+					TransactionID: 2,
+				},
+				AdhocAssertion(func(t *testing.T, ctx context.Context, tm *TransactionManager) {
+					assertCommittedEntries(t, []*committedEntry{}, tm.committedEntries)
+				}),
+			},
+			expectedState: StateAssertion{
+				Database: DatabaseState{},
+				Repositories: RepositoryStates{
+					setup.RelativePath: {
+						DefaultBranch: "refs/heads/main",
+					},
 				},
 			},
 		},
