@@ -78,13 +78,14 @@ func NewTransactionRegistry(txRegistry *storagemgr.TransactionRegistry) Transact
 // GitLabHookManager is a hook manager containing Git hook business logic. It
 // uses the GitLab API to authenticate and track ongoing hook calls.
 type GitLabHookManager struct {
-	cfg           config.Cfg
-	locator       storage.Locator
-	logger        log.Logger
-	gitCmdFactory git.CommandFactory
-	txManager     transaction.Manager
-	gitlabClient  gitlab.Client
-	txRegistry    TransactionRegistry
+	cfg                 config.Cfg
+	locator             storage.Locator
+	logger              log.Logger
+	gitCmdFactory       git.CommandFactory
+	txManager           transaction.Manager
+	gitlabClient        gitlab.Client
+	txRegistry          TransactionRegistry
+	procReceiveRegistry *ProcReceiveRegistry
 }
 
 // NewManager returns a new hook manager
@@ -96,14 +97,16 @@ func NewManager(
 	txManager transaction.Manager,
 	gitlabClient gitlab.Client,
 	txRegistry TransactionRegistry,
+	procReceiveRegistry *ProcReceiveRegistry,
 ) *GitLabHookManager {
 	return &GitLabHookManager{
-		cfg:           cfg,
-		locator:       locator,
-		logger:        logger,
-		gitCmdFactory: gitCmdFactory,
-		txManager:     txManager,
-		gitlabClient:  gitlabClient,
-		txRegistry:    txRegistry,
+		cfg:                 cfg,
+		locator:             locator,
+		logger:              logger,
+		gitCmdFactory:       gitCmdFactory,
+		txManager:           txManager,
+		gitlabClient:        gitlabClient,
+		txRegistry:          txRegistry,
+		procReceiveRegistry: procReceiveRegistry,
 	}
 }

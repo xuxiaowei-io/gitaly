@@ -253,7 +253,16 @@ func run(cfg config.Cfg, logger log.Logger) error {
 		}
 		prometheus.MustRegister(gitlabClient)
 
-		hookManager = hook.NewManager(cfg, locator, logger, gitCmdFactory, transactionManager, gitlabClient, hook.NewTransactionRegistry(txRegistry))
+		hookManager = hook.NewManager(
+			cfg,
+			locator,
+			logger,
+			gitCmdFactory,
+			transactionManager,
+			gitlabClient,
+			hook.NewTransactionRegistry(txRegistry),
+			hook.NewProcReceiveRegistry(),
+		)
 	}
 
 	conns := client.NewPool(
