@@ -122,3 +122,29 @@ func TestVersion_IsSupported(t *testing.T) {
 		})
 	}
 }
+
+func TestVersion_GitattributesSupportReadingFromHead(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		version string
+		expect  bool
+	}{
+		{"1.0.0", false},
+		{"2.40.2", false},
+		{"2.41.0", false},
+		{"2.42.0", false},
+		{"2.42.2", false},
+		{"2.43.0", true},
+		{"2.43.1.gl2", true},
+		{"3.0.0", true},
+	} {
+		tc := tc
+		t.Run(tc.version, func(t *testing.T) {
+			version, err := parseVersion(tc.version)
+			require.NoError(t, err)
+			require.Equal(t, tc.expect,
+				version.GitattributesSupportReadingFromHead())
+		})
+	}
+}

@@ -109,6 +109,14 @@ func (v Version) LessThan(other Version) bool {
 	}
 }
 
+// GitattributesSupportReadingFromHead detects whether the Git version supports reading
+// gitattributes from HEAD reference in bare repositories automatically.
+func (v Version) GitattributesSupportReadingFromHead() bool {
+	return !v.LessThan(Version{
+		major: 2, minor: 43,
+	})
+}
+
 func parseVersion(versionStr string) (Version, error) {
 	versionSplit := strings.SplitN(versionStr, ".", 4)
 	if len(versionSplit) < 3 {
