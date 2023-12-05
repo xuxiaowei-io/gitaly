@@ -2,6 +2,7 @@ package limithandler_test
 
 import (
 	"context"
+	"errors"
 	"io"
 	"sync/atomic"
 	"testing"
@@ -62,7 +63,7 @@ func (s *server) StreamingInputCall(stream grpc_testing.TestService_StreamingInp
 	// Read all the input
 	for {
 		if _, err := stream.Recv(); err != nil {
-			if err != io.EOF {
+			if !errors.Is(err, io.EOF) {
 				return err
 			}
 			break
@@ -82,7 +83,7 @@ func (s *server) FullDuplexCall(stream grpc_testing.TestService_FullDuplexCallSe
 	// Read all the input
 	for {
 		if _, err := stream.Recv(); err != nil {
-			if err != io.EOF {
+			if !errors.Is(err, io.EOF) {
 				return err
 			}
 			break

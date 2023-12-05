@@ -82,7 +82,7 @@ func extractEntryInfoFromTreeData(
 
 	for {
 		modeBytes, err := bufReader.ReadBytes(' ')
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil || len(modeBytes) <= 1 {

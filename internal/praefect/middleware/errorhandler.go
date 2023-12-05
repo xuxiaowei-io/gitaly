@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 
@@ -17,8 +18,8 @@ func StreamErrorHandler(registry *protoregistry.Registry, errorTracker tracker.E
 
 		mi, lookupErr := registry.LookupMethod(method)
 		if err != nil {
-			//nolint:gitaly-linters
-			return nil, fmt.Errorf("error when looking up method: %w %v", err, lookupErr)
+			// TODO: use errors.Join() to combine errors instead
+			return nil, fmt.Errorf("error when looking up method: %w %s", err, lookupErr.Error())
 		}
 
 		return newCatchErrorStreamer(stream, errorTracker, mi.Operation, nodeStorage), err
@@ -60,7 +61,7 @@ func (c *catchErrorStreamer) SendMsg(m interface{}) error {
 // RecvMsg proxies the send but records any errors
 func (c *catchErrorStreamer) RecvMsg(m interface{}) error {
 	err := c.ClientStream.RecvMsg(m)
-	if err != nil && err != io.EOF {
+	if err != nil && !errors.Is(err, io.EOF) {
 		switch c.operation {
 		case protoregistry.OpAccessor:
 			c.errors.IncrReadErr(c.nodeStorage)

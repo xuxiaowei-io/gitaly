@@ -2,6 +2,7 @@ package backchannel_test
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -47,7 +48,7 @@ func Example() {
 			fmt.Println("Gitaly received a transactional mutator")
 
 			backchannelID, err := backchannel.GetPeerID(stream.Context())
-			if err == backchannel.ErrNonMultiplexedConnection {
+			if errors.Is(err, backchannel.ErrNonMultiplexedConnection) {
 				// This call is from a client that is not multiplexing aware. Client is not
 				// Praefect, so no need to perform voting. The client could be for example
 				// GitLab calling Gitaly directly.

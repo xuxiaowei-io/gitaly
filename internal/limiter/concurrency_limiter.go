@@ -258,14 +258,14 @@ func (c *ConcurrencyLimiter) Limit(ctx context.Context, limitingKey string, f Li
 
 	if err := sem.acquire(ctx, limitingKey); err != nil {
 		queueTime := time.Since(start)
-		switch err {
-		case ErrMaxQueueSize:
+		switch {
+		case errors.Is(err, ErrMaxQueueSize):
 			c.monitor.Dropped(ctx, limitingKey, sem.queueLength(), sem.inProgress(), queueTime, "max_size")
 			return nil, structerr.NewResourceExhausted("%w", ErrMaxQueueSize).WithDetail(&gitalypb.LimitError{
 				ErrorMessage: err.Error(),
 				RetryAfter:   durationpb.New(0),
 			})
-		case ErrMaxQueueTime:
+		case errors.Is(err, ErrMaxQueueTime):
 			c.monitor.Dropped(ctx, limitingKey, sem.queueLength(), sem.inProgress(), queueTime, "max_time")
 			return nil, structerr.NewResourceExhausted("%w", ErrMaxQueueTime).WithDetail(&gitalypb.LimitError{
 				ErrorMessage: err.Error(),

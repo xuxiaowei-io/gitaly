@@ -492,7 +492,7 @@ func BenchmarkListAllBlobs(b *testing.B) {
 
 				for {
 					_, err := stream.Recv()
-					if err == io.EOF {
+					if errors.Is(err, io.EOF) {
 						break
 					}
 					require.NoError(b, err)
@@ -539,7 +539,7 @@ func BenchmarkListBlobs(b *testing.B) {
 
 				for {
 					_, err := stream.Recv()
-					if err == io.EOF {
+					if errors.Is(err, io.EOF) {
 						break
 					}
 					require.NoError(b, err)

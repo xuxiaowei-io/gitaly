@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -545,7 +546,7 @@ func consumeFilenameByContentChunked(stream gitalypb.RepositoryService_SearchFil
 
 	for {
 		resp, err := stream.Recv()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {
@@ -566,7 +567,7 @@ func consumeFilenameByName(stream gitalypb.RepositoryService_SearchFilesByNameCl
 	var filenames []string
 	for {
 		resp, err := stream.Recv()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {

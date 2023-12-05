@@ -2,6 +2,7 @@ package hook
 
 import (
 	"bytes"
+	"errors"
 	"io"
 	"path/filepath"
 	"testing"
@@ -150,7 +151,7 @@ func TestHooksMissingStdin(t *testing.T) {
 			var status int32
 			for {
 				resp, err := stream.Recv()
-				if err == io.EOF {
+				if errors.Is(err, io.EOF) {
 					break
 				}
 
@@ -286,7 +287,7 @@ To create a merge request for okay, visit:
 			var stdout, stderr bytes.Buffer
 			for {
 				resp, err := stream.Recv()
-				if err == io.EOF {
+				if errors.Is(err, io.EOF) {
 					break
 				}
 

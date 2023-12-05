@@ -187,7 +187,7 @@ func HandleStream(serverStream grpc.ServerStream, fullMethodName string, params 
 
 			// clientErr will contain RPC error from client code. If not io.EOF, return
 			// the RPC error as server stream error after the loop.
-			if primaryErr != io.EOF {
+			if !errors.Is(primaryErr, io.EOF) {
 				// If there is an error from the primary, we want to cancel all streams
 				cancelStreams(allStreams)
 			}
@@ -200,7 +200,7 @@ func HandleStream(serverStream grpc.ServerStream, fullMethodName string, params 
 		return status.Errorf(codes.Internal, "failed proxying c2s: %v", clientErr)
 	}
 
-	if primaryErr != nil && primaryErr != io.EOF {
+	if primaryErr != nil && !errors.Is(primaryErr, io.EOF) {
 		// we must not propagate Gitaly errors into Sentry
 		sentryhandler.MarkToSkip(serverStream.Context())
 		return primaryErr

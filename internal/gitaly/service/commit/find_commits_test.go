@@ -2,6 +2,7 @@ package commit
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"path/filepath"
@@ -764,7 +765,7 @@ func benchmarkCommitStatsN(b *testing.B, ctx context.Context, request *gitalypb.
 
 		for {
 			response, err := stream.Recv()
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				break
 			}
 			require.NoError(b, err)
@@ -791,7 +792,7 @@ func benchmarkFindCommitsWithStat(b *testing.B, ctx context.Context, request *gi
 
 		for {
 			_, err := stream.Recv()
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				break
 			}
 			require.NoError(b, err)

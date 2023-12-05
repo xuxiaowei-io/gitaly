@@ -34,7 +34,7 @@ func ExtractPool(req PoolRequest) (*gitalypb.Repository, error) {
 func (s *server) poolForRequest(req PoolRequest) (*objectpool.ObjectPool, error) {
 	pool, err := objectpool.FromProto(s.logger, s.locator, s.gitCmdFactory, s.catfileCache, s.txManager, s.housekeepingManager, req.GetObjectPool())
 	if err != nil {
-		if err == objectpool.ErrInvalidPoolDir {
+		if errors.Is(err, objectpool.ErrInvalidPoolDir) {
 			return nil, errInvalidPoolDir
 		}
 

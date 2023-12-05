@@ -2,6 +2,7 @@ package commit
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"testing"
@@ -422,7 +423,7 @@ func consumeGetByRefNameResponse(t *testing.T, c gitalypb.CommitService_ListComm
 	var receivedCommitRefs []*gitalypb.ListCommitsByRefNameResponse_CommitForRef
 	for {
 		resp, err := c.Recv()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		} else if err != nil {
 			testhelper.RequireGrpcError(t, expectedErr, err)

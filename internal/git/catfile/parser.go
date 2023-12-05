@@ -3,6 +3,7 @@ package catfile
 import (
 	"bufio"
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"strconv"
@@ -46,7 +47,7 @@ func (p *parser) ParseCommit(object git.Object) (*gitalypb.GitCommit, error) {
 	bytesRemaining := object.ObjectSize()
 	for !lastLine {
 		line, err := p.bufferedReader.ReadString('\n')
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			lastLine = true
 		} else if err != nil {
 			return nil, fmt.Errorf("parse raw commit: header: %w", err)
@@ -214,7 +215,7 @@ func (p *parser) parseTag(object git.Object, name []byte) (*gitalypb.Tag, tagged
 
 	for !lastLine {
 		line, err := p.bufferedReader.ReadString('\n')
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			lastLine = true
 		} else if err != nil {
 			return nil, taggedObject{}, fmt.Errorf("reading tag header: %w", err)

@@ -431,9 +431,11 @@ func TestRemoveAlternatesIfOk(t *testing.T) {
 		altBackup := altPath + ".backup"
 		err = removeAlternatesIfOk(ctx, repo, altPath, altBackup, logger, nil)
 		require.Error(t, err, "removeAlternatesIfOk should fail")
-		require.IsType(t, &connectivityError{}, err, "error must be because of connectivity check")
-		connectivityErr := err.(*connectivityError)
-		require.IsType(t, &exec.ExitError{}, connectivityErr.error, "error must be because of fsck")
+
+		var connectivityErr *connectivityError
+		require.True(t, errors.As(err, &connectivityErr), "error must be because of connectivity check")
+		var exitError *exec.ExitError
+		require.True(t, errors.As(connectivityErr.error, &exitError), "error must be because of fsck")
 
 		// We expect objects/info/alternates to have been restored when
 		// removeAlternatesIfOk returned.

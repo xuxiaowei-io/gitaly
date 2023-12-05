@@ -3,6 +3,7 @@ package repository
 import (
 	"archive/tar"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -74,7 +75,7 @@ func TestGetCustomHooks_successful(t *testing.T) {
 			fileLength := 0
 			for {
 				file, err := reader.Next()
-				if err == io.EOF {
+				if errors.Is(err, io.EOF) {
 					break
 				}
 				require.NoError(t, err)

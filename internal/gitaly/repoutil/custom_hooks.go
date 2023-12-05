@@ -57,7 +57,7 @@ func ExtractHooks(ctx context.Context, logger log.Logger, reader io.Reader, path
 	// an error. Since an empty hooks tar is symbolic of a repository having no
 	// hooks, the reader is peeked to check if there is any data present.
 	buf := bufio.NewReader(reader)
-	if _, err := buf.Peek(1); err == io.EOF {
+	if _, err := buf.Peek(1); errors.Is(err, io.EOF) {
 		return nil
 	}
 

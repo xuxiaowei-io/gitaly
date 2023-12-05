@@ -2,6 +2,7 @@ package hook
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -55,7 +56,7 @@ func sendPreReceiveHookRequest(t *testing.T, stream gitalypb.HookService_PreRece
 	var stdout, stderr bytes.Buffer
 	for {
 		resp, err := stream.Recv()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {

@@ -2,6 +2,7 @@ package smarthttp
 
 import (
 	"context"
+	"errors"
 	"io"
 	"sync"
 
@@ -68,8 +69,8 @@ func (c infoRefCache) tryCache(ctx context.Context, in *gitalypb.InfoRefsRequest
 	})
 
 	stream, err := c.streamer.GetStream(ctx, in.Repository, in)
-	switch err {
-	case nil:
+	switch {
+	case err == nil:
 		defer stream.Close()
 
 		countHit()
@@ -81,7 +82,7 @@ func (c infoRefCache) tryCache(ctx context.Context, in *gitalypb.InfoRefsRequest
 
 		return nil
 
-	case cache.ErrReqNotFound:
+	case errors.Is(err, cache.ErrReqNotFound):
 		countMiss()
 		c.logger.InfoContext(ctx, "cache miss for InfoRefsUploadPack response")
 

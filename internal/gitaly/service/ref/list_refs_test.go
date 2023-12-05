@@ -1,6 +1,7 @@
 package ref
 
 import (
+	"errors"
 	"io"
 	"testing"
 	"time"
@@ -228,7 +229,7 @@ func TestServer_ListRefs(t *testing.T) {
 			var refs []*gitalypb.ListRefsResponse_Reference
 			for {
 				r, err := c.Recv()
-				if err == io.EOF {
+				if errors.Is(err, io.EOF) {
 					break
 				}
 				if tc.expectedError == "" && tc.expectedGrpcError == 0 {

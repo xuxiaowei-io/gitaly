@@ -1,6 +1,7 @@
 package commit
 
 import (
+	"errors"
 	"io"
 	"strings"
 	"testing"
@@ -101,7 +102,7 @@ func readAllMessagesFromClient(t *testing.T, c gitalypb.CommitService_GetCommitM
 
 	for {
 		resp, err := c.Recv()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		require.NoError(t, err)

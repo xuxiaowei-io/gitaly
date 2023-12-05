@@ -1,6 +1,7 @@
 package diff
 
 import (
+	"errors"
 	"io"
 	"testing"
 
@@ -282,7 +283,7 @@ func assertExactReceivedDeltas(t *testing.T, client gitalypb.DiffService_CommitD
 	var actualDeltas []*gitalypb.CommitDelta
 	for {
 		fetchedDeltas, err := client.Recv()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		require.NoError(t, err)

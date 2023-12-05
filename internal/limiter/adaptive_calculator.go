@@ -2,6 +2,7 @@ package limiter
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"sync"
@@ -211,7 +212,7 @@ func (c *AdaptiveCalculator) pollBackoffEvent(ctx context.Context) {
 		logger := c.logger.WithField("watcher", w.Name())
 		event, err := w.Poll(ctx)
 		if err != nil {
-			if err == context.DeadlineExceeded {
+			if errors.Is(err, context.DeadlineExceeded) {
 				c.watcherTimeouts[w].Add(1)
 				// If the watcher timeouts for a number of consecutive times, treat it as a
 				// backoff event.
@@ -227,7 +228,7 @@ func (c *AdaptiveCalculator) pollBackoffEvent(ctx context.Context) {
 				}
 			}
 
-			if err != context.Canceled {
+			if !errors.Is(err, context.Canceled) {
 				c.watcherErrorsVec.WithLabelValues(w.Name()).Inc()
 				logger.WithError(err).Error("poll from resource watcher failed")
 			}

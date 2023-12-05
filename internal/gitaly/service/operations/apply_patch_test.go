@@ -1,6 +1,7 @@
 package operations
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"testing"
@@ -541,7 +542,7 @@ To restore the original branch and stop patching, run "git am --abort".
 					//
 					// Abort the loop here so that we can observe the actual
 					// error in `CloseAndRecv()`.
-					if err == io.EOF {
+					if errors.Is(err, io.EOF) {
 						break outerLoop
 					}
 

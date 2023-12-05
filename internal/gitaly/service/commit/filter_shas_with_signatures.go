@@ -54,7 +54,7 @@ func (s *server) filterShasWithSignatures(bidi gitalypb.CommitService_FilterShas
 		}
 
 		request, err = bidi.Recv()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			return nil
 		}
 

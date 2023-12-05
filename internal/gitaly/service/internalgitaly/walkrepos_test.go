@@ -1,6 +1,7 @@
 package internalgitaly
 
 import (
+	"errors"
 	"io"
 	"os"
 	"path/filepath"
@@ -125,7 +126,7 @@ func consumeWalkReposStream(t *testing.T, stream gitalypb.InternalGitaly_WalkRep
 	var repos []*gitalypb.WalkReposResponse
 	for {
 		resp, err := stream.Recv()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		} else {
 			require.NoError(t, err)

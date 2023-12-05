@@ -1,6 +1,7 @@
 package diff
 
 import (
+	"errors"
 	"io"
 	"testing"
 
@@ -44,7 +45,7 @@ func TestDiffStats_successful(t *testing.T) {
 	var actualStats []*gitalypb.DiffStats
 	for {
 		response, err := stream.Recv()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		require.NoError(t, err)

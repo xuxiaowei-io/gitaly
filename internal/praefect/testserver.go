@@ -2,6 +2,7 @@ package praefect
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"testing"
@@ -153,7 +154,7 @@ func newMockDownstream(tb testing.TB, token string, registerService func(*grpc.S
 
 		// If the server is shutdown before Serve() is called on it
 		// the Serve() calls will return the ErrServerStopped
-		if err := <-errQ; err != nil && err != grpc.ErrServerStopped {
+		if err := <-errQ; err != nil && !errors.Is(err, grpc.ErrServerStopped) {
 			require.NoError(tb, err)
 		}
 	}

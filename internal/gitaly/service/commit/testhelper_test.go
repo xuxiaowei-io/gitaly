@@ -2,6 +2,7 @@ package commit
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"testing"
@@ -85,7 +86,7 @@ func getAllCommits(tb testing.TB, getter func() (gitCommitsGetter, error)) []*gi
 	var commits []*gitalypb.GitCommit
 	for {
 		resp, err := getter()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			return commits
 		}
 		require.NoError(tb, err)

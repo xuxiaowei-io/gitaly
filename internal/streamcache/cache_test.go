@@ -365,8 +365,10 @@ func TestCache_unWriteableFile(t *testing.T) {
 		_, err := io.WriteString(w, "hello")
 		return err
 	})
-	require.IsType(t, &os.PathError{}, err)
-	require.Equal(t, "write", err.(*os.PathError).Op)
+
+	var pathErr *os.PathError
+	require.True(t, errors.As(err, &pathErr))
+	require.Equal(t, "write", pathErr.Op)
 }
 
 func TestCache_unCloseableFile(t *testing.T) {
@@ -385,8 +387,10 @@ func TestCache_unCloseableFile(t *testing.T) {
 	}
 
 	_, _, err := c.Fetch(ctx, "key", io.Discard, func(w io.Writer) error { return nil })
-	require.IsType(t, &os.PathError{}, err)
-	require.Equal(t, "close", err.(*os.PathError).Op)
+
+	var pathErr *os.PathError
+	require.True(t, errors.As(err, &pathErr))
+	require.Equal(t, "close", pathErr.Op)
 }
 
 func TestCache_cannotOpenFileForReading(t *testing.T) {
@@ -406,8 +410,9 @@ func TestCache_cannotOpenFileForReading(t *testing.T) {
 
 	_, _, err := c.Fetch(ctx, "key", io.Discard, func(w io.Writer) error { return nil })
 	err = errors.Unwrap(err)
-	require.IsType(t, &os.PathError{}, err)
-	require.Equal(t, "open", err.(*os.PathError).Op)
+	var pathErr *os.PathError
+	require.True(t, errors.As(err, &pathErr))
+	require.Equal(t, "open", pathErr.Op)
 }
 
 func TestWaiter(t *testing.T) {

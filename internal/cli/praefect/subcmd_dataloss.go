@@ -1,6 +1,7 @@
 package praefect
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"sort"
@@ -107,7 +108,7 @@ func datalossAction(ctx *cli.Context) error {
 		for {
 			resp, err := stream.Recv()
 			if err != nil {
-				if err != io.EOF {
+				if !errors.Is(err, io.EOF) {
 					return fmt.Errorf("getting response: %w", err)
 				}
 

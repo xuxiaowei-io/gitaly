@@ -3,6 +3,7 @@ package testserver
 import (
 	"bytes"
 	"context"
+	"errors"
 	"net"
 	"os"
 	"os/exec"
@@ -113,8 +114,7 @@ func StartPraefect(tb testing.TB, cfg config.Config) PraefectServer {
 
 		select {
 		case <-ctx.Done():
-			switch ctx.Err() {
-			case context.DeadlineExceeded:
+			if errors.Is(ctx.Err(), context.DeadlineExceeded) {
 				// Capture Praefect logs when waitHealthy takes too long.
 				require.FailNowf(tb, "Connecting to Praefect exceeded deadline", "%s", stderr.String())
 			}

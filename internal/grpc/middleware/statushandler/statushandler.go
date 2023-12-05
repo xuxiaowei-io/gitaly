@@ -2,6 +2,7 @@ package statushandler
 
 import (
 	"context"
+	"errors"
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"google.golang.org/grpc"
@@ -32,9 +33,9 @@ func wrapCtxErr(ctx context.Context, err error) error {
 	switch {
 	case err == nil:
 		return nil
-	case ctx.Err() == context.DeadlineExceeded:
+	case errors.Is(ctx.Err(), context.DeadlineExceeded):
 		return structerr.New("%w", err).WithGRPCCode(codes.DeadlineExceeded)
-	case ctx.Err() == context.Canceled:
+	case errors.Is(ctx.Err(), context.Canceled):
 		return structerr.New("%w", err).WithGRPCCode(codes.Canceled)
 	default:
 		return structerr.NewInternal("%w", err)

@@ -129,9 +129,10 @@ func MustRunCommand(tb testing.TB, stdin io.Reader, name string, args ...string)
 	}
 
 	output, err := cmd.Output()
-	if err != nil {
-		stderr := err.(*exec.ExitError).Stderr
-		require.NoError(tb, err, "%s %s: %s", name, args, stderr)
+
+	var exitErr *exec.ExitError
+	if errors.As(err, &exitErr) {
+		require.NoError(tb, err, "%s %s: %s", name, args, exitErr.Stderr)
 	}
 
 	return output

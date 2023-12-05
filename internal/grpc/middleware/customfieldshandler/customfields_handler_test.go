@@ -2,6 +2,7 @@ package customfieldshandler
 
 import (
 	"context"
+	"errors"
 	"io"
 	"net"
 	"testing"
@@ -121,7 +122,7 @@ func TestInterceptor(t *testing.T) {
 
 				for {
 					_, err := stream.Recv()
-					if err == io.EOF {
+					if errors.Is(err, io.EOF) {
 						break
 					}
 					require.NoError(t, err)

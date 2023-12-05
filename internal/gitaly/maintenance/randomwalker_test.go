@@ -1,6 +1,7 @@
 package maintenance
 
 import (
+	"errors"
 	"math/rand"
 	"os"
 	"path/filepath"
@@ -167,7 +168,7 @@ func TestRandomWalk(t *testing.T) {
 			actualPaths := []string{}
 			for {
 				fi, path, err := walker.next()
-				if err == errIterOver {
+				if errors.Is(err, errIterOver) {
 					break
 				}
 				require.NoError(t, err)

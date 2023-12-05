@@ -2,6 +2,7 @@ package dnsresolver
 
 import (
 	"context"
+	"errors"
 	"net"
 	"sync"
 	"time"
@@ -131,7 +132,8 @@ func (d *dnsResolver) resolve() (*resolver.State, error) {
 //     Backoff).
 //   - Other errors should be suppressed (they may represent the absence of a TXT record).
 func handleDNSError(err error) error {
-	if dnsErr, ok := err.(*net.DNSError); ok && !dnsErr.IsTimeout && !dnsErr.IsTemporary {
+	var dnsErr *net.DNSError
+	if errors.As(err, &dnsErr) && !dnsErr.IsTimeout && !dnsErr.IsTemporary {
 		return nil
 	}
 

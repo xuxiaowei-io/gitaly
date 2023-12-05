@@ -3,6 +3,7 @@ package limithandler_test
 import (
 	"bytes"
 	"context"
+	"errors"
 	"io"
 	"net"
 	"sync"
@@ -644,7 +645,7 @@ func (q *queueTestServer) FullDuplexCall(stream grpc_testing.TestService_FullDup
 	// Read all the input
 	for {
 		if _, err := stream.Recv(); err != nil {
-			if err != io.EOF {
+			if !errors.Is(err, io.EOF) {
 				return err
 			}
 

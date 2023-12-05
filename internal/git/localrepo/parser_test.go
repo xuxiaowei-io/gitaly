@@ -2,6 +2,7 @@ package localrepo
 
 import (
 	"bytes"
+	"errors"
 	"io"
 	"testing"
 
@@ -75,7 +76,7 @@ func TestParser(t *testing.T) {
 			parsedEntries := Entries{}
 			for {
 				entry, err := parser.NextEntry()
-				if err == io.EOF {
+				if errors.Is(err, io.EOF) {
 					break
 				}
 
@@ -132,7 +133,7 @@ func TestParserReadEntryPath(t *testing.T) {
 			parsedPaths := [][]byte{}
 			for {
 				path, err := parser.NextEntryPath()
-				if err == io.EOF {
+				if errors.Is(err, io.EOF) {
 					break
 				}
 

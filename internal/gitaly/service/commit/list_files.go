@@ -1,6 +1,7 @@
 package commit
 
 import (
+	"errors"
 	"fmt"
 	"io"
 
@@ -96,7 +97,7 @@ func (s *server) listFiles(repo git.RepositoryExecutor, revision string, stream 
 
 	for parser := localrepo.NewParser(cmd, objectHash); ; {
 		entry, err := parser.NextEntry()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {

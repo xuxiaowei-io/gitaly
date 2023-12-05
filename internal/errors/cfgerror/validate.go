@@ -72,22 +72,26 @@ type ValidationErrors []ValidationError
 // provided keys or if provided err is not an instance of the ValidationError it will be wrapped
 // into it. In case the nil is provided nothing happens.
 func (vs ValidationErrors) Append(err error, keys ...string) ValidationErrors {
-	switch terr := err.(type) {
-	case nil:
+	if err == nil {
 		return vs
-	case ValidationErrors:
-		for _, err := range terr {
+	}
+
+	var validationErrs ValidationErrors
+	var validationErr ValidationError
+
+	if errors.As(err, &validationErrs) {
+		for _, err := range validationErrs {
 			vs = append(vs, ValidationError{
 				Key:   append(keys, err.Key...),
 				Cause: err.Cause,
 			})
 		}
-	case ValidationError:
+	} else if errors.As(err, &validationErr) {
 		vs = append(vs, ValidationError{
-			Key:   append(keys, terr.Key...),
-			Cause: terr.Cause,
+			Key:   append(keys, validationErr.Key...),
+			Cause: validationErr.Cause,
 		})
-	default:
+	} else {
 		vs = append(vs, ValidationError{
 			Key:   keys,
 			Cause: err,

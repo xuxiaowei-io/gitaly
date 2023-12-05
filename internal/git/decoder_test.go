@@ -2,6 +2,7 @@ package git_test
 
 import (
 	"bytes"
+	"errors"
 	"io"
 	"testing"
 
@@ -38,7 +39,7 @@ func TestShowRefDecoder(t *testing.T) {
 		var ref git.Reference
 
 		err := d.Decode(&ref)
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		require.NoError(t, err)

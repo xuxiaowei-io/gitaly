@@ -1,6 +1,7 @@
 package stream
 
 import (
+	"errors"
 	"fmt"
 	"io"
 
@@ -50,7 +51,7 @@ func Handler(recv func() (StdoutStderrResponse, error), send func(chan error), s
 			}
 		}
 	}
-	if err == io.EOF {
+	if errors.Is(err, io.EOF) {
 		err = nil
 	}
 

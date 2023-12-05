@@ -222,7 +222,7 @@ func (s *Server) updateSubmodule(ctx context.Context, quarantineRepo *localrepo.
 			return nil
 		},
 	); err != nil {
-		if err == localrepo.ErrEntryNotFound {
+		if errors.Is(err, localrepo.ErrEntryNotFound) {
 			return "", fmt.Errorf("submodule: %s", legacyErrPrefixInvalidSubmodulePath)
 		}
 

@@ -445,7 +445,7 @@ func (mgr *Manager) negatedKnownRefs(ctx context.Context, step *Step) (io.ReadCl
 		for {
 			var ref git.Reference
 
-			if err := d.Decode(&ref); err == io.EOF {
+			if err := d.Decode(&ref); errors.Is(err, io.EOF) {
 				break
 			} else if err != nil {
 				_ = w.CloseWithError(err)
@@ -475,7 +475,7 @@ func (mgr *Manager) readRefs(ctx context.Context, path string) ([]git.Reference,
 	for {
 		var ref git.Reference
 
-		if err := d.Decode(&ref); err == io.EOF {
+		if err := d.Decode(&ref); errors.Is(err, io.EOF) {
 			break
 		} else if err != nil {
 			return refs, fmt.Errorf("read refs: %w", err)

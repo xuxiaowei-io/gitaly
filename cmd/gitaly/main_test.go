@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"errors"
 	"os/exec"
 	"testing"
 
@@ -63,8 +64,9 @@ func TestGitalyCLI(t *testing.T) {
 			err := cmd.Run()
 
 			exitCode := 0
-			if err != nil {
-				exitCode = err.(*exec.ExitError).ExitCode()
+			var exitErr *exec.ExitError
+			if errors.As(err, &exitErr) {
+				exitCode = exitErr.ExitCode()
 			}
 
 			assert.Equal(t, tc.exitCode, exitCode)

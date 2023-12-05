@@ -1,6 +1,7 @@
 package commit
 
 import (
+	"errors"
 	"io"
 	"testing"
 
@@ -159,7 +160,7 @@ Commit #1`), gittest.WithBranch("few-commits"), gittest.WithParents(commit10ID))
 
 			receivedCommits := getAllCommits(t, func() (gitCommitsGetter, error) {
 				resp, err := c.Recv()
-				if err != nil && err != io.EOF {
+				if err != nil && !errors.Is(err, io.EOF) {
 					testhelper.RequireGrpcError(t, tc.expectedErr, err)
 					err = io.EOF
 				}

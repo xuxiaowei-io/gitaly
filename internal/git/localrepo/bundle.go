@@ -231,7 +231,7 @@ func (repo *Repo) findBundleHead(ctx context.Context, bundlePath string) (*git.R
 	for {
 		var ref git.Reference
 		err := decoder.Decode(&ref)
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		} else if err != nil {
 			return nil, fmt.Errorf("find bundle HEAD: %w", err)

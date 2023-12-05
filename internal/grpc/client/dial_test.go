@@ -1,6 +1,7 @@
 package client
 
 import (
+	"errors"
 	"net"
 	"testing"
 
@@ -29,7 +30,7 @@ func TestDial(t *testing.T) {
 		grpc.Creds(lm),
 		grpc.UnknownServiceHandler(func(srv interface{}, stream grpc.ServerStream) error {
 			_, err := backchannel.GetPeerID(stream.Context())
-			if err == backchannel.ErrNonMultiplexedConnection {
+			if errors.Is(err, backchannel.ErrNonMultiplexedConnection) {
 				return errNonMuxed
 			}
 

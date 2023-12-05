@@ -2,6 +2,7 @@ package nodes
 
 import (
 	"context"
+	"errors"
 	"net"
 	"testing"
 	"time"
@@ -435,7 +436,7 @@ func TestConnectionMultiplexing(t *testing.T) {
 		grpc.Creds(lm),
 		grpc.UnknownServiceHandler(func(srv interface{}, stream grpc.ServerStream) error {
 			_, err := backchannel.GetPeerID(stream.Context())
-			if err == backchannel.ErrNonMultiplexedConnection {
+			if errors.Is(err, backchannel.ErrNonMultiplexedConnection) {
 				return errNonMuxed
 			}
 
