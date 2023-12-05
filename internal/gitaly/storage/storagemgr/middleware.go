@@ -17,7 +17,8 @@ import (
 // ErrQuarantineConfiguredOnMutator is returned when a mutator request is received with a quarantine configured.
 var ErrQuarantineConfiguredOnMutator = errors.New("quarantine configured on a mutator request")
 
-var nonTransactionalRPCs = map[string]struct{}{
+// NonTransactionalRPCs are the RPCs that do not support transactions.
+var NonTransactionalRPCs = map[string]struct{}{
 	// This isn't registered in protoregistry so mark it here as non-transactional.
 	"/grpc.health.v1.Health/Check": {},
 
@@ -63,7 +64,7 @@ var nonTransactionalRPCs = map[string]struct{}{
 // The transaction is committed if the handler doesn't return an error and rolled back otherwise.
 func NewUnaryInterceptor(logger log.Logger, registry *protoregistry.Registry, txRegistry *TransactionRegistry, mgr *PartitionManager, locator storage.Locator) grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (_ interface{}, returnedErr error) {
-		if _, ok := nonTransactionalRPCs[info.FullMethod]; ok {
+		if _, ok := NonTransactionalRPCs[info.FullMethod]; ok {
 			return handler(ctx, req)
 		}
 
@@ -126,7 +127,7 @@ func (ps *peekedStream) RecvMsg(dst interface{}) error {
 // The transaction is committed if the handler doesn't return an error and rolled back otherwise.
 func NewStreamInterceptor(logger log.Logger, registry *protoregistry.Registry, txRegistry *TransactionRegistry, mgr *PartitionManager, locator storage.Locator) grpc.StreamServerInterceptor {
 	return func(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) (returnedErr error) {
-		if _, ok := nonTransactionalRPCs[info.FullMethod]; ok {
+		if _, ok := NonTransactionalRPCs[info.FullMethod]; ok {
 			return handler(srv, ss)
 		}
 
@@ -195,7 +196,7 @@ func transactionalizeRequest(ctx context.Context, logger log.Logger, txRegistry 
 		return nonTransactionalRequest(ctx, req), nil
 	}
 
-	repo, err := methodInfo.TargetRepo(req)
+	targetRepo, err := methodInfo.TargetRepo(req)
 	if err != nil {
 		if errors.Is(err, protoregistry.ErrRepositoryFieldNotFound) {
 			// The above error is returned when the repository field is not set in the request.
@@ -211,7 +212,7 @@ func transactionalizeRequest(ctx context.Context, logger log.Logger, txRegistry 
 		return nonTransactionalRequest(ctx, req), nil
 	}
 
-	if repo.GitObjectDirectory != "" || len(repo.GitAlternateObjectDirectories) > 0 {
+	if targetRepo.GitObjectDirectory != "" || len(targetRepo.GitAlternateObjectDirectories) > 0 {
 		// The object directories should only be configured on a repository coming from a request that
 		// was already configured with a quarantine directory and is being looped back to Gitaly from Rails'
 		// authorization checks. If that's the case, the request should already be running in scope of a
@@ -242,11 +243,26 @@ func transactionalizeRequest(ctx context.Context, logger log.Logger, txRegistry 
 	// return the exact same error messages as some RPCs are testing for at the moment. In order to maintain
 	// compatibility with said tests, validate the repository here ahead of time and return the possible error
 	// as is.
-	if err := locator.ValidateRepository(repo, storage.WithSkipRepositoryExistenceCheck()); err != nil {
+	if err := locator.ValidateRepository(targetRepo, storage.WithSkipRepositoryExistenceCheck()); err != nil {
 		return transactionalizedRequest{}, err
 	}
 
-	tx, err := mgr.Begin(ctx, repo.StorageName, repo.RelativePath, methodInfo.Operation == protoregistry.OpAccessor)
+	var alternateRelativePath string
+	if additionalRepo, err := methodInfo.AdditionalRepo(req); err != nil {
+		if !errors.Is(err, protoregistry.ErrRepositoryFieldNotFound) {
+			return transactionalizedRequest{}, fmt.Errorf("extract additional repository: %w", err)
+		}
+
+		// There was no additional repository.
+	} else {
+		if additionalRepo.StorageName != targetRepo.StorageName {
+			return transactionalizedRequest{}, structerr.NewInvalidArgument("additional and target repositories are in different storages")
+		}
+
+		alternateRelativePath = additionalRepo.RelativePath
+	}
+
+	tx, err := mgr.Begin(ctx, targetRepo.StorageName, targetRepo.RelativePath, alternateRelativePath, methodInfo.Operation == protoregistry.OpAccessor)
 	if err != nil {
 		return transactionalizedRequest{}, fmt.Errorf("begin transaction: %w", err)
 	}
@@ -300,6 +316,16 @@ func rewriteRequest(tx *finalizableTransaction, methodInfo protoregistry.MethodI
 	}
 
 	*targetRepo = *tx.RewriteRepository(targetRepo)
+
+	if additionalRepo, err := methodInfo.AdditionalRepo(rewrittenReq); err != nil {
+		if !errors.Is(err, protoregistry.ErrRepositoryFieldNotFound) {
+			return nil, fmt.Errorf("extract additional repository: %w", err)
+		}
+
+		// There was no additional repository.
+	} else {
+		*additionalRepo = *tx.RewriteRepository(additionalRepo)
+	}
 
 	return rewrittenReq, nil
 }

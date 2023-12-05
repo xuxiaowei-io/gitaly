@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/housekeeping"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
 )
 
@@ -40,6 +41,11 @@ func newSnapshot(ctx context.Context, storagePath, snapshotPath string, relative
 // createRepositorySnapshots creates a snapshot of the partition containing all repositories at the given relative paths
 // and their alternates.
 func createRepositorySnapshots(ctx context.Context, storagePath, snapshotPrefix string, relativePaths []string) error {
+	// Create the root directory always to as the storage would also exist always.
+	if err := os.Mkdir(filepath.Join(storagePath, snapshotPrefix), perm.PrivateDir); err != nil {
+		return fmt.Errorf("mkdir snapshot root: %w", err)
+	}
+
 	snapshottedRepositories := make(map[string]struct{}, len(relativePaths))
 	for _, relativePath := range relativePaths {
 		if _, ok := snapshottedRepositories[relativePath]; ok {
@@ -47,6 +53,20 @@ func createRepositorySnapshots(ctx context.Context, storagePath, snapshotPrefix 
 		}
 
 		sourcePath := filepath.Join(storagePath, relativePath)
+		if err := storage.ValidateGitDirectory(sourcePath); err != nil {
+			if errors.Is(err, fs.ErrNotExist) {
+				// It's okay if the repository does not exist. We'll create a snapshot without the directory,
+				// and the RPC handlers can handle the situation as best fit.
+				continue
+			}
+
+			// The transaction logic doesn't require the snapshotted repository to be valid. We want to ensure
+			// we only snapshot a 'leaf'/project directories in the storage. Otherwise relative paths like
+			// `@hashed/xx` could attempt to snapshot an entire subtree. As Gitaly doesn't control the directory
+			// hierarchy yet, we achieve this protection by only snapshotting valid Git directories.
+			return fmt.Errorf("validate git directory: %w", err)
+		}
+
 		targetPath := filepath.Join(storagePath, snapshotPrefix, relativePath)
 		if err := createRepositorySnapshot(ctx, sourcePath, targetPath); err != nil {
 			return fmt.Errorf("create snapshot: %w", err)

@@ -65,6 +65,20 @@ func (m mockHealthService) Check(ctx context.Context, req *grpc_health_v1.Health
 	return m.checkFunc(ctx, req)
 }
 
+type mockObjectPoolService struct {
+	createObjectPoolFunc           func(context.Context, *gitalypb.CreateObjectPoolRequest) (*gitalypb.CreateObjectPoolResponse, error)
+	linkRepositoryToObjectPoolFunc func(context.Context, *gitalypb.LinkRepositoryToObjectPoolRequest) (*gitalypb.LinkRepositoryToObjectPoolResponse, error)
+	gitalypb.UnimplementedObjectPoolServiceServer
+}
+
+func (m mockObjectPoolService) CreateObjectPool(ctx context.Context, req *gitalypb.CreateObjectPoolRequest) (*gitalypb.CreateObjectPoolResponse, error) {
+	return m.createObjectPoolFunc(ctx, req)
+}
+
+func (m mockObjectPoolService) LinkRepositoryToObjectPool(ctx context.Context, req *gitalypb.LinkRepositoryToObjectPoolRequest) (*gitalypb.LinkRepositoryToObjectPoolResponse, error) {
+	return m.linkRepositoryToObjectPoolFunc(ctx, req)
+}
+
 func TestMiddleware_transactional(t *testing.T) {
 	if !testhelper.IsWALEnabled() {
 		t.Skip(`
@@ -77,7 +91,20 @@ be configured.`)
 This interceptor is for use with Gitaly. Praefect running in front of it may change error
 messages and behavior by erroring out the requests before they even hit this interceptor.`)
 
-	t.Parallel()
+	// This is a temporary workaround until transaction support is enabled the below RPCs. We're
+	// using them to test that the additional repository is properly handled by the middleware
+	// so we need the middleware to not short circuit when it encounters the RPC.
+	//
+	// As the RPCs themselves haven't yet been adapted for transactions, their tests will fail if we handled
+	// them transactionally. For now, make these RPCs transactional within this test only. There's no point
+	// switching to dependency injection with the list of non transactional RPCs as we're soon enabling
+	// transactions for the remaining non-transactional RPCs and remove the list entirely.
+	delete(storagemgr.NonTransactionalRPCs, "/gitaly.ObjectPoolService/CreateObjectPool")
+	delete(storagemgr.NonTransactionalRPCs, "/gitaly.ObjectPoolService/LinkRepositoryToObjectPool")
+	defer func() {
+		storagemgr.NonTransactionalRPCs["/gitaly.ObjectPoolService/CreateObjectPool"] = struct{}{}
+		storagemgr.NonTransactionalRPCs["/gitaly.ObjectPoolService/LinkRepositoryToObjectPool"] = struct{}{}
+	}()
 
 	validRepository := func() *gitalypb.Repository {
 		return &gitalypb.Repository{
@@ -88,21 +115,28 @@ messages and behavior by erroring out the requests before they even hit this int
 		}
 	}
 
+	validAdditionalRepository := func() *gitalypb.Repository {
+		repo := validRepository()
+		repo.RelativePath = "additional-relative-path"
+		return repo
+	}
+
 	for _, tc := range []struct {
-		desc                  string
-		repository            *gitalypb.Repository
-		performRequest        func(*testing.T, context.Context, gitalypb.RepositoryServiceClient)
-		handlerError          error
-		rollbackTransaction   bool
-		expectHandlerInvoked  bool
-		expectedRollbackError error
-		expectedResponse      proto.Message
-		expectedError         error
+		desc                       string
+		repository                 *gitalypb.Repository
+		performRequest             func(*testing.T, context.Context, *grpc.ClientConn)
+		assertAdditionalRepository func(*testing.T, context.Context, *gitalypb.Repository)
+		handlerError               error
+		rollbackTransaction        bool
+		expectHandlerInvoked       bool
+		expectedRollbackError      error
+		expectedResponse           proto.Message
+		expectedError              error
 	}{
 		{
 			desc: "missing repository",
-			performRequest: func(t *testing.T, ctx context.Context, client gitalypb.RepositoryServiceClient) {
-				resp, err := client.ObjectFormat(ctx, &gitalypb.ObjectFormatRequest{})
+			performRequest: func(t *testing.T, ctx context.Context, cc *grpc.ClientConn) {
+				resp, err := gitalypb.NewRepositoryServiceClient(cc).ObjectFormat(ctx, &gitalypb.ObjectFormatRequest{})
 				require.Nil(t, resp)
 				testhelper.RequireGrpcError(t,
 					structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet),
@@ -112,8 +146,8 @@ messages and behavior by erroring out the requests before they even hit this int
 		},
 		{
 			desc: "storage not set",
-			performRequest: func(t *testing.T, ctx context.Context, client gitalypb.RepositoryServiceClient) {
-				resp, err := client.ObjectFormat(ctx, &gitalypb.ObjectFormatRequest{
+			performRequest: func(t *testing.T, ctx context.Context, cc *grpc.ClientConn) {
+				resp, err := gitalypb.NewRepositoryServiceClient(cc).ObjectFormat(ctx, &gitalypb.ObjectFormatRequest{
 					Repository: &gitalypb.Repository{
 						RelativePath: "non-existent-relative-path",
 					},
@@ -127,8 +161,8 @@ messages and behavior by erroring out the requests before they even hit this int
 		},
 		{
 			desc: "relative path not set",
-			performRequest: func(t *testing.T, ctx context.Context, client gitalypb.RepositoryServiceClient) {
-				resp, err := client.ObjectFormat(ctx, &gitalypb.ObjectFormatRequest{
+			performRequest: func(t *testing.T, ctx context.Context, cc *grpc.ClientConn) {
+				resp, err := gitalypb.NewRepositoryServiceClient(cc).ObjectFormat(ctx, &gitalypb.ObjectFormatRequest{
 					Repository: &gitalypb.Repository{
 						StorageName: "default",
 					},
@@ -142,8 +176,8 @@ messages and behavior by erroring out the requests before they even hit this int
 		},
 		{
 			desc: "invalid storage",
-			performRequest: func(t *testing.T, ctx context.Context, client gitalypb.RepositoryServiceClient) {
-				resp, err := client.ObjectFormat(ctx, &gitalypb.ObjectFormatRequest{
+			performRequest: func(t *testing.T, ctx context.Context, cc *grpc.ClientConn) {
+				resp, err := gitalypb.NewRepositoryServiceClient(cc).ObjectFormat(ctx, &gitalypb.ObjectFormatRequest{
 					Repository: &gitalypb.Repository{
 						StorageName:  "non-existent-storage",
 						RelativePath: "non-existent-relative-path",
@@ -158,8 +192,8 @@ messages and behavior by erroring out the requests before they even hit this int
 		},
 		{
 			desc: "unary rollback error is logged",
-			performRequest: func(t *testing.T, ctx context.Context, client gitalypb.RepositoryServiceClient) {
-				resp, err := client.ObjectFormat(ctx, &gitalypb.ObjectFormatRequest{Repository: validRepository()})
+			performRequest: func(t *testing.T, ctx context.Context, cc *grpc.ClientConn) {
+				resp, err := gitalypb.NewRepositoryServiceClient(cc).ObjectFormat(ctx, &gitalypb.ObjectFormatRequest{Repository: validRepository()})
 				require.Nil(t, resp)
 				testhelper.RequireGrpcError(t,
 					structerr.NewInternal("handler error"),
@@ -173,8 +207,8 @@ messages and behavior by erroring out the requests before they even hit this int
 		},
 		{
 			desc: "streaming rollback error is logged",
-			performRequest: func(t *testing.T, ctx context.Context, client gitalypb.RepositoryServiceClient) {
-				stream, err := client.GetCustomHooks(ctx, &gitalypb.GetCustomHooksRequest{Repository: validRepository()})
+			performRequest: func(t *testing.T, ctx context.Context, cc *grpc.ClientConn) {
+				stream, err := gitalypb.NewRepositoryServiceClient(cc).GetCustomHooks(ctx, &gitalypb.GetCustomHooksRequest{Repository: validRepository()})
 				require.NoError(t, err)
 
 				resp, err := stream.Recv()
@@ -191,8 +225,8 @@ messages and behavior by erroring out the requests before they even hit this int
 		},
 		{
 			desc: "unary commit error is returned",
-			performRequest: func(t *testing.T, ctx context.Context, client gitalypb.RepositoryServiceClient) {
-				resp, err := client.ObjectFormat(ctx, &gitalypb.ObjectFormatRequest{Repository: validRepository()})
+			performRequest: func(t *testing.T, ctx context.Context, cc *grpc.ClientConn) {
+				resp, err := gitalypb.NewRepositoryServiceClient(cc).ObjectFormat(ctx, &gitalypb.ObjectFormatRequest{Repository: validRepository()})
 				require.Nil(t, resp)
 				testhelper.RequireGrpcError(t,
 					structerr.NewInternal("commit: transaction already rollbacked"),
@@ -204,8 +238,8 @@ messages and behavior by erroring out the requests before they even hit this int
 		},
 		{
 			desc: "streaming commit error is returned",
-			performRequest: func(t *testing.T, ctx context.Context, client gitalypb.RepositoryServiceClient) {
-				stream, err := client.GetCustomHooks(ctx, &gitalypb.GetCustomHooksRequest{Repository: validRepository()})
+			performRequest: func(t *testing.T, ctx context.Context, cc *grpc.ClientConn) {
+				stream, err := gitalypb.NewRepositoryServiceClient(cc).GetCustomHooks(ctx, &gitalypb.GetCustomHooksRequest{Repository: validRepository()})
 				require.NoError(t, err)
 
 				resp, err := stream.Recv()
@@ -220,8 +254,8 @@ messages and behavior by erroring out the requests before they even hit this int
 		},
 		{
 			desc: "failed unary request",
-			performRequest: func(t *testing.T, ctx context.Context, client gitalypb.RepositoryServiceClient) {
-				resp, err := client.ObjectFormat(ctx, &gitalypb.ObjectFormatRequest{Repository: validRepository()})
+			performRequest: func(t *testing.T, ctx context.Context, cc *grpc.ClientConn) {
+				resp, err := gitalypb.NewRepositoryServiceClient(cc).ObjectFormat(ctx, &gitalypb.ObjectFormatRequest{Repository: validRepository()})
 				testhelper.RequireGrpcError(t,
 					structerr.NewInternal("handler error"),
 					err,
@@ -234,8 +268,8 @@ messages and behavior by erroring out the requests before they even hit this int
 		},
 		{
 			desc: "successful unary accessor",
-			performRequest: func(t *testing.T, ctx context.Context, client gitalypb.RepositoryServiceClient) {
-				resp, err := client.ObjectFormat(ctx, &gitalypb.ObjectFormatRequest{Repository: validRepository()})
+			performRequest: func(t *testing.T, ctx context.Context, cc *grpc.ClientConn) {
+				resp, err := gitalypb.NewRepositoryServiceClient(cc).ObjectFormat(ctx, &gitalypb.ObjectFormatRequest{Repository: validRepository()})
 				require.NoError(t, err)
 				testhelper.ProtoEqual(t, &gitalypb.ObjectFormatResponse{}, resp)
 			},
@@ -243,8 +277,8 @@ messages and behavior by erroring out the requests before they even hit this int
 		},
 		{
 			desc: "successful streaming accessor",
-			performRequest: func(t *testing.T, ctx context.Context, client gitalypb.RepositoryServiceClient) {
-				stream, err := client.GetCustomHooks(ctx, &gitalypb.GetCustomHooksRequest{Repository: validRepository()})
+			performRequest: func(t *testing.T, ctx context.Context, cc *grpc.ClientConn) {
+				stream, err := gitalypb.NewRepositoryServiceClient(cc).GetCustomHooks(ctx, &gitalypb.GetCustomHooksRequest{Repository: validRepository()})
 				require.NoError(t, err)
 
 				resp, err := stream.Recv()
@@ -255,8 +289,8 @@ messages and behavior by erroring out the requests before they even hit this int
 		},
 		{
 			desc: "successful unary mutator",
-			performRequest: func(t *testing.T, ctx context.Context, client gitalypb.RepositoryServiceClient) {
-				resp, err := client.RemoveRepository(ctx, &gitalypb.RemoveRepositoryRequest{Repository: validRepository()})
+			performRequest: func(t *testing.T, ctx context.Context, cc *grpc.ClientConn) {
+				resp, err := gitalypb.NewRepositoryServiceClient(cc).RemoveRepository(ctx, &gitalypb.RemoveRepositoryRequest{Repository: validRepository()})
 				require.NoError(t, err)
 				testhelper.ProtoEqual(t, &gitalypb.RemoveRepositoryResponse{}, resp)
 			},
@@ -264,8 +298,8 @@ messages and behavior by erroring out the requests before they even hit this int
 		},
 		{
 			desc: "successful streaming mutator",
-			performRequest: func(t *testing.T, ctx context.Context, client gitalypb.RepositoryServiceClient) {
-				stream, err := client.SetCustomHooks(ctx)
+			performRequest: func(t *testing.T, ctx context.Context, cc *grpc.ClientConn) {
+				stream, err := gitalypb.NewRepositoryServiceClient(cc).SetCustomHooks(ctx)
 				require.NoError(t, err)
 
 				require.NoError(t, stream.Send(&gitalypb.SetCustomHooksRequest{Repository: validRepository()}))
@@ -278,25 +312,101 @@ messages and behavior by erroring out the requests before they even hit this int
 		},
 		{
 			desc: "mutator with object directory configured",
-			performRequest: func(t *testing.T, ctx context.Context, client gitalypb.RepositoryServiceClient) {
+			performRequest: func(t *testing.T, ctx context.Context, cc *grpc.ClientConn) {
 				repo := validRepository()
 				repo.GitObjectDirectory = "non-default"
 
-				resp, err := client.RemoveRepository(ctx, &gitalypb.RemoveRepositoryRequest{Repository: repo})
+				resp, err := gitalypb.NewRepositoryServiceClient(cc).RemoveRepository(ctx, &gitalypb.RemoveRepositoryRequest{Repository: repo})
 				testhelper.RequireGrpcError(t, structerr.NewInternal("%w", storagemgr.ErrQuarantineConfiguredOnMutator), err)
 				require.Nil(t, resp)
 			},
 		},
 		{
 			desc: "mutator with alternate object directory configured",
-			performRequest: func(t *testing.T, ctx context.Context, client gitalypb.RepositoryServiceClient) {
+			performRequest: func(t *testing.T, ctx context.Context, cc *grpc.ClientConn) {
 				repo := validRepository()
 				repo.GitAlternateObjectDirectories = []string{"non-default"}
 
-				resp, err := client.RemoveRepository(ctx, &gitalypb.RemoveRepositoryRequest{Repository: repo})
+				resp, err := gitalypb.NewRepositoryServiceClient(cc).RemoveRepository(ctx, &gitalypb.RemoveRepositoryRequest{Repository: repo})
 				testhelper.RequireGrpcError(t, structerr.NewInternal("%w", storagemgr.ErrQuarantineConfiguredOnMutator), err)
 				require.Nil(t, resp)
 			},
+		},
+		{
+			desc: "mutator with repository as additional repository",
+			performRequest: func(t *testing.T, ctx context.Context, cc *grpc.ClientConn) {
+				resp, err := gitalypb.NewObjectPoolServiceClient(cc).CreateObjectPool(ctx, &gitalypb.CreateObjectPoolRequest{
+					ObjectPool: &gitalypb.ObjectPool{Repository: validRepository()},
+					Origin:     validAdditionalRepository(),
+				})
+				require.NoError(t, err)
+				testhelper.ProtoEqual(t, &gitalypb.CreateObjectPoolResponse{}, resp)
+			},
+			assertAdditionalRepository: func(t *testing.T, ctx context.Context, actual *gitalypb.Repository) {
+				var originalRepo *gitalypb.Repository
+				storagectx.RunWithTransaction(ctx, func(tx storagectx.Transaction) {
+					originalRepo = tx.OriginalRepository(actual)
+				})
+
+				expected := validAdditionalRepository()
+				// The additional repository's relative path should have been rewritten.
+				require.NotEqual(t, expected.RelativePath, actual.RelativePath)
+				// But the restored non-snapshotted repository should match the original.
+				testhelper.ProtoEqual(t, expected, originalRepo)
+			},
+			expectHandlerInvoked: true,
+		},
+		{
+			desc: "mutator without repository as additional repository",
+			performRequest: func(t *testing.T, ctx context.Context, cc *grpc.ClientConn) {
+				resp, err := gitalypb.NewObjectPoolServiceClient(cc).CreateObjectPool(ctx, &gitalypb.CreateObjectPoolRequest{
+					ObjectPool: &gitalypb.ObjectPool{Repository: validRepository()},
+				})
+				require.NoError(t, err)
+				testhelper.ProtoEqual(t, &gitalypb.CreateObjectPoolResponse{}, resp)
+			},
+			assertAdditionalRepository: func(t *testing.T, ctx context.Context, actual *gitalypb.Repository) {
+				assert.Nil(t, actual)
+			},
+			expectHandlerInvoked: true,
+		},
+		{
+			desc: "mutator with object pool as additional repository",
+			performRequest: func(t *testing.T, ctx context.Context, cc *grpc.ClientConn) {
+				resp, err := gitalypb.NewObjectPoolServiceClient(cc).LinkRepositoryToObjectPool(ctx, &gitalypb.LinkRepositoryToObjectPoolRequest{
+					Repository: validRepository(),
+					ObjectPool: &gitalypb.ObjectPool{Repository: validAdditionalRepository()},
+				})
+				require.NoError(t, err)
+				testhelper.ProtoEqual(t, &gitalypb.LinkRepositoryToObjectPoolResponse{}, resp)
+			},
+			assertAdditionalRepository: func(t *testing.T, ctx context.Context, actual *gitalypb.Repository) {
+				var originalRepo *gitalypb.Repository
+				storagectx.RunWithTransaction(ctx, func(tx storagectx.Transaction) {
+					originalRepo = tx.OriginalRepository(actual)
+				})
+
+				expected := validAdditionalRepository()
+				// The additional repository's relative path should have been rewritten.
+				require.NotEqual(t, expected.RelativePath, actual.RelativePath)
+				// But the restored non-snapshotted repository should match the original.
+				testhelper.ProtoEqual(t, expected, originalRepo)
+			},
+			expectHandlerInvoked: true,
+		},
+		{
+			desc: "mutator without object pool as additional repository",
+			performRequest: func(t *testing.T, ctx context.Context, cc *grpc.ClientConn) {
+				resp, err := gitalypb.NewObjectPoolServiceClient(cc).LinkRepositoryToObjectPool(ctx, &gitalypb.LinkRepositoryToObjectPoolRequest{
+					Repository: validRepository(),
+				})
+				require.NoError(t, err)
+				testhelper.ProtoEqual(t, &gitalypb.LinkRepositoryToObjectPoolResponse{}, resp)
+			},
+			assertAdditionalRepository: func(t *testing.T, ctx context.Context, actual *gitalypb.Repository) {
+				assert.Nil(t, actual)
+			},
+			expectHandlerInvoked: true,
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
@@ -365,6 +475,18 @@ messages and behavior by erroring out the requests before they even hit this int
 			}
 
 			serverAddress := testserver.RunGitalyServer(t, cfg, func(server *grpc.Server, deps *service.Dependencies) {
+				gitalypb.RegisterObjectPoolServiceServer(server, mockObjectPoolService{
+					createObjectPoolFunc: func(ctx context.Context, req *gitalypb.CreateObjectPoolRequest) (*gitalypb.CreateObjectPoolResponse, error) {
+						assertHandler(ctx, true, req.GetObjectPool().GetRepository())
+						tc.assertAdditionalRepository(t, ctx, req.GetOrigin())
+						return &gitalypb.CreateObjectPoolResponse{}, tc.handlerError
+					},
+					linkRepositoryToObjectPoolFunc: func(ctx context.Context, req *gitalypb.LinkRepositoryToObjectPoolRequest) (*gitalypb.LinkRepositoryToObjectPoolResponse, error) {
+						assertHandler(ctx, true, req.GetRepository())
+						tc.assertAdditionalRepository(t, ctx, req.GetObjectPool().GetRepository())
+						return &gitalypb.LinkRepositoryToObjectPoolResponse{}, tc.handlerError
+					},
+				})
 				gitalypb.RegisterRepositoryServiceServer(server, mockRepositoryService{
 					objectFormatFunc: func(ctx context.Context, req *gitalypb.ObjectFormatRequest) (*gitalypb.ObjectFormatResponse, error) {
 						assertHandler(ctx, false, req.GetRepository())
@@ -399,7 +521,7 @@ messages and behavior by erroring out the requests before they even hit this int
 			require.NoError(t, err)
 			defer clientConn.Close()
 
-			tc.performRequest(t, testhelper.Context(t), gitalypb.NewRepositoryServiceClient(clientConn))
+			tc.performRequest(t, testhelper.Context(t), clientConn)
 			require.Equal(t, tc.expectHandlerInvoked, handlerInvoked)
 
 			var rollbackFailureError error

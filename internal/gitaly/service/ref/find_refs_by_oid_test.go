@@ -160,6 +160,15 @@ func TestFindRefsByOID_failure(t *testing.T) {
 						Repository: repo,
 						Oid:        oid.String(),
 					}, func(actual error) {
+						if testhelper.IsWALEnabled() {
+							testhelper.RequireGrpcError(t,
+								status.Error(codes.Internal, "begin transaction: new snapshot: create repository snapshots: validate git directory: invalid git directory"),
+								actual,
+							)
+
+							return
+						}
+
 						testhelper.RequireStatusWithErrorMetadataRegexp(t,
 							structerr.NewFailedPrecondition("%w: %q does not exist", storage.ErrRepositoryNotValid, "objects"),
 							actual,

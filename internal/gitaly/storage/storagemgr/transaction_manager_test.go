@@ -6209,6 +6209,18 @@ func TestTransactionManager(t *testing.T) {
 				},
 			},
 		},
+		{
+			desc: "non-git directories are not snapshotted",
+			steps: steps{
+				StartManager{},
+				Begin{
+					TransactionID: 1,
+					// Try to snapshot the parent directory, which is no a valid Git directory.
+					RelativePath:  filepath.Dir(relativePath),
+					ExpectedError: storage.InvalidGitDirectoryError{MissingEntry: "objects"},
+				},
+			},
+		},
 	}
 
 	type invalidReferenceTestCase struct {
@@ -6414,7 +6426,7 @@ func TestTransactionManager(t *testing.T) {
 					}
 
 					transaction, err := transactionManager.Begin(beginCtx, step.RelativePath, step.SnapshottedRelativePaths, step.ReadOnly)
-					require.Equal(t, step.ExpectedError, err)
+					require.ErrorIs(t, err, step.ExpectedError)
 					if err == nil {
 						require.Equal(t, step.ExpectedSnapshotLSN, transaction.SnapshotLSN())
 					}

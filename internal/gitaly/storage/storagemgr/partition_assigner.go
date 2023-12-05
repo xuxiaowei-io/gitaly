@@ -30,6 +30,9 @@ var (
 	// errAlternateHasAlternate is returned when a repository's alternate itself has an
 	// alternate listed.
 	errAlternateHasAlternate = errors.New("repository's alternate has an alternate itself")
+	// errRepositoriesAreInDifferentPartitions is returned when attempting to begin a transaction spanning
+	// repositories that are in different partitions.
+	errRepositoriesAreInDifferentPartitions = errors.New("repositories are in different partitions")
 )
 
 const prefixPartitionAssignment = "partition_assignment/"
@@ -154,11 +157,42 @@ func (pa *partitionAssigner) allocatePartitionID() (partitionID, error) {
 // partition ID. Repositories without an alternate go into their own partitions. Repositories with an alternate
 // are assigned into the same partition as the alternate repository. The alternate is assigned into a partition
 // if it hasn't yet been. The method is safe to call concurrently.
-func (pa *partitionAssigner) getPartitionID(ctx context.Context, relativePath string) (partitionID, error) {
-	return pa.getPartitionIDRecursive(ctx, relativePath, false)
+func (pa *partitionAssigner) getPartitionID(ctx context.Context, relativePath, partitionWithRelativePath string) (partitionID, error) {
+	var partitionHint partitionID
+	if partitionWithRelativePath != "" {
+		var err error
+		// See if the target repository itself is already in a partition. If so, we should assign the other repository
+		// in the same partition if it is not yet partitioned.
+		if partitionHint, err = pa.partitionAssignmentTable.getPartitionID(relativePath); err != nil {
+			if !errors.Is(err, errPartitionAssignmentNotFound) {
+				return 0, fmt.Errorf("get possible partition id: %w", err)
+			}
+
+			// There was no assignment.
+			partitionHint = 0
+		}
+
+		// Get or assign the alternate into a partition. If the target repository was already assigned into a partition,
+		// assign the alternate in the same partition.
+		if partitionHint, err = pa.getPartitionIDRecursive(ctx, partitionWithRelativePath, false, partitionHint); err != nil {
+			return 0, fmt.Errorf("get additional relative path's partition ID: %w", err)
+		}
+	}
+
+	// Get the repository's partition, or assign if it yet wasn't assigned, assign it with the alternate.
+	ptnID, err := pa.getPartitionIDRecursive(ctx, relativePath, false, partitionHint)
+	if err != nil {
+		return 0, fmt.Errorf("get partition ID: %w", err)
+	}
+
+	if partitionHint != 0 && ptnID != partitionHint {
+		return 0, errRepositoriesAreInDifferentPartitions
+	}
+
+	return ptnID, nil
 }
 
-func (pa *partitionAssigner) getPartitionIDRecursive(ctx context.Context, relativePath string, recursiveCall bool) (partitionID, error) {
+func (pa *partitionAssigner) getPartitionIDRecursive(ctx context.Context, relativePath string, recursiveCall bool, partitionHint partitionID) (partitionID, error) {
 	ptnID, err := pa.partitionAssignmentTable.getPartitionID(relativePath)
 	if err != nil {
 		if !errors.Is(err, errPartitionAssignmentNotFound) {
@@ -212,7 +246,13 @@ func (pa *partitionAssigner) getPartitionIDRecursive(ctx context.Context, relati
 			return ptnID, nil
 		}
 
-		ptnID, err = pa.assignPartitionID(ctx, relativePath, recursiveCall)
+		// With the repository under lock, verify it is a Git directory before we assign it into a partition.
+		// It's okay if the repository doesn't yet exist as this transaction may be about to create it.
+		if err := storage.ValidateGitDirectory(filepath.Join(pa.storagePath, relativePath)); err != nil && !errors.Is(err, fs.ErrNotExist) {
+			return 0, fmt.Errorf("validate git directory: %w", err)
+		}
+
+		ptnID, err = pa.assignPartitionID(ctx, relativePath, recursiveCall, partitionHint)
 		if err != nil {
 			return 0, fmt.Errorf("assign partition ID: %w", err)
 		}
@@ -221,20 +261,23 @@ func (pa *partitionAssigner) getPartitionIDRecursive(ctx context.Context, relati
 	return ptnID, nil
 }
 
-func (pa *partitionAssigner) assignPartitionID(ctx context.Context, relativePath string, recursiveCall bool) (partitionID, error) {
+func (pa *partitionAssigner) assignPartitionID(ctx context.Context, relativePath string, recursiveCall bool, partitionHint partitionID) (partitionID, error) {
 	// Check if the repository has an alternate. If so, it needs to go into the same
 	// partition with it.
-	ptnID, err := pa.getAlternatePartitionID(ctx, relativePath, recursiveCall)
+	ptnID, err := pa.getAlternatePartitionID(ctx, relativePath, recursiveCall, partitionHint)
 	if err != nil {
 		if !errors.Is(err, errNoAlternate) {
 			return 0, fmt.Errorf("get alternate partition ID: %w", err)
 		}
 
-		// The repository has no alternate. Unpooled repositories go into their own partitions.
-		// Allocate a new partition ID for this repository.
-		ptnID, err = pa.allocatePartitionID()
-		if err != nil {
-			return 0, fmt.Errorf("acquire partition id: %w", err)
+		ptnID = partitionHint
+		if ptnID == 0 {
+			// The repository has no alternate. Unpooled repositories go into their own partitions.
+			// Allocate a new partition ID for this repository.
+			ptnID, err = pa.allocatePartitionID()
+			if err != nil {
+				return 0, fmt.Errorf("acquire partition id: %w", err)
+			}
 		}
 	}
 
@@ -245,7 +288,7 @@ func (pa *partitionAssigner) assignPartitionID(ctx context.Context, relativePath
 	return ptnID, nil
 }
 
-func (pa *partitionAssigner) getAlternatePartitionID(ctx context.Context, relativePath string, recursiveCall bool) (partitionID, error) {
+func (pa *partitionAssigner) getAlternatePartitionID(ctx context.Context, relativePath string, recursiveCall bool, partitionHint partitionID) (partitionID, error) {
 	alternate, err := readAlternatesFile(filepath.Join(pa.storagePath, relativePath))
 	if err != nil {
 		return 0, fmt.Errorf("read alternates file: %w", err)
@@ -279,15 +322,10 @@ func (pa *partitionAssigner) getAlternatePartitionID(ctx context.Context, relati
 		return 0, errAlternatePointsToSelf
 	}
 
-	// The relative path should point to a Git directory.
-	if err := storage.ValidateGitDirectory(filepath.Join(pa.storagePath, alternateRelativePath)); err != nil {
-		return 0, fmt.Errorf("validate git directory: %w", err)
-	}
-
 	// Recursively get the alternate's partition ID or assign it one. This time
 	// we set recursive to true to fail the operation if the alternate itself has an
 	// alternate configured.
-	ptnID, err := pa.getPartitionIDRecursive(ctx, alternateRelativePath, true)
+	ptnID, err := pa.getPartitionIDRecursive(ctx, alternateRelativePath, true, partitionHint)
 	if err != nil {
 		return 0, fmt.Errorf("get partition ID: %w", err)
 	}
