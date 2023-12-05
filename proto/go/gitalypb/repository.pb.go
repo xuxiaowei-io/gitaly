@@ -531,10 +531,6 @@ type ObjectsSizeRequest struct {
 	// revisions is the set of revisions that shall be used to compute the object size for. Supports normal revisions as
 	// well as pseudo-revisions like `--not`, `--all`, `--branches[=pattern]`, `--tags[=pattern]` and `--glob=pattern`.
 	// Please refer to the man pages gitrevisions(7) as well as git-rev-list(1) for more information.
-	//
-	// Note: due to a restriction in Git v2.41 and older all arguments need to be passed via command line parameters. So
-	// even though you can send multiple requests, the actual number of revisions that can be passed is limited by the
-	// maximum command line length. This limitation will be lifted once Gitaly has upgraded to Git v2.42 and later.
 	Revisions [][]byte `protobuf:"bytes,2,rep,name=revisions,proto3" json:"revisions,omitempty"`
 }
 
