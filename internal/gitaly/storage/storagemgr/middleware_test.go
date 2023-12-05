@@ -23,7 +23,10 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/health/grpc_health_v1"
+	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -562,8 +565,9 @@ messages and behavior by erroring out the requests before they even hit this int
 	}
 
 	for _, tc := range []struct {
-		desc           string
-		performRequest func(*testing.T, context.Context, *grpc.ClientConn)
+		desc               string
+		performRequest     func(*testing.T, context.Context, *grpc.ClientConn)
+		expectedRepository *gitalypb.Repository
 	}{
 		{
 			desc: "health service",
@@ -574,8 +578,42 @@ messages and behavior by erroring out the requests before they even hit this int
 			},
 		},
 		{
+			desc: "repository with object directory missing snapshot relative path header",
+			performRequest: func(t *testing.T, ctx context.Context, cc *grpc.ClientConn) {
+				resp, err := gitalypb.NewRepositoryServiceClient(cc).ObjectFormat(ctx, &gitalypb.ObjectFormatRequest{
+					Repository: &gitalypb.Repository{
+						StorageName:        "default",
+						GitObjectDirectory: "non-default",
+					},
+				})
+				testhelper.RequireGrpcError(t,
+					status.Error(codes.Internal, "restore snapshot relative path: "+storagemgr.ErrQuarantineWithoutSnapshotRelativePath.Error()),
+					err,
+				)
+				require.Nil(t, resp)
+			},
+		},
+		{
+			desc: "repository with alternate object directory missing snapshot relative path header",
+			performRequest: func(t *testing.T, ctx context.Context, cc *grpc.ClientConn) {
+				resp, err := gitalypb.NewRepositoryServiceClient(cc).ObjectFormat(ctx, &gitalypb.ObjectFormatRequest{
+					Repository: &gitalypb.Repository{
+						StorageName:                   "default",
+						GitAlternateObjectDirectories: []string{"non-default"},
+					},
+				})
+				testhelper.RequireGrpcError(t,
+					status.Error(codes.Internal, "restore snapshot relative path: "+storagemgr.ErrQuarantineWithoutSnapshotRelativePath.Error()),
+					err,
+				)
+				require.Nil(t, resp)
+			},
+		},
+		{
 			desc: "repository with object directory does not start a transaction",
 			performRequest: func(t *testing.T, ctx context.Context, cc *grpc.ClientConn) {
+				ctx = metadata.AppendToOutgoingContext(ctx, storagemgr.MetadataKeySnapshotRelativePath, "snapshot-relative-path")
+
 				resp, err := gitalypb.NewRepositoryServiceClient(cc).ObjectFormat(ctx, &gitalypb.ObjectFormatRequest{
 					Repository: &gitalypb.Repository{
 						StorageName:        "default",
@@ -585,10 +623,17 @@ messages and behavior by erroring out the requests before they even hit this int
 				require.NoError(t, err)
 				testhelper.ProtoEqual(t, &gitalypb.ObjectFormatResponse{}, resp)
 			},
+			expectedRepository: &gitalypb.Repository{
+				StorageName:        "default",
+				RelativePath:       "snapshot-relative-path",
+				GitObjectDirectory: "non-default",
+			},
 		},
 		{
 			desc: "repository with alternate object directory does not start a transaction",
 			performRequest: func(t *testing.T, ctx context.Context, cc *grpc.ClientConn) {
+				ctx = metadata.AppendToOutgoingContext(ctx, storagemgr.MetadataKeySnapshotRelativePath, "snapshot-relative-path")
+
 				resp, err := gitalypb.NewRepositoryServiceClient(cc).ObjectFormat(ctx, &gitalypb.ObjectFormatRequest{
 					Repository: &gitalypb.Repository{
 						StorageName:                   "default",
@@ -597,6 +642,11 @@ messages and behavior by erroring out the requests before they even hit this int
 				})
 				require.NoError(t, err)
 				testhelper.ProtoEqual(t, &gitalypb.ObjectFormatResponse{}, resp)
+			},
+			expectedRepository: &gitalypb.Repository{
+				StorageName:                   "default",
+				RelativePath:                  "snapshot-relative-path",
+				GitAlternateObjectDirectories: []string{"non-default"},
 			},
 		},
 		{
@@ -642,6 +692,7 @@ messages and behavior by erroring out the requests before they even hit this int
 				gitalypb.RegisterRepositoryServiceServer(server, mockRepositoryService{
 					objectFormatFunc: func(ctx context.Context, req *gitalypb.ObjectFormatRequest) (*gitalypb.ObjectFormatResponse, error) {
 						assertHandler(ctx)
+						testhelper.ProtoEqual(t, tc.expectedRepository, req.Repository)
 						return &gitalypb.ObjectFormatResponse{}, nil
 					},
 					setCustomHooksFunc: func(stream gitalypb.RepositoryService_SetCustomHooksServer) error {
