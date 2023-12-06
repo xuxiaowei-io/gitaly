@@ -39,19 +39,13 @@ type transactionsCondition func(context.Context) bool
 func transactionsEnabled(context.Context) bool  { return true }
 func transactionsDisabled(context.Context) bool { return false }
 
-func transactionsFlag(flag featureflag.FeatureFlag) transactionsCondition {
-	return func(ctx context.Context) bool {
-		return flag.IsEnabled(ctx)
-	}
-}
-
 // transactionRPCs contains the list of repository-scoped mutating calls which may take part in
 // transactions. An optional feature flag can be added to conditionally enable transactional
 // behaviour. If none is given, it's always enabled.
 var transactionRPCs = map[string]transactionsCondition{
 	"/gitaly.CleanupService/ApplyBfgObjectMapStream":         transactionsEnabled,
 	"/gitaly.ConflictsService/ResolveConflicts":              transactionsEnabled,
-	"/gitaly.ObjectPoolService/DisconnectGitAlternates":      transactionsFlag(featureflag.TransactionalAlternatesDisconnect),
+	"/gitaly.ObjectPoolService/DisconnectGitAlternates":      transactionsEnabled,
 	"/gitaly.ObjectPoolService/FetchIntoObjectPool":          transactionsEnabled,
 	"/gitaly.ObjectPoolService/LinkRepositoryToObjectPool":   transactionsEnabled,
 	"/gitaly.OperationService/UserApplyPatch":                transactionsEnabled,
