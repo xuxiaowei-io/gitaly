@@ -156,7 +156,6 @@ func reverseIndexFileDirectoryEntry(cfg config.Cfg) testhelper.DirectoryEntry {
 func TestTransactionManager(t *testing.T) {
 	t.Parallel()
 
-	umask := testhelper.Umask()
 	ctx := testhelper.Context(t)
 
 	// partitionID is the partition ID used in the tests for the TransactionManager.
@@ -248,12 +247,42 @@ func TestTransactionManager(t *testing.T) {
 	relativePath := gittest.NewRepositoryName(t)
 	setup := setupTest(t, relativePath)
 
-	testCases := []transactionTestCase{
+	var testCases []transactionTestCase
+	subTests := [][]transactionTestCase{
+		generateCommonTests(t, ctx, setup),
+		generateInvalidReferencesTests(t, setup),
+		generateModifyReferencesTests(t, setup),
+		generateCreateRepositoryTests(t, setup),
+		generateDeleteRepositoryTests(t, setup),
+		generateDefaultBranchTests(t, setup),
+		generateAlternateTests(t, setup),
+		generateCustomHooksTests(t, setup),
+	}
+	for _, subCases := range subTests {
+		testCases = append(testCases, subCases...)
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
+
+			// Setup the repository with the exact same state as what was used to build the test cases.
+			setup := setupTest(t, relativePath)
+			runTransactionTest(t, ctx, tc, setup)
+		})
+	}
+}
+
+func generateCommonTests(t *testing.T, ctx context.Context, setup testTransactionSetup) []transactionTestCase {
+	umask := testhelper.Umask()
+
+	return []transactionTestCase{
 		{
 			desc: "begin returns if context is canceled before initialization",
 			steps: steps{
 				Begin{
-					RelativePath: relativePath,
+					RelativePath: setup.RelativePath,
 					Context: func() context.Context {
 						ctx, cancel := context.WithCancel(ctx)
 						cancel()
@@ -272,7 +301,7 @@ func TestTransactionManager(t *testing.T) {
 			steps: steps{
 				StartManager{},
 				Begin{
-					RelativePath: relativePath,
+					RelativePath: setup.RelativePath,
 				},
 				CloseManager{},
 				Commit{
@@ -294,7 +323,7 @@ func TestTransactionManager(t *testing.T) {
 						},
 					},
 					Begin{
-						RelativePath: relativePath,
+						RelativePath: setup.RelativePath,
 					},
 					Commit{
 						Context: ctx,
@@ -306,10 +335,10 @@ func TestTransactionManager(t *testing.T) {
 				},
 				expectedState: StateAssertion{
 					Database: DatabaseState{
-						string(keyAppliedLSN(partitionID)): LSN(1).toProto(),
+						string(keyAppliedLSN(setup.PartitionID)): LSN(1).toProto(),
 					},
 					Repositories: RepositoryStates{
-						relativePath: {
+						setup.RelativePath: {
 							DefaultBranch: "refs/heads/main",
 							References:    []git.Reference{{Name: "refs/heads/main", Target: setup.Commits.First.OID.String()}},
 						},
@@ -330,7 +359,7 @@ func TestTransactionManager(t *testing.T) {
 					},
 				},
 				Begin{
-					RelativePath: relativePath,
+					RelativePath: setup.RelativePath,
 				},
 				CloseManager{},
 				Commit{
@@ -349,7 +378,7 @@ func TestTransactionManager(t *testing.T) {
 					},
 				},
 				Begin{
-					RelativePath: relativePath,
+					RelativePath: setup.RelativePath,
 				},
 				Commit{
 					ReferenceUpdates: ReferenceUpdates{
@@ -360,8 +389,8 @@ func TestTransactionManager(t *testing.T) {
 			},
 			expectedState: StateAssertion{
 				Database: DatabaseState{
-					string(keyLogEntry(partitionID, 1)): &gitalypb.LogEntry{
-						RelativePath: relativePath,
+					string(keyLogEntry(setup.PartitionID, 1)): &gitalypb.LogEntry{
+						RelativePath: setup.RelativePath,
 						ReferenceTransactions: []*gitalypb.LogEntry_ReferenceTransaction{
 							{
 								Changes: []*gitalypb.LogEntry_ReferenceTransaction_Change{
@@ -382,16 +411,16 @@ func TestTransactionManager(t *testing.T) {
 				StartManager{},
 				Begin{
 					TransactionID: 1,
-					RelativePath:  relativePath,
+					RelativePath:  setup.RelativePath,
 				},
 				Begin{
 					TransactionID: 2,
-					RelativePath:  relativePath,
+					RelativePath:  setup.RelativePath,
 				},
 				RepositoryAssertion{
 					TransactionID: 1,
 					Repositories: RepositoryStates{
-						relativePath: {
+						setup.RelativePath: {
 							DefaultBranch: "refs/heads/main",
 							Objects: []git.ObjectID{
 								setup.ObjectHash.EmptyTreeOID,
@@ -406,7 +435,7 @@ func TestTransactionManager(t *testing.T) {
 				RepositoryAssertion{
 					TransactionID: 2,
 					Repositories: RepositoryStates{
-						relativePath: {
+						setup.RelativePath: {
 							DefaultBranch: "refs/heads/main",
 							Objects: []git.ObjectID{
 								setup.ObjectHash.EmptyTreeOID,
@@ -432,7 +461,7 @@ func TestTransactionManager(t *testing.T) {
 				RepositoryAssertion{
 					TransactionID: 2,
 					Repositories: RepositoryStates{
-						relativePath: {
+						setup.RelativePath: {
 							DefaultBranch: "refs/heads/main",
 							Objects: []git.ObjectID{
 								setup.ObjectHash.EmptyTreeOID,
@@ -446,14 +475,14 @@ func TestTransactionManager(t *testing.T) {
 				},
 				Begin{
 					TransactionID:       3,
-					RelativePath:        relativePath,
+					RelativePath:        setup.RelativePath,
 					ExpectedSnapshotLSN: 1,
 				},
 				// Transaction 3 is should see the new changes as it began after transaction 1 was committed.
 				RepositoryAssertion{
 					TransactionID: 3,
 					Repositories: RepositoryStates{
-						relativePath: {
+						setup.RelativePath: {
 							DefaultBranch: "refs/heads/main",
 							References: []git.Reference{
 								{Name: "refs/heads/main", Target: setup.Commits.First.OID.String()},
@@ -485,7 +514,7 @@ func TestTransactionManager(t *testing.T) {
 				},
 				Begin{
 					TransactionID:       4,
-					RelativePath:        relativePath,
+					RelativePath:        setup.RelativePath,
 					ExpectedSnapshotLSN: 2,
 				},
 				Rollback{
@@ -493,7 +522,7 @@ func TestTransactionManager(t *testing.T) {
 				},
 				Begin{
 					TransactionID:       5,
-					RelativePath:        relativePath,
+					RelativePath:        setup.RelativePath,
 					ExpectedSnapshotLSN: 2,
 				},
 				Commit{
@@ -505,7 +534,7 @@ func TestTransactionManager(t *testing.T) {
 				},
 				Begin{
 					TransactionID:       6,
-					RelativePath:        relativePath,
+					RelativePath:        setup.RelativePath,
 					ExpectedSnapshotLSN: 3,
 				},
 				Rollback{
@@ -517,14 +546,14 @@ func TestTransactionManager(t *testing.T) {
 			},
 			expectedState: StateAssertion{
 				Database: DatabaseState{
-					string(keyAppliedLSN(partitionID)): LSN(3).toProto(),
+					string(keyAppliedLSN(setup.PartitionID)): LSN(3).toProto(),
 				},
 				Directory: testhelper.DirectoryState{
 					"/":    {Mode: fs.ModeDir | perm.PrivateDir},
 					"/wal": {Mode: fs.ModeDir | perm.PrivateDir},
 				},
 				Repositories: RepositoryStates{
-					relativePath: {
+					setup.RelativePath: {
 						DefaultBranch: "refs/heads/main",
 						References: []git.Reference{
 							{Name: "refs/heads/main", Target: setup.Commits.Third.OID.String()},
@@ -543,7 +572,7 @@ func TestTransactionManager(t *testing.T) {
 				StartManager{},
 				Begin{
 					TransactionID: 1,
-					RelativePath:  relativePath,
+					RelativePath:  setup.RelativePath,
 				},
 				Commit{
 					TransactionID: 1,
@@ -557,7 +586,7 @@ func TestTransactionManager(t *testing.T) {
 				},
 				Begin{
 					TransactionID: 2,
-					RelativePath:  relativePath,
+					RelativePath:  setup.RelativePath,
 				},
 				Commit{
 					TransactionID: 2,
@@ -569,7 +598,7 @@ func TestTransactionManager(t *testing.T) {
 			},
 			expectedState: StateAssertion{
 				Database: DatabaseState{
-					string(keyAppliedLSN(partitionID)): LSN(1).toProto(),
+					string(keyAppliedLSN(setup.PartitionID)): LSN(1).toProto(),
 				},
 				Directory: testhelper.DirectoryState{
 					"/":                  {Mode: fs.ModeDir | perm.PrivateDir},
@@ -586,7 +615,7 @@ func TestTransactionManager(t *testing.T) {
 					),
 				},
 				Repositories: RepositoryStates{
-					relativePath: {
+					setup.RelativePath: {
 						DefaultBranch: "refs/heads/main",
 						References: []git.Reference{
 							{Name: "refs/heads/main", Target: setup.Commits.First.OID.String()},
@@ -606,7 +635,7 @@ func TestTransactionManager(t *testing.T) {
 				StartManager{},
 				Begin{
 					TransactionID: 1,
-					RelativePath:  relativePath,
+					RelativePath:  setup.RelativePath,
 				},
 				Commit{
 					TransactionID: 1,
@@ -620,7 +649,7 @@ func TestTransactionManager(t *testing.T) {
 				},
 				Begin{
 					TransactionID:       2,
-					RelativePath:        relativePath,
+					RelativePath:        setup.RelativePath,
 					ExpectedSnapshotLSN: 1,
 				},
 				// Point main to the first commit so the second one is unreachable.
@@ -644,7 +673,7 @@ func TestTransactionManager(t *testing.T) {
 				},
 				Begin{
 					TransactionID:       3,
-					RelativePath:        relativePath,
+					RelativePath:        setup.RelativePath,
 					ExpectedSnapshotLSN: 2,
 				},
 				Commit{
@@ -670,7 +699,7 @@ func TestTransactionManager(t *testing.T) {
 			},
 			expectedState: StateAssertion{
 				Database: DatabaseState{
-					string(keyAppliedLSN(partitionID)): LSN(3).toProto(),
+					string(keyAppliedLSN(setup.PartitionID)): LSN(3).toProto(),
 				},
 				Directory: testhelper.DirectoryState{
 					"/":                  {Mode: fs.ModeDir | perm.PrivateDir},
@@ -698,7 +727,7 @@ func TestTransactionManager(t *testing.T) {
 					),
 				},
 				Repositories: RepositoryStates{
-					relativePath: {
+					setup.RelativePath: {
 						DefaultBranch: "refs/heads/main",
 						References: []git.Reference{
 							{Name: "refs/heads/main", Target: setup.Commits.Third.OID.String()},
@@ -727,7 +756,7 @@ func TestTransactionManager(t *testing.T) {
 				},
 				Begin{
 					TransactionID: 1,
-					RelativePath:  relativePath,
+					RelativePath:  setup.RelativePath,
 				},
 				Commit{
 					TransactionID: 1,
@@ -744,7 +773,7 @@ func TestTransactionManager(t *testing.T) {
 			},
 			expectedState: StateAssertion{
 				Database: DatabaseState{
-					string(keyAppliedLSN(partitionID)): LSN(1).toProto(),
+					string(keyAppliedLSN(setup.PartitionID)): LSN(1).toProto(),
 				},
 				Directory: testhelper.DirectoryState{
 					"/":                  {Mode: fs.ModeDir | perm.PrivateDir},
@@ -761,7 +790,7 @@ func TestTransactionManager(t *testing.T) {
 					),
 				},
 				Repositories: RepositoryStates{
-					relativePath: {
+					setup.RelativePath: {
 						DefaultBranch: "refs/heads/main",
 						References: []git.Reference{
 							{Name: "refs/heads/main", Target: setup.Commits.First.OID.String()},
@@ -781,7 +810,7 @@ func TestTransactionManager(t *testing.T) {
 				StartManager{},
 				Begin{
 					TransactionID: 1,
-					RelativePath:  relativePath,
+					RelativePath:  setup.RelativePath,
 				},
 				Commit{
 					TransactionID: 1,
@@ -794,7 +823,7 @@ func TestTransactionManager(t *testing.T) {
 			},
 			expectedState: StateAssertion{
 				Repositories: RepositoryStates{
-					relativePath: {
+					setup.RelativePath: {
 						Objects: []git.ObjectID{},
 					},
 				},
@@ -807,7 +836,7 @@ func TestTransactionManager(t *testing.T) {
 				StartManager{},
 				Begin{
 					TransactionID: 1,
-					RelativePath:  relativePath,
+					RelativePath:  setup.RelativePath,
 				},
 				Commit{
 					TransactionID: 1,
@@ -818,7 +847,7 @@ func TestTransactionManager(t *testing.T) {
 				},
 				Begin{
 					TransactionID:       2,
-					RelativePath:        relativePath,
+					RelativePath:        setup.RelativePath,
 					ExpectedSnapshotLSN: 1,
 				},
 				Commit{
@@ -832,7 +861,7 @@ func TestTransactionManager(t *testing.T) {
 			},
 			expectedState: StateAssertion{
 				Database: DatabaseState{
-					string(keyAppliedLSN(partitionID)): LSN(1).toProto(),
+					string(keyAppliedLSN(setup.PartitionID)): LSN(1).toProto(),
 				},
 				Directory: testhelper.DirectoryState{
 					"/":                  {Mode: fs.ModeDir | perm.PrivateDir},
@@ -850,7 +879,7 @@ func TestTransactionManager(t *testing.T) {
 				},
 
 				Repositories: RepositoryStates{
-					relativePath: {
+					setup.RelativePath: {
 						DefaultBranch: "refs/heads/main",
 						References: []git.Reference{
 							{Name: "refs/heads/main", Target: setup.Commits.First.OID.String()},
@@ -870,7 +899,7 @@ func TestTransactionManager(t *testing.T) {
 				StartManager{},
 				Begin{
 					TransactionID: 1,
-					RelativePath:  relativePath,
+					RelativePath:  setup.RelativePath,
 				},
 				Commit{
 					TransactionID:    1,
@@ -879,14 +908,14 @@ func TestTransactionManager(t *testing.T) {
 			},
 			expectedState: StateAssertion{
 				Database: DatabaseState{
-					string(keyAppliedLSN(partitionID)): LSN(1).toProto(),
+					string(keyAppliedLSN(setup.PartitionID)): LSN(1).toProto(),
 				},
 				Directory: testhelper.DirectoryState{
 					"/":    {Mode: fs.ModeDir | perm.PrivateDir},
 					"/wal": {Mode: fs.ModeDir | perm.PrivateDir},
 				},
 				Repositories: RepositoryStates{
-					relativePath: {
+					setup.RelativePath: {
 						Objects: []git.ObjectID{},
 					},
 				},
@@ -898,7 +927,7 @@ func TestTransactionManager(t *testing.T) {
 				Prune{},
 				StartManager{},
 				Begin{
-					RelativePath: relativePath,
+					RelativePath: setup.RelativePath,
 				},
 				Commit{
 					QuarantinedPacks: [][]byte{
@@ -911,7 +940,7 @@ func TestTransactionManager(t *testing.T) {
 			},
 			expectedState: StateAssertion{
 				Database: DatabaseState{
-					string(keyAppliedLSN(partitionID)): LSN(1).toProto(),
+					string(keyAppliedLSN(setup.PartitionID)): LSN(1).toProto(),
 				},
 				Directory: testhelper.DirectoryState{
 					"/":                  {Mode: fs.ModeDir | perm.PrivateDir},
@@ -929,7 +958,7 @@ func TestTransactionManager(t *testing.T) {
 					),
 				},
 				Repositories: RepositoryStates{
-					relativePath: {
+					setup.RelativePath: {
 						Objects: []git.ObjectID{
 							setup.ObjectHash.EmptyTreeOID,
 							setup.Commits.First.OID,
@@ -945,7 +974,7 @@ func TestTransactionManager(t *testing.T) {
 				Prune{},
 				StartManager{},
 				Begin{
-					RelativePath: relativePath,
+					RelativePath: setup.RelativePath,
 				},
 				Commit{
 					QuarantinedPacks: [][]byte{
@@ -958,7 +987,7 @@ func TestTransactionManager(t *testing.T) {
 			},
 			expectedState: StateAssertion{
 				Database: DatabaseState{
-					string(keyAppliedLSN(partitionID)): LSN(1).toProto(),
+					string(keyAppliedLSN(setup.PartitionID)): LSN(1).toProto(),
 				},
 				Directory: testhelper.DirectoryState{
 					"/":                  {Mode: fs.ModeDir | perm.PrivateDir},
@@ -977,7 +1006,7 @@ func TestTransactionManager(t *testing.T) {
 					),
 				},
 				Repositories: RepositoryStates{
-					relativePath: {
+					setup.RelativePath: {
 						Objects: []git.ObjectID{
 							setup.ObjectHash.EmptyTreeOID,
 							setup.Commits.First.OID,
@@ -994,7 +1023,7 @@ func TestTransactionManager(t *testing.T) {
 				Prune{},
 				StartManager{},
 				Begin{
-					RelativePath: relativePath,
+					RelativePath: setup.RelativePath,
 				},
 				Commit{
 					QuarantinedPacks: [][]byte{
@@ -1008,7 +1037,7 @@ func TestTransactionManager(t *testing.T) {
 			},
 			expectedState: StateAssertion{
 				Repositories: RepositoryStates{
-					relativePath: {
+					setup.RelativePath: {
 						Objects: []git.ObjectID{},
 					},
 				},
@@ -1021,7 +1050,7 @@ func TestTransactionManager(t *testing.T) {
 				StartManager{},
 				Begin{
 					TransactionID: 1,
-					RelativePath:  relativePath,
+					RelativePath:  setup.RelativePath,
 				},
 				Commit{
 					TransactionID: 1,
@@ -1032,7 +1061,7 @@ func TestTransactionManager(t *testing.T) {
 				},
 				Begin{
 					TransactionID:       2,
-					RelativePath:        relativePath,
+					RelativePath:        setup.RelativePath,
 					ExpectedSnapshotLSN: 1,
 				},
 				Commit{
@@ -1045,7 +1074,7 @@ func TestTransactionManager(t *testing.T) {
 			},
 			expectedState: StateAssertion{
 				Database: DatabaseState{
-					string(keyAppliedLSN(partitionID)): LSN(2).toProto(),
+					string(keyAppliedLSN(setup.PartitionID)): LSN(2).toProto(),
 				},
 				Directory: testhelper.DirectoryState{
 					"/":                  {Mode: fs.ModeDir | perm.PrivateDir},
@@ -1062,7 +1091,7 @@ func TestTransactionManager(t *testing.T) {
 					),
 				},
 				Repositories: RepositoryStates{
-					relativePath: {
+					setup.RelativePath: {
 						Objects: []git.ObjectID{
 							setup.ObjectHash.EmptyTreeOID,
 							setup.Commits.First.OID,
@@ -1078,7 +1107,7 @@ func TestTransactionManager(t *testing.T) {
 				StartManager{},
 				Begin{
 					TransactionID: 1,
-					RelativePath:  relativePath,
+					RelativePath:  setup.RelativePath,
 				},
 				Commit{
 					TransactionID: 1,
@@ -1089,12 +1118,12 @@ func TestTransactionManager(t *testing.T) {
 				},
 				Begin{
 					TransactionID:       2,
-					RelativePath:        relativePath,
+					RelativePath:        setup.RelativePath,
 					ExpectedSnapshotLSN: 1,
 				},
 				Begin{
 					TransactionID:       3,
-					RelativePath:        relativePath,
+					RelativePath:        setup.RelativePath,
 					ExpectedSnapshotLSN: 1,
 				},
 				Commit{
@@ -1123,7 +1152,7 @@ func TestTransactionManager(t *testing.T) {
 			},
 			expectedState: StateAssertion{
 				Database: DatabaseState{
-					string(keyAppliedLSN(partitionID)): LSN(2).toProto(),
+					string(keyAppliedLSN(setup.PartitionID)): LSN(2).toProto(),
 				},
 				Directory: testhelper.DirectoryState{
 					"/":                  {Mode: fs.ModeDir | perm.PrivateDir},
@@ -1140,7 +1169,7 @@ func TestTransactionManager(t *testing.T) {
 					),
 				},
 				Repositories: RepositoryStates{
-					relativePath: {
+					setup.RelativePath: {
 						Objects: []git.ObjectID{},
 					},
 				},
@@ -1156,7 +1185,7 @@ func TestTransactionManager(t *testing.T) {
 					//
 					// The Manager starts up and we expect the pack file to be gone at the end of the test.
 					ModifyStorage: func(_ testing.TB, _ config.Cfg, storagePath string) {
-						packFilePath := packFilePath(walFilesPathForLSN(filepath.Join(storagePath, relativePath), 1))
+						packFilePath := packFilePath(walFilesPathForLSN(filepath.Join(storagePath, setup.RelativePath), 1))
 						require.NoError(t, os.MkdirAll(filepath.Dir(packFilePath), perm.PrivateDir))
 						require.NoError(t, os.WriteFile(
 							packFilePath,
@@ -1174,7 +1203,7 @@ func TestTransactionManager(t *testing.T) {
 				StartManager{},
 				Begin{
 					TransactionID: 1,
-					RelativePath:  relativePath,
+					RelativePath:  setup.RelativePath,
 				},
 				RepositoryAssertion{
 					TransactionID: 1,
@@ -1204,7 +1233,7 @@ func TestTransactionManager(t *testing.T) {
 					ExpectedError: errSimulatedCrash,
 				},
 				Begin{
-					RelativePath:  relativePath,
+					RelativePath:  setup.RelativePath,
 					ExpectedError: errInitializationFailed,
 				},
 				AssertManager{
@@ -1221,7 +1250,7 @@ func TestTransactionManager(t *testing.T) {
 			steps: steps{
 				StartManager{},
 				Begin{
-					RelativePath: relativePath,
+					RelativePath: setup.RelativePath,
 				},
 				Rollback{},
 				Rollback{
@@ -1234,7 +1263,7 @@ func TestTransactionManager(t *testing.T) {
 			steps: steps{
 				StartManager{},
 				Begin{
-					RelativePath: relativePath,
+					RelativePath: setup.RelativePath,
 				},
 				Commit{},
 				Rollback{
@@ -1243,7 +1272,7 @@ func TestTransactionManager(t *testing.T) {
 			},
 			expectedState: StateAssertion{
 				Database: DatabaseState{
-					string(keyAppliedLSN(partitionID)): LSN(1).toProto(),
+					string(keyAppliedLSN(setup.PartitionID)): LSN(1).toProto(),
 				},
 			},
 		},
@@ -1252,7 +1281,7 @@ func TestTransactionManager(t *testing.T) {
 			steps: steps{
 				StartManager{},
 				Begin{
-					RelativePath: relativePath,
+					RelativePath: setup.RelativePath,
 				},
 				Commit{},
 				Commit{
@@ -1261,7 +1290,7 @@ func TestTransactionManager(t *testing.T) {
 			},
 			expectedState: StateAssertion{
 				Database: DatabaseState{
-					string(keyAppliedLSN(partitionID)): LSN(1).toProto(),
+					string(keyAppliedLSN(setup.PartitionID)): LSN(1).toProto(),
 				},
 			},
 		},
@@ -1270,7 +1299,7 @@ func TestTransactionManager(t *testing.T) {
 			steps: steps{
 				StartManager{},
 				Begin{
-					RelativePath: relativePath,
+					RelativePath: setup.RelativePath,
 				},
 				Rollback{},
 				Commit{
@@ -1283,7 +1312,7 @@ func TestTransactionManager(t *testing.T) {
 			steps: steps{
 				StartManager{},
 				Begin{
-					RelativePath: relativePath,
+					RelativePath: setup.RelativePath,
 					ReadOnly:     true,
 				},
 				Commit{},
@@ -1294,7 +1323,7 @@ func TestTransactionManager(t *testing.T) {
 			steps: steps{
 				StartManager{},
 				Begin{
-					RelativePath: relativePath,
+					RelativePath: setup.RelativePath,
 					ReadOnly:     true,
 				},
 				Commit{
@@ -1310,7 +1339,7 @@ func TestTransactionManager(t *testing.T) {
 			steps: steps{
 				StartManager{},
 				Begin{
-					RelativePath: relativePath,
+					RelativePath: setup.RelativePath,
 					ReadOnly:     true,
 				},
 				Commit{
@@ -1326,7 +1355,7 @@ func TestTransactionManager(t *testing.T) {
 			steps: steps{
 				StartManager{},
 				Begin{
-					RelativePath: relativePath,
+					RelativePath: setup.RelativePath,
 					ReadOnly:     true,
 				},
 				Commit{
@@ -1342,7 +1371,7 @@ func TestTransactionManager(t *testing.T) {
 			steps: steps{
 				StartManager{},
 				Begin{
-					RelativePath: relativePath,
+					RelativePath: setup.RelativePath,
 					ReadOnly:     true,
 				},
 				Commit{
@@ -1358,11 +1387,11 @@ func TestTransactionManager(t *testing.T) {
 				StartManager{},
 				Begin{
 					TransactionID: 1,
-					RelativePath:  relativePath,
+					RelativePath:  setup.RelativePath,
 				},
 				Begin{
 					TransactionID: 2,
-					RelativePath:  relativePath,
+					RelativePath:  setup.RelativePath,
 				},
 				Commit{
 					TransactionID: 2,
@@ -1379,14 +1408,14 @@ func TestTransactionManager(t *testing.T) {
 				},
 				Begin{
 					TransactionID:       3,
-					RelativePath:        relativePath,
+					RelativePath:        setup.RelativePath,
 					ExpectedSnapshotLSN: 1,
 				},
 				// This transaction was started before the commit, so it should see the original state.
 				RepositoryAssertion{
 					TransactionID: 1,
 					Repositories: RepositoryStates{
-						relativePath: {
+						setup.RelativePath: {
 							DefaultBranch: "refs/heads/main",
 						},
 					},
@@ -1395,7 +1424,7 @@ func TestTransactionManager(t *testing.T) {
 				RepositoryAssertion{
 					TransactionID: 3,
 					Repositories: RepositoryStates{
-						relativePath: {
+						setup.RelativePath: {
 							DefaultBranch: "refs/heads/new-head",
 							References: []git.Reference{
 								{Name: "refs/heads/main", Target: setup.Commits.First.OID.String()},
@@ -1425,7 +1454,7 @@ func TestTransactionManager(t *testing.T) {
 			},
 			expectedState: StateAssertion{
 				Database: DatabaseState{
-					string(keyAppliedLSN(partitionID)): LSN(1).toProto(),
+					string(keyAppliedLSN(setup.PartitionID)): LSN(1).toProto(),
 				},
 				Directory: testhelper.DirectoryState{
 					"/":                  {Mode: fs.ModeDir | perm.PrivateDir},
@@ -1442,7 +1471,7 @@ func TestTransactionManager(t *testing.T) {
 					),
 				},
 				Repositories: RepositoryStates{
-					relativePath: {
+					setup.RelativePath: {
 						DefaultBranch: "refs/heads/new-head",
 						References:    []git.Reference{{Name: "refs/heads/main", Target: setup.Commits.First.OID.String()}},
 						Objects: []git.ObjectID{
@@ -1471,30 +1500,6 @@ func TestTransactionManager(t *testing.T) {
 				},
 			},
 		},
-	}
-
-	subTests := [][]transactionTestCase{
-		generateInvalidReferencesTests(t, setup),
-		generateModifyReferencesTests(t, setup),
-		generateCreateRepositoryTests(t, setup),
-		generateDeleteRepositoryTests(t, setup),
-		generateDefaultBranchTests(t, setup),
-		generateAlternateTests(t, setup),
-		generateCustomHooksTests(t, setup),
-	}
-	for _, subCases := range subTests {
-		testCases = append(testCases, subCases...)
-	}
-
-	for _, tc := range testCases {
-		tc := tc
-		t.Run(tc.desc, func(t *testing.T) {
-			t.Parallel()
-
-			// Setup the repository with the exact same state as what was used to build the test cases.
-			setup := setupTest(t, relativePath)
-			runTransactionTest(t, ctx, tc, setup)
-		})
 	}
 }
 
