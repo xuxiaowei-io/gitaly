@@ -5,6 +5,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service/analysis"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service/blob"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service/cleanup"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/service/commit"
@@ -51,6 +52,7 @@ var (
 
 // RegisterAll will register all the known gRPC services on  the provided gRPC service instance.
 func RegisterAll(srv *grpc.Server, deps *service.Dependencies) {
+	gitalypb.RegisterAnalysisServiceServer(srv, analysis.NewServer(deps))
 	gitalypb.RegisterBlobServiceServer(srv, blob.NewServer(deps))
 	gitalypb.RegisterCleanupServiceServer(srv, cleanup.NewServer(deps))
 	gitalypb.RegisterCommitServiceServer(srv, commit.NewServer(deps))
