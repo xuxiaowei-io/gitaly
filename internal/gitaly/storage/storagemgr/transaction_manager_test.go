@@ -153,6 +153,86 @@ func reverseIndexFileDirectoryEntry(cfg config.Cfg) testhelper.DirectoryEntry {
 	}
 }
 
+func setupTest(t *testing.T, ctx context.Context, testPartitionID partitionID, relativePath string) testTransactionSetup {
+	t.Helper()
+
+	cfg := testcfg.Build(t)
+
+	repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
+		SkipCreationViaService: true,
+		RelativePath:           relativePath,
+	})
+
+	firstCommitOID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents())
+	secondCommitOID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(firstCommitOID))
+	thirdCommitOID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(secondCommitOID))
+	divergingCommitOID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(firstCommitOID), gittest.WithMessage("diverging commit"))
+
+	cmdFactory := gittest.NewCommandFactory(t, cfg)
+	catfileCache := catfile.NewCache(cfg)
+	t.Cleanup(catfileCache.Stop)
+
+	logger := testhelper.NewLogger(t)
+	locator := config.NewLocator(cfg)
+	localRepo := localrepo.New(
+		logger,
+		locator,
+		cmdFactory,
+		catfileCache,
+		repo,
+	)
+
+	objectHash, err := localRepo.ObjectHash(ctx)
+	require.NoError(t, err)
+
+	hasher := objectHash.Hash()
+	_, err = hasher.Write([]byte("content does not matter"))
+	require.NoError(t, err)
+	nonExistentOID, err := objectHash.FromHex(hex.EncodeToString(hasher.Sum(nil)))
+	require.NoError(t, err)
+
+	packCommit := func(oid git.ObjectID) []byte {
+		t.Helper()
+
+		var pack bytes.Buffer
+		require.NoError(t,
+			localRepo.PackObjects(ctx, strings.NewReader(oid.String()), &pack),
+		)
+
+		return pack.Bytes()
+	}
+
+	return testTransactionSetup{
+		PartitionID:       testPartitionID,
+		RelativePath:      relativePath,
+		RepositoryPath:    repoPath,
+		Repo:              localRepo,
+		Config:            cfg,
+		ObjectHash:        objectHash,
+		CommandFactory:    cmdFactory,
+		RepositoryFactory: localrepo.NewFactory(logger, locator, cmdFactory, catfileCache),
+		NonExistentOID:    nonExistentOID,
+		Commits: testTransactionCommits{
+			First: testTransactionCommit{
+				OID:  firstCommitOID,
+				Pack: packCommit(firstCommitOID),
+			},
+			Second: testTransactionCommit{
+				OID:  secondCommitOID,
+				Pack: packCommit(secondCommitOID),
+			},
+			Third: testTransactionCommit{
+				OID:  thirdCommitOID,
+				Pack: packCommit(thirdCommitOID),
+			},
+			Diverging: testTransactionCommit{
+				OID:  divergingCommitOID,
+				Pack: packCommit(divergingCommitOID),
+			},
+		},
+	}
+}
+
 func TestTransactionManager(t *testing.T) {
 	t.Parallel()
 
@@ -161,91 +241,11 @@ func TestTransactionManager(t *testing.T) {
 	// testPartitionID is the partition ID used in the tests for the TransactionManager.
 	const testPartitionID partitionID = 1
 
-	setupTest := func(t *testing.T, relativePath string) testTransactionSetup {
-		t.Helper()
-
-		cfg := testcfg.Build(t)
-
-		repo, repoPath := gittest.CreateRepository(t, ctx, cfg, gittest.CreateRepositoryConfig{
-			SkipCreationViaService: true,
-			RelativePath:           relativePath,
-		})
-
-		firstCommitOID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents())
-		secondCommitOID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(firstCommitOID))
-		thirdCommitOID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(secondCommitOID))
-		divergingCommitOID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithParents(firstCommitOID), gittest.WithMessage("diverging commit"))
-
-		cmdFactory := gittest.NewCommandFactory(t, cfg)
-		catfileCache := catfile.NewCache(cfg)
-		t.Cleanup(catfileCache.Stop)
-
-		logger := testhelper.NewLogger(t)
-		locator := config.NewLocator(cfg)
-		localRepo := localrepo.New(
-			logger,
-			locator,
-			cmdFactory,
-			catfileCache,
-			repo,
-		)
-
-		objectHash, err := localRepo.ObjectHash(ctx)
-		require.NoError(t, err)
-
-		hasher := objectHash.Hash()
-		_, err = hasher.Write([]byte("content does not matter"))
-		require.NoError(t, err)
-		nonExistentOID, err := objectHash.FromHex(hex.EncodeToString(hasher.Sum(nil)))
-		require.NoError(t, err)
-
-		packCommit := func(oid git.ObjectID) []byte {
-			t.Helper()
-
-			var pack bytes.Buffer
-			require.NoError(t,
-				localRepo.PackObjects(ctx, strings.NewReader(oid.String()), &pack),
-			)
-
-			return pack.Bytes()
-		}
-
-		return testTransactionSetup{
-			PartitionID:       testPartitionID,
-			RelativePath:      relativePath,
-			RepositoryPath:    repoPath,
-			Repo:              localRepo,
-			Config:            cfg,
-			ObjectHash:        objectHash,
-			CommandFactory:    cmdFactory,
-			RepositoryFactory: localrepo.NewFactory(logger, locator, cmdFactory, catfileCache),
-			NonExistentOID:    nonExistentOID,
-			Commits: testTransactionCommits{
-				First: testTransactionCommit{
-					OID:  firstCommitOID,
-					Pack: packCommit(firstCommitOID),
-				},
-				Second: testTransactionCommit{
-					OID:  secondCommitOID,
-					Pack: packCommit(secondCommitOID),
-				},
-				Third: testTransactionCommit{
-					OID:  thirdCommitOID,
-					Pack: packCommit(thirdCommitOID),
-				},
-				Diverging: testTransactionCommit{
-					OID:  divergingCommitOID,
-					Pack: packCommit(divergingCommitOID),
-				},
-			},
-		}
-	}
-
 	// A clean repository is setup for each test. We build a setup ahead of the tests here once to
 	// get deterministic commit IDs, relative path and object hash we can use to build the declarative
 	// test cases.
 	relativePath := gittest.NewRepositoryName(t)
-	setup := setupTest(t, relativePath)
+	setup := setupTest(t, ctx, testPartitionID, relativePath)
 
 	var testCases []transactionTestCase
 	subTests := [][]transactionTestCase{
@@ -268,7 +268,12 @@ func TestTransactionManager(t *testing.T) {
 			t.Parallel()
 
 			// Setup the repository with the exact same state as what was used to build the test cases.
-			setup := setupTest(t, relativePath)
+			var setup testTransactionSetup
+			if tc.customSetup != nil {
+				setup = tc.customSetup(t, ctx, testPartitionID, relativePath)
+			} else {
+				setup = setupTest(t, ctx, testPartitionID, relativePath)
+			}
 			runTransactionTest(t, ctx, tc, setup)
 		})
 	}
