@@ -48,10 +48,7 @@ support this as the separate attributes file is going to be replaced with readin
 attributes from HEAD.`)
 
 	t.Parallel()
-	testhelper.NewFeatureSets(
-		featureflag.InterceptReplicateRepository,
-		featureflag.TransactionalAlternatesDisconnect,
-	).Run(t, testReplicateRepository)
+	testhelper.NewFeatureSets(featureflag.InterceptReplicateRepository).Run(t, testReplicateRepository)
 }
 
 func testReplicateRepository(t *testing.T, ctx context.Context) {
