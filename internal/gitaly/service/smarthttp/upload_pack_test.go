@@ -431,6 +431,11 @@ func TestServer_PostUploadPackWithBundleURI(t *testing.T) {
 }
 
 func testServerPostUploadPackWithBundleURI(t *testing.T, ctx context.Context) {
+	testhelper.SkipQuarantinedTest(t,
+		"https://gitlab.com/gitlab-org/gitaly/-/issues/5725",
+		"TestServer_PostUploadPackWithBundleURI/upload_pack_boundary_bitmap_traversal=true",
+	)
+
 	cfg := testcfg.Build(t)
 	ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.BundleURI, true)
 
