@@ -599,7 +599,7 @@ func TestInterceptors(t *testing.T) {
 				}))
 
 				_, err = stream.Recv()
-				require.NoError(t, err)
+				require.Equal(t, err, io.EOF)
 			},
 			expectedInfo: &RequestInfo{
 				clientName:      "unknown",
@@ -744,13 +744,6 @@ func (s *mockServer) FetchIntoObjectPool(ctx context.Context, _ *gitalypb.FetchI
 }
 
 func (s *mockServer) CreateBundleFromRefList(stream gitalypb.RepositoryService_CreateBundleFromRefListServer) error {
-	if _, err := stream.Recv(); err != nil {
-		return err
-	}
-
-	if err := stream.Send(&gitalypb.CreateBundleFromRefListResponse{}); err != nil {
-		return err
-	}
-
-	return nil
+	_, err := stream.Recv()
+	return err
 }
