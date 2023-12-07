@@ -324,7 +324,15 @@ func (gsd *gitalyServerDeps) createDependencies(tb testing.TB, cfg config.Cfg) *
 	}
 
 	if gsd.hookMgr == nil {
-		gsd.hookMgr = hook.NewManager(cfg, gsd.locator, gsd.logger, gsd.gitCmdFactory, gsd.txMgr, gsd.gitlabClient, hook.NewTransactionRegistry(gsd.transactionRegistry))
+		gsd.hookMgr = hook.NewManager(
+			cfg, gsd.locator,
+			gsd.logger,
+			gsd.gitCmdFactory,
+			gsd.txMgr,
+			gsd.gitlabClient,
+			hook.NewTransactionRegistry(gsd.transactionRegistry),
+			hook.NewProcReceiveRegistry(),
+		)
 	}
 
 	if gsd.catfileCache == nil {
