@@ -155,7 +155,7 @@ func (cmd *restoreSubcommand) run(ctx context.Context, logger log.Logger, stdin 
 	if cmd.parallelStorage > 0 {
 		parallelStorage = cmd.parallelStorage
 	}
-	pipeline := backup.NewParallelPipeline(logger, parallel, parallelStorage)
+	pipeline := backup.NewPipeline(logger, parallel, parallelStorage)
 
 	decoder := json.NewDecoder(stdin)
 	for {
