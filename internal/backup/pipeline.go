@@ -124,11 +124,11 @@ func (cmd RestoreCommand) Execute(ctx context.Context) error {
 	return cmd.strategy.Restore(ctx, &cmd.request)
 }
 
-// PipelineErrors represents a summary of errors by repository
-type PipelineErrors []error
+// pipelineErrors represents a summary of errors by repository
+type pipelineErrors []error
 
 // AddError adds an error associated with a repository to the summary.
-func (e *PipelineErrors) AddError(repo *gitalypb.Repository, err error) {
+func (e *pipelineErrors) AddError(repo *gitalypb.Repository, err error) {
 	if repo.GetGlProjectPath() != "" {
 		err = fmt.Errorf("%s (%s): %w", repo.GetRelativePath(), repo.GetGlProjectPath(), err)
 	} else {
@@ -137,7 +137,7 @@ func (e *PipelineErrors) AddError(repo *gitalypb.Repository, err error) {
 	*e = append(*e, err)
 }
 
-func (e PipelineErrors) Error() string {
+func (e pipelineErrors) Error() string {
 	var builder strings.Builder
 	_, _ = fmt.Fprintf(&builder, "%d failures encountered:\n", len(e))
 	for _, err := range e {
@@ -154,7 +154,7 @@ type contextCommand struct {
 // Pipeline is a pipeline that executes commands in parallel
 type Pipeline struct {
 	log  log.Logger
-	errs PipelineErrors
+	errs pipelineErrors
 
 	parallel        int
 	parallelStorage int

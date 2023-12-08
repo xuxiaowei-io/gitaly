@@ -273,7 +273,7 @@ func TestPipelineError(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			err := PipelineErrors{}
+			err := pipelineErrors{}
 
 			for _, repo := range tc.repos {
 				err.AddError(repo, assert.AnError)
