@@ -15,21 +15,17 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
 
-func TestLoggingPipeline(t *testing.T) {
+func TestPipeline(t *testing.T) {
 	t.Parallel()
 
+	// Sequential
 	testPipeline(t, func() *Pipeline {
-		return NewPipeline(testhelper.SharedLogger(t), 1, 1)
-	})
-}
-
-func TestParallelPipeline(t *testing.T) {
-	t.Parallel()
-
-	testPipeline(t, func() *Pipeline {
-		return NewPipeline(testhelper.SharedLogger(t), 2, 0)
+		p, err := NewPipeline(testhelper.SharedLogger(t))
+		require.NoError(t, err)
+		return p
 	})
 
+	// Concurrent
 	t.Run("parallelism", func(t *testing.T) {
 		for _, tc := range []struct {
 			parallel            int
@@ -51,6 +47,11 @@ func TestParallelPipeline(t *testing.T) {
 				parallelStorage:     3,
 				expectedMaxParallel: 6, // 2 storages * 3 workers per storage
 			},
+			{
+				parallel:            3,
+				parallelStorage:     2,
+				expectedMaxParallel: 3, // `parallel` takes priority, which is why 2 storages * 2 workers is not the max
+			},
 		} {
 			t.Run(fmt.Sprintf("parallel:%d,parallelStorage:%d", tc.parallel, tc.parallelStorage), func(t *testing.T) {
 				var calls int64
@@ -65,7 +66,8 @@ func TestParallelPipeline(t *testing.T) {
 						return nil
 					},
 				}
-				p := NewPipeline(testhelper.SharedLogger(t), tc.parallel, tc.parallelStorage)
+				p, err := NewPipeline(testhelper.SharedLogger(t), WithConcurrency(tc.parallel, tc.parallelStorage))
+				require.NoError(t, err)
 				ctx := testhelper.Context(t)
 
 				for i := 0; i < 10; i++ {
@@ -79,7 +81,8 @@ func TestParallelPipeline(t *testing.T) {
 
 	t.Run("context done", func(t *testing.T) {
 		var strategy MockStrategy
-		p := NewPipeline(testhelper.SharedLogger(t), 0, 0) // make sure worker channels always block
+		p, err := NewPipeline(testhelper.SharedLogger(t))
+		require.NoError(t, err)
 
 		ctx, cancel := context.WithCancel(testhelper.Context(t))
 
@@ -88,8 +91,7 @@ func TestParallelPipeline(t *testing.T) {
 
 		p.Handle(ctx, NewCreateCommand(strategy, CreateRequest{Repository: &gitalypb.Repository{StorageName: "default"}}))
 
-		err := p.Done()
-		require.EqualError(t, err, "pipeline: context canceled")
+		require.EqualError(t, p.Done(), "pipeline: context canceled")
 	})
 }
 

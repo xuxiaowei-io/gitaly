@@ -142,16 +142,14 @@ func (cmd *createSubcommand) run(ctx context.Context, logger log.Logger, stdin i
 		manager = backup.NewManager(sink, locator, pool)
 	}
 
-	// Defaults to no concurrency.
-	parallel := 1
-	if cmd.parallel > 0 {
-		parallel = cmd.parallel
+	var opts []backup.PipelineOption
+	if cmd.parallel > 0 || cmd.parallelStorage > 0 {
+		opts = append(opts, backup.WithConcurrency(cmd.parallel, cmd.parallelStorage))
 	}
-	parallelStorage := 1
-	if cmd.parallelStorage > 0 {
-		parallelStorage = cmd.parallelStorage
+	pipeline, err := backup.NewPipeline(logger, opts...)
+	if err != nil {
+		return fmt.Errorf("create pipeline: %w", err)
 	}
-	pipeline := backup.NewPipeline(logger, parallel, parallelStorage)
 
 	decoder := json.NewDecoder(stdin)
 	for {
