@@ -84,7 +84,7 @@ func TestPostReceive_customHook(t *testing.T) {
 	txManager := transaction.NewTrackingManager()
 	hookManager := NewManager(cfg, locator, testhelper.SharedLogger(t), gitCmdFactory, txManager, gitlab.NewMockClient(
 		t, gitlab.MockAllowed, gitlab.MockPreReceive, gitlab.MockPostReceive,
-	), NewTransactionRegistry(storagemgr.NewTransactionRegistry()))
+	), NewTransactionRegistry(storagemgr.NewTransactionRegistry()), NewProcReceiveRegistry())
 
 	receiveHooksPayload := &git.UserDetails{
 		UserID:   "1234",
@@ -381,7 +381,15 @@ func TestPostReceive_gitlab(t *testing.T) {
 				},
 			}
 
-			hookManager := NewManager(cfg, config.NewLocator(cfg), testhelper.SharedLogger(t), gittest.NewCommandFactory(t, cfg), transaction.NewManager(cfg, testhelper.SharedLogger(t), backchannel.NewRegistry()), &gitlabAPI, NewTransactionRegistry(storagemgr.NewTransactionRegistry()))
+			hookManager := NewManager(
+				cfg,
+				config.NewLocator(cfg),
+				testhelper.SharedLogger(t),
+				gittest.NewCommandFactory(t, cfg),
+				transaction.NewManager(cfg, testhelper.SharedLogger(t), backchannel.NewRegistry()),
+				&gitlabAPI, NewTransactionRegistry(storagemgr.NewTransactionRegistry()),
+				NewProcReceiveRegistry(),
+			)
 
 			gittest.WriteCustomHook(t, repoPath, "post-receive", []byte("#!/bin/sh\necho hook called\n"))
 
@@ -419,7 +427,7 @@ func TestPostReceive_quarantine(t *testing.T) {
 
 	hookManager := NewManager(cfg, config.NewLocator(cfg), testhelper.SharedLogger(t), gittest.NewCommandFactory(t, cfg), nil, gitlab.NewMockClient(
 		t, gitlab.MockAllowed, gitlab.MockPreReceive, gitlab.MockPostReceive,
-	), NewTransactionRegistry(storagemgr.NewTransactionRegistry()))
+	), NewTransactionRegistry(storagemgr.NewTransactionRegistry()), NewProcReceiveRegistry())
 
 	gittest.WriteCustomHook(t, repoPath, "post-receive", []byte(fmt.Sprintf(
 		`#!/bin/sh
