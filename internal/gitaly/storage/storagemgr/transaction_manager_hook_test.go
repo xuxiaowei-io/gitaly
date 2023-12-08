@@ -1,6 +1,7 @@
 package storagemgr
 
 import (
+	"io/fs"
 	"regexp"
 	"runtime"
 	"strings"
@@ -8,6 +9,9 @@ import (
 
 	"github.com/dgraph-io/badger/v4"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 )
 
 // hookFunc is a function that is executed at a specific point. It gets a hookContext that allows it to
@@ -169,4 +173,465 @@ type testingHook struct {
 // used within goroutines without replacing calls made to the `require` library.
 func (t testingHook) FailNow() {
 	t.Fail()
+}
+
+func generateCustomHooksTests(t *testing.T, setup testTransactionSetup) []transactionTestCase {
+	umask := testhelper.Umask()
+
+	return []transactionTestCase{
+		{
+			desc: "set custom hooks successfully",
+			steps: steps{
+				StartManager{},
+				Begin{
+					TransactionID: 1,
+					RelativePath:  setup.RelativePath,
+				},
+				Commit{
+					TransactionID: 1,
+					CustomHooksUpdate: &CustomHooksUpdate{
+						CustomHooksTAR: validCustomHooks(t),
+					},
+				},
+				Begin{
+					TransactionID:       2,
+					RelativePath:        setup.RelativePath,
+					ExpectedSnapshotLSN: 1,
+				},
+				Commit{
+					TransactionID:     2,
+					CustomHooksUpdate: &CustomHooksUpdate{},
+				},
+			},
+			expectedState: StateAssertion{
+				Database: DatabaseState{
+					string(keyAppliedLSN(setup.PartitionID)): LSN(2).toProto(),
+				},
+				Directory: testhelper.DirectoryState{
+					"/":    {Mode: fs.ModeDir | perm.PrivateDir},
+					"/wal": {Mode: fs.ModeDir | perm.PrivateDir},
+				},
+				Repositories: RepositoryStates{
+					setup.RelativePath: {
+						CustomHooks: testhelper.DirectoryState{
+							"/": {Mode: fs.ModeDir | perm.PrivateDir},
+						},
+					},
+				},
+			},
+		},
+		{
+			desc: "rejects invalid custom hooks",
+			steps: steps{
+				StartManager{},
+				Begin{
+					TransactionID: 1,
+					RelativePath:  setup.RelativePath,
+				},
+				Commit{
+					TransactionID: 1,
+					CustomHooksUpdate: &CustomHooksUpdate{
+						CustomHooksTAR: []byte("corrupted tar"),
+					},
+					ExpectedError: func(tb testing.TB, actualErr error) {
+						require.ErrorContains(tb, actualErr, "stage hooks: extract hooks: waiting for tar command completion: exit status")
+					},
+				},
+			},
+		},
+		{
+			desc: "reapplying custom hooks works",
+			steps: steps{
+				StartManager{
+					Hooks: testTransactionHooks{
+						BeforeStoreAppliedLSN: func(hookContext) {
+							panic(errSimulatedCrash)
+						},
+					},
+					ExpectedError: errSimulatedCrash,
+				},
+				Begin{
+					TransactionID: 1,
+					RelativePath:  setup.RelativePath,
+				},
+				Commit{
+					TransactionID: 1,
+					CustomHooksUpdate: &CustomHooksUpdate{
+						CustomHooksTAR: validCustomHooks(t),
+					},
+					ExpectedError: ErrTransactionProcessingStopped,
+				},
+				AssertManager{
+					ExpectedError: errSimulatedCrash,
+				},
+				StartManager{},
+			},
+			expectedState: StateAssertion{
+				Database: DatabaseState{
+					string(keyAppliedLSN(setup.PartitionID)): LSN(1).toProto(),
+				},
+				Directory: testhelper.DirectoryState{
+					"/":    {Mode: fs.ModeDir | perm.PrivateDir},
+					"/wal": {Mode: fs.ModeDir | perm.PrivateDir},
+				},
+				Repositories: RepositoryStates{
+					setup.RelativePath: {
+						CustomHooks: testhelper.DirectoryState{
+							"/": {Mode: fs.ModeDir | perm.PrivateDir},
+							"/pre-receive": {
+								Mode:    umask.Mask(fs.ModePerm),
+								Content: []byte("hook content"),
+							},
+							"/private-dir":              {Mode: fs.ModeDir | perm.PrivateDir},
+							"/private-dir/private-file": {Mode: umask.Mask(perm.PrivateFile), Content: []byte("private content")},
+						},
+					},
+				},
+			},
+		},
+		{
+			desc: "hook index is correctly determined from log and disk",
+			steps: steps{
+				StartManager{
+					Hooks: testTransactionHooks{
+						BeforeApplyLogEntry: func(hookContext) {
+							panic(errSimulatedCrash)
+						},
+					},
+					ExpectedError: errSimulatedCrash,
+				},
+				Begin{
+					TransactionID: 1,
+					RelativePath:  setup.RelativePath,
+				},
+				Commit{
+					TransactionID: 1,
+					CustomHooksUpdate: &CustomHooksUpdate{
+						CustomHooksTAR: validCustomHooks(t),
+					},
+					ExpectedError: ErrTransactionProcessingStopped,
+				},
+				AssertManager{
+					ExpectedError: errSimulatedCrash,
+				},
+				StartManager{},
+				Begin{
+					TransactionID:       2,
+					RelativePath:        setup.RelativePath,
+					ExpectedSnapshotLSN: 1,
+				},
+				Commit{
+					TransactionID:     2,
+					CustomHooksUpdate: &CustomHooksUpdate{},
+				},
+				Begin{
+					TransactionID:       3,
+					RelativePath:        setup.RelativePath,
+					ExpectedSnapshotLSN: 2,
+				},
+				CloseManager{},
+				StartManager{},
+				Begin{
+					TransactionID:       4,
+					RelativePath:        setup.RelativePath,
+					ExpectedSnapshotLSN: 2,
+				},
+				Rollback{
+					TransactionID: 4,
+				},
+			},
+			expectedState: StateAssertion{
+				Database: DatabaseState{
+					string(keyAppliedLSN(setup.PartitionID)): LSN(2).toProto(),
+				},
+				Directory: testhelper.DirectoryState{
+					"/":    {Mode: fs.ModeDir | perm.PrivateDir},
+					"/wal": {Mode: fs.ModeDir | perm.PrivateDir},
+				},
+				Repositories: RepositoryStates{
+					setup.RelativePath: {
+						CustomHooks: testhelper.DirectoryState{
+							"/": {Mode: fs.ModeDir | perm.PrivateDir},
+						},
+					},
+				},
+			},
+		},
+		{
+			desc: "continues processing after reference verification failure",
+			steps: steps{
+				StartManager{},
+				Begin{
+					TransactionID: 1,
+					RelativePath:  setup.RelativePath,
+				},
+				Commit{
+					TransactionID: 1,
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main": {OldOID: setup.Commits.First.OID, NewOID: setup.Commits.Second.OID},
+					},
+					ExpectedError: ReferenceVerificationError{
+						ReferenceName: "refs/heads/main",
+						ExpectedOID:   setup.Commits.First.OID,
+						ActualOID:     setup.ObjectHash.ZeroOID,
+					},
+				},
+				Begin{
+					TransactionID: 2,
+					RelativePath:  setup.RelativePath,
+				},
+				Commit{
+					TransactionID: 2,
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.Second.OID},
+					},
+				},
+			},
+			expectedState: StateAssertion{
+				Database: DatabaseState{
+					string(keyAppliedLSN(setup.PartitionID)): LSN(1).toProto(),
+				},
+				Repositories: RepositoryStates{
+					setup.RelativePath: {
+						DefaultBranch: "refs/heads/main",
+						References:    []git.Reference{{Name: "refs/heads/main", Target: setup.Commits.Second.OID.String()}},
+					},
+				},
+			},
+		},
+		{
+			desc: "continues processing after a restart",
+			steps: steps{
+				StartManager{},
+				Begin{
+					TransactionID: 1,
+					RelativePath:  setup.RelativePath,
+				},
+				Commit{
+					TransactionID: 1,
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
+					},
+				},
+				AssertManager{},
+				CloseManager{},
+				StartManager{},
+				Begin{
+					TransactionID:       2,
+					RelativePath:        setup.RelativePath,
+					ExpectedSnapshotLSN: 1,
+				},
+				Commit{
+					TransactionID: 2,
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main": {OldOID: setup.Commits.First.OID, NewOID: setup.Commits.Second.OID},
+					},
+				},
+			},
+			expectedState: StateAssertion{
+				Database: DatabaseState{
+					string(keyAppliedLSN(setup.PartitionID)): LSN(2).toProto(),
+				},
+				Repositories: RepositoryStates{
+					setup.RelativePath: {
+						DefaultBranch: "refs/heads/main",
+						References:    []git.Reference{{Name: "refs/heads/main", Target: setup.Commits.Second.OID.String()}},
+					},
+				},
+			},
+		},
+		{
+			desc: "continues processing after restarting after a reference verification failure",
+			steps: steps{
+				StartManager{},
+				Begin{
+					TransactionID: 1,
+					RelativePath:  setup.RelativePath,
+				},
+				Commit{
+					TransactionID: 1,
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main": {OldOID: setup.Commits.First.OID, NewOID: setup.Commits.Second.OID},
+					},
+					ExpectedError: ReferenceVerificationError{
+						ReferenceName: "refs/heads/main",
+						ExpectedOID:   setup.Commits.First.OID,
+						ActualOID:     setup.ObjectHash.ZeroOID,
+					},
+				},
+				CloseManager{},
+				StartManager{},
+				Begin{
+					TransactionID: 2,
+					RelativePath:  setup.RelativePath,
+				},
+				Commit{
+					TransactionID: 2,
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.Second.OID},
+					},
+				},
+			},
+			expectedState: StateAssertion{
+				Database: DatabaseState{
+					string(keyAppliedLSN(setup.PartitionID)): LSN(1).toProto(),
+				},
+				Repositories: RepositoryStates{
+					setup.RelativePath: {
+						DefaultBranch: "refs/heads/main",
+						References:    []git.Reference{{Name: "refs/heads/main", Target: setup.Commits.Second.OID.String()}},
+					},
+				},
+			},
+		},
+		{
+			desc: "continues processing after failing to store log index",
+			steps: steps{
+				StartManager{
+					Hooks: testTransactionHooks{
+						BeforeStoreAppliedLSN: func(hookCtx hookContext) {
+							panic(errSimulatedCrash)
+						},
+					},
+					ExpectedError: errSimulatedCrash,
+				},
+				Begin{
+					TransactionID: 1,
+					RelativePath:  setup.RelativePath,
+				},
+				Commit{
+					TransactionID: 1,
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
+					},
+					ExpectedError: ErrTransactionProcessingStopped,
+				},
+				AssertManager{
+					ExpectedError: errSimulatedCrash,
+				},
+				StartManager{},
+				Begin{
+					TransactionID:       2,
+					RelativePath:        setup.RelativePath,
+					ExpectedSnapshotLSN: 1,
+				},
+				Commit{
+					TransactionID: 2,
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main": {OldOID: setup.Commits.First.OID, NewOID: setup.Commits.Second.OID},
+					},
+				},
+			},
+			expectedState: StateAssertion{
+				Database: DatabaseState{
+					string(keyAppliedLSN(setup.PartitionID)): LSN(2).toProto(),
+				},
+				Repositories: RepositoryStates{
+					setup.RelativePath: {
+						DefaultBranch: "refs/heads/main",
+						References:    []git.Reference{{Name: "refs/heads/main", Target: setup.Commits.Second.OID.String()}},
+					},
+				},
+			},
+		},
+		{
+			desc: "recovers from the write-ahead log on start up",
+			steps: steps{
+				StartManager{
+					Hooks: testTransactionHooks{
+						BeforeApplyLogEntry: func(hookCtx hookContext) {
+							hookCtx.closeManager()
+						},
+					},
+				},
+				Begin{
+					TransactionID: 1,
+					RelativePath:  setup.RelativePath,
+				},
+				Commit{
+					TransactionID: 1,
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
+					},
+					ExpectedError: ErrTransactionProcessingStopped,
+				},
+				AssertManager{},
+				StartManager{},
+				Begin{
+					TransactionID:       2,
+					RelativePath:        setup.RelativePath,
+					ExpectedSnapshotLSN: 1,
+				},
+				Commit{
+					TransactionID: 2,
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main": {OldOID: setup.Commits.First.OID, NewOID: setup.Commits.Second.OID},
+					},
+				},
+			},
+			expectedState: StateAssertion{
+				Database: DatabaseState{
+					string(keyAppliedLSN(setup.PartitionID)): LSN(2).toProto(),
+				},
+				Repositories: RepositoryStates{
+					setup.RelativePath: {
+						DefaultBranch: "refs/heads/main",
+						References:    []git.Reference{{Name: "refs/heads/main", Target: setup.Commits.Second.OID.String()}},
+					},
+				},
+			},
+		},
+		{
+			desc: "reference verification fails after recovering logged writes",
+			steps: steps{
+				StartManager{
+					Hooks: testTransactionHooks{
+						BeforeApplyLogEntry: func(hookCtx hookContext) {
+							hookCtx.closeManager()
+						},
+					},
+				},
+				Begin{
+					TransactionID: 1,
+					RelativePath:  setup.RelativePath,
+				},
+				Commit{
+					TransactionID: 1,
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main": {OldOID: setup.ObjectHash.ZeroOID, NewOID: setup.Commits.First.OID},
+					},
+					ExpectedError: ErrTransactionProcessingStopped,
+				},
+				AssertManager{},
+				StartManager{},
+				Begin{
+					TransactionID:       2,
+					RelativePath:        setup.RelativePath,
+					ExpectedSnapshotLSN: 1,
+				},
+				Commit{
+					TransactionID: 2,
+					ReferenceUpdates: ReferenceUpdates{
+						"refs/heads/main": {OldOID: setup.Commits.Second.OID, NewOID: setup.Commits.First.OID},
+					},
+					ExpectedError: ReferenceVerificationError{
+						ReferenceName: "refs/heads/main",
+						ExpectedOID:   setup.Commits.Second.OID,
+						ActualOID:     setup.Commits.First.OID,
+					},
+				},
+			},
+			expectedState: StateAssertion{
+				Database: DatabaseState{
+					string(keyAppliedLSN(setup.PartitionID)): LSN(1).toProto(),
+				},
+				Repositories: RepositoryStates{
+					setup.RelativePath: {
+						DefaultBranch: "refs/heads/main",
+						References:    []git.Reference{{Name: "refs/heads/main", Target: setup.Commits.First.OID.String()}},
+					},
+				},
+			},
+		},
+	}
 }
