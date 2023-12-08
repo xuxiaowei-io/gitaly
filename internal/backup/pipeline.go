@@ -153,23 +153,27 @@ type contextCommand struct {
 
 // Pipeline is a pipeline for running backup and restore jobs.
 type Pipeline struct {
-	log  log.Logger
-	errs pipelineErrors
+	log log.Logger
 
 	parallel        int
 	parallelStorage int
 
-	wg sync.WaitGroup
-	// workerSlots allows the total number of parallel jobs to be
+	// totalWorkers allows the total number of parallel jobs to be
 	// limited. This allows us to create the required workers for
 	// each storage, while still limiting the absolute parallelism.
-	workerSlots chan struct{}
-	done        chan struct{}
+	totalWorkers chan struct{}
 
-	errMu     sync.Mutex
-	storageMu sync.Mutex
-	requests  map[string]chan *contextCommand
-	err       error
+	workerWg           sync.WaitGroup
+	workersByStorage   map[string]chan *contextCommand
+	workersByStorageMu sync.Mutex
+
+	// done signals that no more commands will be provided to the Pipeline via
+	// Handle(), and the pipeline should wait for workers to complete and exit.
+	done chan struct{}
+
+	pipelineError   error
+	commandErrors   pipelineErrors
+	commandErrorsMu sync.Mutex
 }
 
 // NewPipeline creates a pipeline that executes backup and restore jobs.
@@ -179,10 +183,10 @@ func NewPipeline(log log.Logger, opts ...PipelineOption) (*Pipeline, error) {
 	p := &Pipeline{
 		log: log,
 		// Default to no concurrency.
-		parallel:        1,
-		parallelStorage: 0,
-		done:            make(chan struct{}),
-		requests:        make(map[string]chan *contextCommand),
+		parallel:         1,
+		parallelStorage:  0,
+		done:             make(chan struct{}),
+		workersByStorage: make(map[string]chan *contextCommand),
 	}
 
 	for _, opt := range opts {
@@ -217,7 +221,7 @@ func WithConcurrency(total, perStorage int) PipelineOption {
 		if total > 0 && perStorage > 0 {
 			// When both values are provided, we ensure that total limits
 			// the global concurrency.
-			p.workerSlots = make(chan struct{}, total)
+			p.totalWorkers = make(chan struct{}, total)
 		}
 
 		return nil
@@ -227,7 +231,7 @@ func WithConcurrency(total, perStorage int) PipelineOption {
 // Handle queues a request to create a backup. Commands either processed sequentially
 // or concurrently, if WithConcurrency() was called.
 func (p *Pipeline) Handle(ctx context.Context, cmd Command) {
-	ch := p.getStorage(cmd.Repository().StorageName)
+	ch := p.getWorker(cmd.Repository().StorageName)
 
 	select {
 	case <-ctx.Done():
@@ -242,26 +246,26 @@ func (p *Pipeline) Handle(ctx context.Context, cmd Command) {
 // Done waits for any in progress jobs to complete then reports any accumulated errors
 func (p *Pipeline) Done() error {
 	close(p.done)
-	p.wg.Wait()
+	p.workerWg.Wait()
 
-	if p.err != nil {
-		return fmt.Errorf("pipeline: %w", p.err)
+	if p.pipelineError != nil {
+		return fmt.Errorf("pipeline: %w", p.pipelineError)
 	}
 
-	if len(p.errs) > 0 {
-		return fmt.Errorf("pipeline: %w", p.errs)
+	if len(p.commandErrors) > 0 {
+		return fmt.Errorf("pipeline: %w", p.commandErrors)
 	}
 
 	return nil
 }
 
-// getStorage finds the channel associated with a storage. When no channel is
+// getWorker finds the channel associated with a storage. When no channel is
 // found, one is created and n-workers are started to process requests.
 // If parallelStorage is 0, a channel is created against a pseudo-storage to
 // enforce the number of total concurrent jobs.
-func (p *Pipeline) getStorage(storage string) chan<- *contextCommand {
-	p.storageMu.Lock()
-	defer p.storageMu.Unlock()
+func (p *Pipeline) getWorker(storage string) chan<- *contextCommand {
+	p.workersByStorageMu.Lock()
+	defer p.workersByStorageMu.Unlock()
 
 	workers := p.parallelStorage
 
@@ -271,13 +275,13 @@ func (p *Pipeline) getStorage(storage string) chan<- *contextCommand {
 		workers = p.parallel
 	}
 
-	ch, ok := p.requests[storage]
+	ch, ok := p.workersByStorage[storage]
 	if !ok {
 		ch = make(chan *contextCommand)
-		p.requests[storage] = ch
+		p.workersByStorage[storage] = ch
 
 		for i := 0; i < workers; i++ {
-			p.wg.Add(1)
+			p.workerWg.Add(1)
 			go p.worker(ch)
 		}
 	}
@@ -285,7 +289,7 @@ func (p *Pipeline) getStorage(storage string) chan<- *contextCommand {
 }
 
 func (p *Pipeline) worker(ch <-chan *contextCommand) {
-	defer p.wg.Done()
+	defer p.workerWg.Done()
 	for {
 		select {
 		case <-p.done:
@@ -317,19 +321,17 @@ func (p *Pipeline) processCommand(ctx context.Context, cmd Command) {
 }
 
 func (p *Pipeline) setErr(err error) {
-	p.errMu.Lock()
-	defer p.errMu.Unlock()
-	if p.err != nil {
+	if p.pipelineError != nil {
 		return
 	}
-	p.err = err
+	p.pipelineError = err
 }
 
 func (p *Pipeline) addError(repo *gitalypb.Repository, err error) {
-	p.errMu.Lock()
-	defer p.errMu.Unlock()
+	p.commandErrorsMu.Lock()
+	defer p.commandErrorsMu.Unlock()
 
-	p.errs.AddError(repo, err)
+	p.commandErrors.AddError(repo, err)
 }
 
 func (p *Pipeline) cmdLogger(cmd Command) log.Logger {
@@ -343,16 +345,16 @@ func (p *Pipeline) cmdLogger(cmd Command) log.Logger {
 
 // acquireWorkerSlot queues the worker until a slot is available.
 func (p *Pipeline) acquireWorkerSlot() {
-	if p.workerSlots == nil {
+	if p.totalWorkers == nil {
 		return
 	}
-	p.workerSlots <- struct{}{}
+	p.totalWorkers <- struct{}{}
 }
 
 // releaseWorkerSlot releases the worker slot.
 func (p *Pipeline) releaseWorkerSlot() {
-	if p.workerSlots == nil {
+	if p.totalWorkers == nil {
 		return
 	}
-	<-p.workerSlots
+	<-p.totalWorkers
 }
