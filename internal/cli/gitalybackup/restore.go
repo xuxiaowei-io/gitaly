@@ -17,11 +17,8 @@ import (
 )
 
 type restoreRequest struct {
-	storage.ServerInfo
-	StorageName   string `json:"storage_name"`
-	RelativePath  string `json:"relative_path"`
-	GlProjectPath string `json:"gl_project_path"`
-	AlwaysCreate  bool   `json:"always_create"`
+	serverRepository
+	AlwaysCreate bool `json:"always_create"`
 }
 
 type restoreSubcommand struct {
