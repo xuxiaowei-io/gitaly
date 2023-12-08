@@ -153,55 +153,14 @@ func (e PipelineErrors) Error() string {
 	return builder.String()
 }
 
-// LoggingPipeline outputs logging for each command executed
-type LoggingPipeline struct {
-	log log.Logger
-
-	mu   sync.Mutex
-	errs PipelineErrors
-}
-
-// NewLoggingPipeline creates a new logging pipeline
-func NewLoggingPipeline(log log.Logger) *LoggingPipeline {
-	return &LoggingPipeline{
-		log: log,
-	}
-}
-
-// Handle takes a command to process. Commands are logged and executed immediately.
-func (p *LoggingPipeline) Handle(ctx context.Context, cmd Command) {
-	log := p.cmdLogger(cmd)
-	log.Info(fmt.Sprintf("started %s", cmd.Name()))
-
-	if err := cmd.Execute(ctx); err != nil {
-		if errors.Is(err, ErrSkipped) {
-			log.Warn(fmt.Sprintf("skipped %s", cmd.Name()))
-		} else {
-			log.WithError(err).Error(fmt.Sprintf("%s failed", cmd.Name()))
-			p.addError(cmd.Repository(), err)
-		}
-		return
-	}
-
-	log.Info(fmt.Sprintf("completed %s", cmd.Name()))
-}
-
-func (p *LoggingPipeline) addError(repo *gitalypb.Repository, err error) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
+func (p *ParallelPipeline) addError(repo *gitalypb.Repository, err error) {
+	p.errMu.Lock()
+	defer p.errMu.Unlock()
 
 	p.errs.AddError(repo, err)
 }
 
-// Done indicates that the pipeline is complete and returns any accumulated errors
-func (p *LoggingPipeline) Done() error {
-	if len(p.errs) > 0 {
-		return fmt.Errorf("pipeline: %w", p.errs)
-	}
-	return nil
-}
-
-func (p *LoggingPipeline) cmdLogger(cmd Command) log.Logger {
+func (p *ParallelPipeline) cmdLogger(cmd Command) log.Logger {
 	return p.log.WithFields(log.Fields{
 		"command":         cmd.Name(),
 		"storage_name":    cmd.Repository().StorageName,
@@ -217,7 +176,9 @@ type contextCommand struct {
 
 // ParallelPipeline is a pipeline that executes commands in parallel
 type ParallelPipeline struct {
-	next            Pipeline
+	log  log.Logger
+	errs PipelineErrors
+
 	parallel        int
 	parallelStorage int
 
@@ -225,9 +186,10 @@ type ParallelPipeline struct {
 	workerSlots chan struct{}
 	done        chan struct{}
 
-	mu       sync.Mutex
-	requests map[string]chan *contextCommand
-	err      error
+	errMu     sync.Mutex
+	storageMu sync.Mutex
+	requests  map[string]chan *contextCommand
+	err       error
 }
 
 // NewParallelPipeline creates a new ParallelPipeline where all commands are
@@ -239,7 +201,7 @@ type ParallelPipeline struct {
 //
 // Note: When both `parallel` and `parallelStorage` are zero or less no workers
 // are created and the pipeline will block forever.
-func NewParallelPipeline(next Pipeline, parallel, parallelStorage int) *ParallelPipeline {
+func NewParallelPipeline(log log.Logger, parallel, parallelStorage int) *ParallelPipeline {
 	var workerSlots chan struct{}
 	if parallel > 0 && parallelStorage > 0 {
 		// workerSlots allows the total number of parallel jobs to be
@@ -248,7 +210,7 @@ func NewParallelPipeline(next Pipeline, parallel, parallelStorage int) *Parallel
 		workerSlots = make(chan struct{}, parallel)
 	}
 	return &ParallelPipeline{
-		next:            next,
+		log:             log,
 		parallel:        parallel,
 		parallelStorage: parallelStorage,
 		workerSlots:     workerSlots,
@@ -277,20 +239,23 @@ func (p *ParallelPipeline) Handle(ctx context.Context, cmd Command) {
 func (p *ParallelPipeline) Done() error {
 	close(p.done)
 	p.wg.Wait()
-	if err := p.next.Done(); err != nil {
-		return err
-	}
+
 	if p.err != nil {
 		return fmt.Errorf("pipeline: %w", p.err)
 	}
+
+	if len(p.errs) > 0 {
+		return fmt.Errorf("pipeline: %w", p.errs)
+	}
+
 	return nil
 }
 
 // getStorage finds the channel associated with a storage. When no channel is
 // found, one is created and n-workers are started to process requests.
 func (p *ParallelPipeline) getStorage(storage string) chan<- *contextCommand {
-	p.mu.Lock()
-	defer p.mu.Unlock()
+	p.storageMu.Lock()
+	defer p.storageMu.Unlock()
 
 	workers := p.parallelStorage
 
@@ -329,12 +294,25 @@ func (p *ParallelPipeline) processCommand(ctx context.Context, cmd Command) {
 	p.acquireWorkerSlot()
 	defer p.releaseWorkerSlot()
 
-	p.next.Handle(ctx, cmd)
+	log := p.cmdLogger(cmd)
+	log.Info(fmt.Sprintf("started %s", cmd.Name()))
+
+	if err := cmd.Execute(ctx); err != nil {
+		if errors.Is(err, ErrSkipped) {
+			log.Warn(fmt.Sprintf("skipped %s", cmd.Name()))
+		} else {
+			log.WithError(err).Error(fmt.Sprintf("%s failed", cmd.Name()))
+			p.addError(cmd.Repository(), err)
+		}
+		return
+	}
+
+	log.Info(fmt.Sprintf("completed %s", cmd.Name()))
 }
 
 func (p *ParallelPipeline) setErr(err error) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
+	p.errMu.Lock()
+	defer p.errMu.Unlock()
 	if p.err != nil {
 		return
 	}
