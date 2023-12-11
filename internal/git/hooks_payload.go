@@ -40,6 +40,8 @@ const (
 	PostReceiveHook
 	// PackObjectsHook represents the pack-objects git hook.
 	PackObjectsHook
+	// ProcReceiveHook represents the proc-receive git hook.
+	ProcReceiveHook
 
 	// AllHooks is the bitwise set of all hooks supported by Gitaly.
 	AllHooks = ReferenceTransactionHook | UpdateHook | PreReceiveHook | PostReceiveHook | PackObjectsHook

@@ -16,6 +16,8 @@ type MockManager struct {
 	postReceive          func(t *testing.T, ctx context.Context, repo *gitalypb.Repository, pushOptions, env []string, stdin io.Reader, stdout, stderr io.Writer) error
 	update               func(t *testing.T, ctx context.Context, repo *gitalypb.Repository, ref, oldValue, newValue string, env []string, stdout, stderr io.Writer) error
 	referenceTransaction func(t *testing.T, ctx context.Context, state ReferenceTransactionState, env []string, stdin io.Reader) error
+	procReceive          func(t *testing.T, ctx context.Context, repo *gitalypb.Repository, env []string, stdin io.Reader, stdout, stderr io.Writer) error
+	procReceiveRegistry  *ProcReceiveRegistry
 }
 
 var (
@@ -47,6 +49,7 @@ func NewMockManager(
 	postReceive func(t *testing.T, ctx context.Context, repo *gitalypb.Repository, pushOptions, env []string, stdin io.Reader, stdout, stderr io.Writer) error,
 	update func(t *testing.T, ctx context.Context, repo *gitalypb.Repository, ref, oldValue, newValue string, env []string, stdout, stderr io.Writer) error,
 	referenceTransaction func(t *testing.T, ctx context.Context, state ReferenceTransactionState, env []string, stdin io.Reader) error,
+	procReceiveRegistry *ProcReceiveRegistry,
 ) Manager {
 	return &MockManager{
 		t:                    t,
@@ -83,4 +86,17 @@ func (m *MockManager) ReferenceTransactionHook(ctx context.Context, state Refere
 	require.NotNil(m.t, m.referenceTransaction, "referenceTransaction not implemented")
 
 	return m.referenceTransaction(m.t, ctx, state, env, stdin)
+}
+
+// ProcReceiveHook executes the mocked proc-receive hook
+func (m *MockManager) ProcReceiveHook(ctx context.Context, repo *gitalypb.Repository, env []string, stdin io.Reader, stdout, stderr io.Writer) error {
+	require.NotNil(m.t, m.procReceive, "procReceive not implemented")
+
+	return m.procReceive(m.t, ctx, repo, env, stdin, stdout, stderr)
+}
+
+// ProcReceiveRegistry provides the ProcReceiveRegistry.
+func (m *MockManager) ProcReceiveRegistry() *ProcReceiveRegistry {
+	require.NotNil(m.t, m.procReceiveRegistry, "ProcReceiveRegistry not available")
+	return m.procReceiveRegistry
 }
