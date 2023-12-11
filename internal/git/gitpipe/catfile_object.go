@@ -48,10 +48,10 @@ func CatfileObject(
 	requestChan := make(chan catfileObjectRequest, 32)
 	go func() {
 		defer func() {
-			close(requestChan)
 			if atomic.AddInt32(&queueRefcount, -1) == 0 {
 				queueCleanup()
 			}
+			close(requestChan)
 		}()
 
 		sendRequest := func(request catfileObjectRequest) bool {
@@ -115,10 +115,10 @@ func CatfileObject(
 	resultChan := make(chan CatfileObjectResult)
 	go func() {
 		defer func() {
-			close(resultChan)
 			if atomic.AddInt32(&queueRefcount, -1) == 0 {
 				queueCleanup()
 			}
+			close(resultChan)
 		}()
 
 		sendResult := func(result CatfileObjectResult) bool {

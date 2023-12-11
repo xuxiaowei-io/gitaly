@@ -243,6 +243,7 @@ func TestCatfileObject(t *testing.T) {
 		_, err = io.Copy(io.Discard, it.Result())
 		require.NoError(t, err)
 		require.False(t, it.Next())
+		require.NoError(t, it.Err())
 
 		// Which means that the queue should now be unused, so we can again use it.
 		_, err = CatfileObject(ctx, objectReader, NewRevisionIterator(ctx, input))
