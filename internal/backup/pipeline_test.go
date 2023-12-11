@@ -3,7 +3,7 @@ package backup
 import (
 	"context"
 	"fmt"
-	"sync/atomic"
+	"sync"
 	"testing"
 	"time"
 
@@ -28,39 +28,63 @@ func TestPipeline(t *testing.T) {
 	// Concurrent
 	t.Run("parallelism", func(t *testing.T) {
 		for _, tc := range []struct {
-			parallel            int
-			parallelStorage     int
-			expectedMaxParallel int64
+			parallel                   int
+			parallelStorage            int
+			expectedMaxParallel        int
+			expectedMaxStorageParallel int
 		}{
 			{
-				parallel:            2,
-				parallelStorage:     0,
-				expectedMaxParallel: 2,
+				parallel:                   2,
+				parallelStorage:            0,
+				expectedMaxParallel:        2,
+				expectedMaxStorageParallel: 2,
 			},
 			{
-				parallel:            2,
-				parallelStorage:     3,
-				expectedMaxParallel: 2,
+				parallel:                   2,
+				parallelStorage:            3,
+				expectedMaxParallel:        2,
+				expectedMaxStorageParallel: 2,
 			},
 			{
-				parallel:            0,
-				parallelStorage:     3,
-				expectedMaxParallel: 6, // 2 storages * 3 workers per storage
+				parallel:                   0,
+				parallelStorage:            3,
+				expectedMaxParallel:        6, // 2 storages * 3 workers per storage
+				expectedMaxStorageParallel: 3,
 			},
 			{
-				parallel:            3,
-				parallelStorage:     2,
-				expectedMaxParallel: 3, // `parallel` takes priority, which is why 2 storages * 2 workers is not the max
+				parallel:                   3,
+				parallelStorage:            2,
+				expectedMaxParallel:        3,
+				expectedMaxStorageParallel: 2,
 			},
 		} {
 			t.Run(fmt.Sprintf("parallel:%d,parallelStorage:%d", tc.parallel, tc.parallelStorage), func(t *testing.T) {
-				var calls int64
+				var mu sync.Mutex
+				// callsPerStorage tracks the number of concurrent jobs running for each storage.
+				callsPerStorage := map[string]int{
+					"storage1": 0,
+					"storage2": 0,
+				}
+
 				strategy := MockStrategy{
 					CreateFunc: func(ctx context.Context, req *CreateRequest) error {
-						currentCalls := atomic.AddInt64(&calls, 1)
-						defer atomic.AddInt64(&calls, -1)
-
-						assert.LessOrEqual(t, currentCalls, tc.expectedMaxParallel)
+						mu.Lock()
+						callsPerStorage[req.Repository.StorageName]++
+						allCalls := 0
+						for _, v := range callsPerStorage {
+							allCalls += v
+						}
+						// We ensure that the concurrency for each storage is not above the
+						// parallelStorage threshold, and also that the total number of concurrent
+						// jobs is not above the parallel threshold.
+						require.LessOrEqual(t, callsPerStorage[req.Repository.StorageName], tc.expectedMaxStorageParallel)
+						require.LessOrEqual(t, allCalls, tc.expectedMaxParallel)
+						mu.Unlock()
+						defer func() {
+							mu.Lock()
+							callsPerStorage[req.Repository.StorageName]--
+							mu.Unlock()
+						}()
 
 						time.Sleep(time.Millisecond)
 						return nil
