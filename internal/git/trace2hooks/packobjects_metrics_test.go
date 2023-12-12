@@ -378,7 +378,7 @@ gitaly_pack_objects_stages_seconds_count{stage="write-pack-file"} 2
 
 			exporter := NewPackObjectsMetrics()
 
-			err := exporter.Handle(ctx, tc.inputTrace)
+			err := exporter.Handle(ctx, tc.inputTrace, testhelper.SharedLogger(t))
 			require.NoError(t, err)
 
 			require.NoError(

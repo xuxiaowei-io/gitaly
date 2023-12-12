@@ -54,7 +54,7 @@ func (p *PackObjectsMetrics) Name() string {
 
 // Handle traverses input trace2 event tree for data nodes containing relevant pack-objects data.
 // When it finds one, it updates Prometheus objects and log fields accordingly.
-func (p *PackObjectsMetrics) Handle(rootCtx context.Context, trace *trace2.Trace) error {
+func (p *PackObjectsMetrics) Handle(rootCtx context.Context, trace *trace2.Trace, logger log.Logger) error {
 	trace.Walk(rootCtx, func(ctx context.Context, trace *trace2.Trace) context.Context {
 		customFields := log.CustomFieldsFromContext(ctx)
 		if customFields != nil {

@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"os"
+
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 )
 
 // Manager is responsible for enabling Trace2 for a Git command. It manages the list of hooks who
@@ -12,18 +14,19 @@ import (
 // of the command by calling Inject. After the command exits, the caller is expected to call Finish.
 // Finally, the transformed trace2 tree is passed into handlers of registered hooks.
 type Manager struct {
-	sid   string
-	hooks []Hook
-	fd    *os.File
-	err   error
+	sid    string
+	hooks  []Hook
+	fd     *os.File
+	err    error
+	logger log.Logger
 }
 
 // NewManager returns a Manager object that manages the registered hooks
-func NewManager(sid string, hooks []Hook) (*Manager, error) {
+func NewManager(sid string, hooks []Hook, logger log.Logger) (*Manager, error) {
 	if len(hooks) == 0 {
 		return nil, fmt.Errorf("input hooks are empty")
 	}
-	return &Manager{sid: sid, hooks: hooks}, nil
+	return &Manager{sid: sid, hooks: hooks, logger: logger}, nil
 }
 
 // HookNames return names of hooks
@@ -105,7 +108,7 @@ func (m *Manager) Finish(ctx context.Context) {
 		return
 	}
 	for _, hook := range m.hooks {
-		if err := hook.Handle(ctx, trace); err != nil {
+		if err := hook.Handle(ctx, trace, m.logger); err != nil {
 			m.err = fmt.Errorf("trace2: executing %q handler: %w", hook.Name(), err)
 			return
 		}

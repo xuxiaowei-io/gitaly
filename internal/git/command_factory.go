@@ -472,7 +472,7 @@ func (cf *ExecCommandFactory) newCommand(ctx context.Context, repo storage.Repos
 		trace2Hooks = DefaultTrace2HooksFor(ctx, sc.Name)
 	}
 	if len(trace2Hooks) != 0 {
-		trace2Manager, err := trace2.NewManager(correlation.ExtractFromContextOrGenerate(ctx), trace2Hooks)
+		trace2Manager, err := trace2.NewManager(correlation.ExtractFromContextOrGenerate(ctx), trace2Hooks, cf.logger)
 		if err != nil {
 			return nil, fmt.Errorf("creating trace2 manager: %w", err)
 		}

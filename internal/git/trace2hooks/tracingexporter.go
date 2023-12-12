@@ -6,6 +6,7 @@ import (
 
 	"github.com/opentracing/opentracing-go"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/trace2"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/tracing"
 )
 
@@ -28,7 +29,7 @@ func (t *TracingExporter) Name() string {
 // Handle is the main method that converts each trace not in the tree to the corresponding nested span.
 // All the spans will have `git:` prefix, followed by the operation. Trace metadata fields are copied
 // as span tags.
-func (t *TracingExporter) Handle(rootCtx context.Context, trace *trace2.Trace) error {
+func (t *TracingExporter) Handle(rootCtx context.Context, trace *trace2.Trace, logger log.Logger) error {
 	trace.Walk(rootCtx, func(ctx context.Context, trace *trace2.Trace) context.Context {
 		if trace.IsRoot() {
 			return ctx

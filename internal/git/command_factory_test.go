@@ -703,15 +703,15 @@ func TestFsckConfiguration(t *testing.T) {
 
 type dummyHook struct {
 	name    string
-	handler func(context.Context, *trace2.Trace) error
+	handler func(context.Context, *trace2.Trace, log.Logger) error
 }
 
 func (h *dummyHook) Name() string {
 	return h.name
 }
 
-func (h *dummyHook) Handle(ctx context.Context, trace *trace2.Trace) error {
-	return h.handler(ctx, trace)
+func (h *dummyHook) Handle(ctx context.Context, trace *trace2.Trace, logger log.Logger) error {
+	return h.handler(ctx, trace, logger)
 }
 
 func TestWithTrace2Hooks(t *testing.T) {
@@ -748,7 +748,7 @@ func TestWithTrace2Hooks(t *testing.T) {
 				return []trace2.Hook{
 					&dummyHook{
 						name: "dummy",
-						handler: func(ctx context.Context, trace *trace2.Trace) error {
+						handler: func(ctx context.Context, trace *trace2.Trace, logger log.Logger) error {
 							require.Subset(t, extractEventNames(trace), essentialEvents)
 							return nil
 						},
@@ -767,14 +767,14 @@ func TestWithTrace2Hooks(t *testing.T) {
 				return []trace2.Hook{
 					&dummyHook{
 						name: "dummy",
-						handler: func(ctx context.Context, trace *trace2.Trace) error {
+						handler: func(ctx context.Context, trace *trace2.Trace, logger log.Logger) error {
 							require.Subset(t, extractEventNames(trace), essentialEvents)
 							return nil
 						},
 					},
 					&dummyHook{
 						name: "dummy2",
-						handler: func(ctx context.Context, trace *trace2.Trace) error {
+						handler: func(ctx context.Context, trace *trace2.Trace, logger log.Logger) error {
 							require.Subset(t, extractEventNames(trace), essentialEvents)
 							return nil
 						},
@@ -804,13 +804,13 @@ func TestWithTrace2Hooks(t *testing.T) {
 				return []trace2.Hook{
 					&dummyHook{
 						name: "dummy",
-						handler: func(ctx context.Context, trace *trace2.Trace) error {
+						handler: func(ctx context.Context, trace *trace2.Trace, logger log.Logger) error {
 							return fmt.Errorf("something goes wrong")
 						},
 					},
 					&dummyHook{
 						name: "dummy2",
-						handler: func(ctx context.Context, trace *trace2.Trace) error {
+						handler: func(ctx context.Context, trace *trace2.Trace, logger log.Logger) error {
 							require.Fail(t, "should not trigger hook after prior one fails")
 							return nil
 						},
@@ -830,7 +830,7 @@ func TestWithTrace2Hooks(t *testing.T) {
 				return []trace2.Hook{
 					&dummyHook{
 						name: "dummy",
-						handler: func(ctx context.Context, trace *trace2.Trace) error {
+						handler: func(ctx context.Context, trace *trace2.Trace, logger log.Logger) error {
 							require.Subset(t, extractEventNames(trace), essentialEvents)
 							return nil
 						},

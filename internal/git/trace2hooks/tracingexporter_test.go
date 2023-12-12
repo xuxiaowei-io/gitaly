@@ -219,7 +219,7 @@ func TestTracingExporter_Handle(t *testing.T) {
 			ctx, trace := tc.setup(t)
 
 			exporter := NewTracingExporter()
-			err := exporter.Handle(ctx, trace)
+			err := exporter.Handle(ctx, trace, testhelper.SharedLogger(t))
 			require.NoError(t, err)
 
 			spans := testhelper.ReportedSpans(t, reporter)

@@ -9,20 +9,21 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 )
 
 type dummyHook struct {
 	name    string
-	handler func(context.Context, *Trace) error
+	handler func(context.Context, *Trace, log.Logger) error
 }
 
 func (h *dummyHook) Name() string {
 	return h.name
 }
 
-func (h *dummyHook) Handle(ctx context.Context, trace *Trace) error {
-	return h.handler(ctx, trace)
+func (h *dummyHook) Handle(ctx context.Context, trace *Trace, logger log.Logger) error {
+	return h.handler(ctx, trace, logger)
 }
 
 func TestManager(t *testing.T) {
@@ -62,7 +63,7 @@ func TestManager(t *testing.T) {
 			setup: func() (bool, []Hook, func(*testing.T, *Manager)) {
 				hook := dummyHook{
 					name: "dummy",
-					handler: func(ctx context.Context, trace *Trace) error {
+					handler: func(ctx context.Context, trace *Trace, logger log.Logger) error {
 						require.Equal(t, expectedTrace, trace.Inspect(false))
 						return nil
 					},
@@ -77,7 +78,7 @@ func TestManager(t *testing.T) {
 
 				hook1 := dummyHook{
 					name: "dummy1",
-					handler: func(ctx context.Context, trace *Trace) error {
+					handler: func(ctx context.Context, trace *Trace, logger log.Logger) error {
 						dispatched = append(dispatched, "dummy1")
 						require.Equal(t, expectedTrace, trace.Inspect(false))
 						return nil
@@ -85,7 +86,7 @@ func TestManager(t *testing.T) {
 				}
 				hook2 := dummyHook{
 					name: "dummy2",
-					handler: func(ctx context.Context, trace *Trace) error {
+					handler: func(ctx context.Context, trace *Trace, logger log.Logger) error {
 						dispatched = append(dispatched, "dummy2")
 						require.Equal(t, expectedTrace, trace.Inspect(false))
 						return nil
@@ -100,7 +101,7 @@ func TestManager(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			activated, hooks, assert := tc.setup()
 
-			manager, err := NewManager("1234", hooks)
+			manager, err := NewManager("1234", hooks, testhelper.SharedLogger(t))
 			if tc.expectedErr != nil {
 				require.Equal(t, tc.expectedErr, err)
 				return
@@ -169,13 +170,13 @@ func TestManager_tempfileFailures(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			hook := dummyHook{
 				name: "dummy",
-				handler: func(ctx context.Context, trace *Trace) error {
+				handler: func(ctx context.Context, trace *Trace, logger log.Logger) error {
 					require.Fail(t, "must not trigger handler if event file has troubles")
 					return nil
 				},
 			}
 
-			manager, err := NewManager("1234", []Hook{&hook})
+			manager, err := NewManager("1234", []Hook{&hook}, testhelper.SharedLogger(t))
 			require.NoError(t, err)
 
 			_ = manager.Inject([]string{})
@@ -194,21 +195,23 @@ func TestManager_handlerFailures(t *testing.T) {
 
 	hook1 := dummyHook{
 		name:    "dummy1",
-		handler: func(ctx context.Context, trace *Trace) error { return nil },
+		handler: func(ctx context.Context, trace *Trace, logger log.Logger) error { return nil },
 	}
 	hook2 := dummyHook{
-		name:    "dummy2",
-		handler: func(ctx context.Context, trace *Trace) error { return fmt.Errorf("something goes wrong") },
+		name: "dummy2",
+		handler: func(ctx context.Context, trace *Trace, logger log.Logger) error {
+			return fmt.Errorf("something goes wrong")
+		},
 	}
 	hook3 := dummyHook{
 		name: "dummy3",
-		handler: func(ctx context.Context, trace *Trace) error {
+		handler: func(ctx context.Context, trace *Trace, logger log.Logger) error {
 			require.Fail(t, "should not trigger the next hook if the prior one fails")
 			return nil
 		},
 	}
 
-	manager, err := NewManager("1234", []Hook{&hook1, &hook2, &hook3})
+	manager, err := NewManager("1234", []Hook{&hook1, &hook2, &hook3}, testhelper.SharedLogger(t))
 	require.NoError(t, err)
 
 	_ = manager.Inject([]string{})
