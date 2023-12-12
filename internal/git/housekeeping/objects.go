@@ -66,6 +66,36 @@ type RepackObjectsConfig struct {
 	CruftExpireBefore time.Time
 }
 
+// ValidateRepacking validates the input repacking config.
+func ValidateRepacking(cfg RepackObjectsConfig) (bool, error) {
+	var isFullRepack bool
+	switch cfg.Strategy {
+	case RepackObjectsStrategyIncrementalWithUnreachable:
+		isFullRepack = false
+		if cfg.WriteBitmap {
+			return false, structerr.NewInvalidArgument("cannot write packfile bitmap for an incremental repack")
+		}
+		if cfg.WriteMultiPackIndex {
+			return false, structerr.NewInvalidArgument("cannot write multi-pack index for an incremental repack")
+		}
+	case RepackObjectsStrategyGeometric:
+		isFullRepack = false
+	case RepackObjectsStrategyFullWithCruft, RepackObjectsStrategyFullWithUnreachable:
+		isFullRepack = true
+	default:
+		return false, structerr.NewInvalidArgument("invalid strategy: %q", cfg.Strategy)
+	}
+
+	if !isFullRepack && !cfg.WriteMultiPackIndex && cfg.WriteBitmap {
+		return false, structerr.NewInvalidArgument("cannot write packfile bitmap for an incremental repack")
+	}
+	if cfg.Strategy != RepackObjectsStrategyFullWithCruft && !cfg.CruftExpireBefore.IsZero() {
+		return isFullRepack, structerr.NewInvalidArgument("cannot expire cruft objects when not writing cruft packs")
+	}
+
+	return isFullRepack, nil
+}
+
 // RepackObjects repacks objects in the given repository and updates the commit-graph. The way
 // objects are repacked is determined via the RepackObjectsConfig.
 func RepackObjects(ctx context.Context, repo *localrepo.Repo, cfg RepackObjectsConfig) error {
@@ -73,22 +103,9 @@ func RepackObjects(ctx context.Context, repo *localrepo.Repo, cfg RepackObjectsC
 	if err != nil {
 		return err
 	}
-
-	var isFullRepack bool
-	switch cfg.Strategy {
-	case RepackObjectsStrategyIncrementalWithUnreachable, RepackObjectsStrategyGeometric:
-		isFullRepack = false
-	case RepackObjectsStrategyFullWithCruft, RepackObjectsStrategyFullWithUnreachable:
-		isFullRepack = true
-	default:
-		return structerr.NewInvalidArgument("invalid strategy: %q", cfg.Strategy)
-	}
-
-	if !isFullRepack && !cfg.WriteMultiPackIndex && cfg.WriteBitmap {
-		return structerr.NewInvalidArgument("cannot write packfile bitmap for an incremental repack")
-	}
-	if cfg.Strategy != RepackObjectsStrategyFullWithCruft && !cfg.CruftExpireBefore.IsZero() {
-		return structerr.NewInvalidArgument("cannot expire cruft objects when not writing cruft packs")
+	isFullRepack, err := ValidateRepacking(cfg)
+	if err != nil {
+		return err
 	}
 
 	if isFullRepack {
@@ -109,13 +126,6 @@ func RepackObjects(ctx context.Context, repo *localrepo.Repo, cfg RepackObjectsC
 
 	switch cfg.Strategy {
 	case RepackObjectsStrategyIncrementalWithUnreachable:
-		if cfg.WriteBitmap {
-			return structerr.NewInvalidArgument("cannot write packfile bitmap for an incremental repack")
-		}
-		if cfg.WriteMultiPackIndex {
-			return structerr.NewInvalidArgument("cannot write multi-pack index for an incremental repack")
-		}
-
 		var stderr strings.Builder
 
 		// Pack all loose objects into a new packfile, regardless of their reachability.
@@ -250,9 +260,8 @@ func RepackObjects(ctx context.Context, repo *localrepo.Repo, cfg RepackObjectsC
 			// Don't include objects part of an alternate.
 			git.Flag{Name: "-l"},
 		)
-	default:
-		return structerr.NewInvalidArgument("invalid strategy: %q", cfg.Strategy)
 	}
+	return nil
 }
 
 func performRepack(ctx context.Context, repo *localrepo.Repo, cfg RepackObjectsConfig, opts ...git.Option) error {
