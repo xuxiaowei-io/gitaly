@@ -73,6 +73,9 @@ type jsonEvent struct {
 	ChildID        int      `json:"child_id"`
 	Msg            string   `json:"msg"`
 	Code           int      `json:"code"`
+	Exe            string   `json:"exe"`
+	Evt            string   `json:"evt"`
+	Worktree       string   `json:"worktree"`
 }
 
 var ignoredEvents = map[string]struct{}{
@@ -164,6 +167,13 @@ func (p *parser) parseEvent(event *jsonEvent) error {
 	p.currentNode.Children = append(p.currentNode.Children, trace)
 
 	switch event.Name {
+	case "version":
+		trace.setName([]string{event.Name, event.Category, event.Label})
+		trace.setMetadata("exe", event.Exe)
+		trace.setMetadata("evt", event.Evt)
+	case "def_repo":
+		trace.setName([]string{event.Name, event.Category, event.Label})
+		trace.setMetadata("worktree", event.Worktree)
 	case "start":
 		trace.setName([]string{event.Name, event.Category, event.Label})
 		trace.setMetadata("argv", strings.Join(event.Argv, " "))
