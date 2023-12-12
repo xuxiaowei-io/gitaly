@@ -13,6 +13,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/cgroups"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/command"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/alternates"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/trace2"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/trace2hooks"
@@ -98,6 +99,9 @@ func DefaultTrace2HooksFor(ctx context.Context, subCmd string) []trace2.Hook {
 	}
 	if subCmd == "pack-objects" {
 		hooks = append(hooks, trace2hooks.NewPackObjectsMetrics())
+	}
+	if featureflag.DangerousForceCollectAllTraces.IsEnabled(ctx) {
+		hooks = append(hooks, trace2hooks.NewGitTraceLogExporter())
 	}
 	return hooks
 }

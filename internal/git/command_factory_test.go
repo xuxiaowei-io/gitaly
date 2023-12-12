@@ -16,6 +16,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/trace2"
@@ -869,16 +870,22 @@ func TestTrace2TracingExporter(t *testing.T) {
 		desc          string
 		tracerOptions []testhelper.StubTracingReporterOption
 		setup         func(*testing.T, context.Context) context.Context
-		assert        func(*testing.T, []string, map[string]any)
+		assert        func(*testing.T, context.Context, []string, map[string]any)
 	}{
 		{
 			desc: "there is no active span",
 			setup: func(t *testing.T, ctx context.Context) context.Context {
 				return ctx
 			},
-			assert: func(t *testing.T, spans []string, statFields map[string]any) {
-				require.NotContains(t, statFields, "trace2.activated")
-				require.NotContains(t, statFields, "trace2.hooks")
+			assert: func(t *testing.T, ctx context.Context, spans []string, statFields map[string]any) {
+				if featureflag.DangerousForceCollectAllTraces.IsEnabled(ctx) {
+					require.Contains(t, statFields, "trace2.activated")
+					require.Contains(t, statFields, "trace2.hooks")
+				} else {
+					require.NotContains(t, statFields, "trace2.activated")
+					require.NotContains(t, statFields, "trace2.hooks")
+				}
+
 				for _, span := range spans {
 					require.NotEqual(t, "trace2.parse", span)
 				}
@@ -890,9 +897,13 @@ func TestTrace2TracingExporter(t *testing.T) {
 				_, ctx = tracing.StartSpan(ctx, "root", nil)
 				return ctx
 			},
-			assert: func(t *testing.T, spans []string, statFields map[string]any) {
+			assert: func(t *testing.T, ctx context.Context, spans []string, statFields map[string]any) {
 				require.Equal(t, statFields["trace2.activated"], "true")
-				require.Equal(t, statFields["trace2.hooks"], "tracing_exporter")
+				if featureflag.DangerousForceCollectAllTraces.IsEnabled(ctx) {
+					require.Equal(t, statFields["trace2.hooks"], "tracing_exporter,git_trace_log_exporter")
+				} else {
+					require.Equal(t, statFields["trace2.hooks"], "tracing_exporter")
+				}
 				require.Subset(t, spans, []string{
 					"git-rev-list",
 					"git",
@@ -909,9 +920,14 @@ func TestTrace2TracingExporter(t *testing.T) {
 				_, ctx = tracing.StartSpan(ctx, "root", nil)
 				return ctx
 			},
-			assert: func(t *testing.T, spans []string, statFields map[string]any) {
-				require.NotContains(t, statFields, "trace2.activated")
-				require.NotContains(t, statFields, "trace2.hooks")
+			assert: func(t *testing.T, ctx context.Context, spans []string, statFields map[string]any) {
+				if featureflag.DangerousForceCollectAllTraces.IsEnabled(ctx) {
+					require.Contains(t, statFields, "trace2.activated")
+					require.Contains(t, statFields, "trace2.hooks")
+				} else {
+					require.NotContains(t, statFields, "trace2.activated")
+					require.NotContains(t, statFields, "trace2.hooks")
+				}
 				for _, span := range spans {
 					require.NotEqual(t, "trace2.parse", span)
 				}
@@ -934,7 +950,7 @@ func TestTrace2TracingExporter(t *testing.T) {
 				spans = append(spans, span.Operation)
 			}
 
-			tc.assert(t, spans, statFields)
+			tc.assert(t, ctx, spans, statFields)
 		})
 	}
 }
@@ -952,7 +968,11 @@ func TestTrace2PackObjectsMetrics(t *testing.T) {
 			performGitCommand: performPackObjectGit,
 			assert: func(t *testing.T, ctx context.Context, statFields log.Fields) {
 				require.Equal(t, "true", statFields["trace2.activated"])
-				require.Equal(t, "pack_objects_metrics", statFields["trace2.hooks"])
+				if featureflag.DangerousForceCollectAllTraces.IsEnabled(ctx) {
+					require.Equal(t, "pack_objects_metrics,git_trace_log_exporter", statFields["trace2.hooks"])
+				} else {
+					require.Equal(t, "pack_objects_metrics", statFields["trace2.hooks"])
+				}
 				require.Contains(t, statFields, "pack_objects.enumerate_objects_ms")
 				require.Contains(t, statFields, "pack_objects.prepare_pack_ms")
 				require.Contains(t, statFields, "pack_objects.write_pack_file_ms")
@@ -983,8 +1003,13 @@ func TestTrace2PackObjectsMetrics(t *testing.T) {
 				require.NoError(t, err)
 			},
 			assert: func(t *testing.T, ctx context.Context, statFields log.Fields) {
-				require.NotContains(t, statFields, "trace2.activated")
-				require.NotContains(t, statFields, "trace2.hooks")
+				if featureflag.DangerousForceCollectAllTraces.IsEnabled(ctx) {
+					require.Contains(t, statFields, "trace2.activated")
+					require.Contains(t, statFields, "trace2.hooks")
+				} else {
+					require.NotContains(t, statFields, "trace2.activated")
+					require.NotContains(t, statFields, "trace2.hooks")
+				}
 			},
 		},
 	} {
@@ -1017,6 +1042,11 @@ func TestDefaultTrace2HooksFor(t *testing.T) {
 			subCmd: "status",
 			setup: func(t *testing.T) (context.Context, []trace2.Hook) {
 				ctx := testhelper.Context(t)
+				if featureflag.DangerousForceCollectAllTraces.IsEnabled(ctx) {
+					return ctx, []trace2.Hook{
+						trace2hooks.NewGitTraceLogExporter(),
+					}
+				}
 				return ctx, []trace2.Hook{}
 			},
 		},
@@ -1025,6 +1055,12 @@ func TestDefaultTrace2HooksFor(t *testing.T) {
 			subCmd: "status",
 			setup: func(t *testing.T) (context.Context, []trace2.Hook) {
 				_, ctx := tracing.StartSpan(testhelper.Context(t), "root", nil)
+				if featureflag.DangerousForceCollectAllTraces.IsEnabled(ctx) {
+					return ctx, []trace2.Hook{
+						trace2hooks.NewTracingExporter(),
+						trace2hooks.NewGitTraceLogExporter(),
+					}
+				}
 				return ctx, []trace2.Hook{
 					trace2hooks.NewTracingExporter(),
 				}
@@ -1035,6 +1071,11 @@ func TestDefaultTrace2HooksFor(t *testing.T) {
 			subCmd: "status",
 			setup: func(t *testing.T) (context.Context, []trace2.Hook) {
 				_, ctx := tracing.StartSpan(testhelper.Context(t), "root", nil)
+				if featureflag.DangerousForceCollectAllTraces.IsEnabled(ctx) {
+					return ctx, []trace2.Hook{
+						trace2hooks.NewGitTraceLogExporter(),
+					}
+				}
 				return ctx, []trace2.Hook{}
 			},
 			tracerOptions: []testhelper.StubTracingReporterOption{testhelper.NeverSampled()},
@@ -1043,7 +1084,14 @@ func TestDefaultTrace2HooksFor(t *testing.T) {
 			desc:   "subcmd is pack-objects but span is not sampled",
 			subCmd: "pack-objects",
 			setup: func(t *testing.T) (context.Context, []trace2.Hook) {
-				return testhelper.Context(t), []trace2.Hook{
+				ctx := testhelper.Context(t)
+				if featureflag.DangerousForceCollectAllTraces.IsEnabled(ctx) {
+					return ctx, []trace2.Hook{
+						trace2hooks.NewPackObjectsMetrics(),
+						trace2hooks.NewGitTraceLogExporter(),
+					}
+				}
+				return ctx, []trace2.Hook{
 					trace2hooks.NewPackObjectsMetrics(),
 				}
 			},
@@ -1056,6 +1104,9 @@ func TestDefaultTrace2HooksFor(t *testing.T) {
 				hooks := []trace2.Hook{
 					trace2hooks.NewTracingExporter(),
 					trace2hooks.NewPackObjectsMetrics(),
+				}
+				if featureflag.DangerousForceCollectAllTraces.IsEnabled(ctx) {
+					hooks = append(hooks, trace2hooks.NewGitTraceLogExporter())
 				}
 
 				return ctx, hooks
