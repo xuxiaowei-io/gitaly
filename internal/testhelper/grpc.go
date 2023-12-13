@@ -44,10 +44,20 @@ func (mockServerTransportStream) SetTrailer(md metadata.MD) error { return nil }
 func ProtoEqual(tb testing.TB, expected, actual interface{}, opts ...cmp.Option) {
 	tb.Helper()
 
+	ProtoEqualAssert(tb, expected, actual, opts...)
+	if tb.Failed() {
+		tb.FailNow()
+	}
+}
+
+// ProtoEqualAssert is similar to ProtoEqual but safe to use in goroutines.
+func ProtoEqualAssert(tb testing.TB, expected, actual interface{}, opts ...cmp.Option) {
+	tb.Helper()
+
 	opts = append(opts, protocmp.Transform(), cmpopts.EquateErrors())
 	diff := cmp.Diff(expected, actual, opts...)
 	if len(diff) > 0 {
-		require.Fail(tb, fmt.Sprintf("Protobufs not equal\nDiff: %v", diff))
+		assert.Fail(tb, fmt.Sprintf("Protobufs not equal\nDiff: %v", diff))
 	}
 }
 
