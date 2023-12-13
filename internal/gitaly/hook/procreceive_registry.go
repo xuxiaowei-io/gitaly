@@ -36,8 +36,10 @@ type ProcReceiveHandler interface {
 	// with a reason.
 	RejectUpdate(referenceName git.ReferenceName, reason string) error
 
-	// Close must be called to clean up the proc-receive hook.
-	Close() error
+	// Close must be called to clean up the proc-receive hook. If the user
+	// of the handler encounters an error, it should be transferred to the
+	// hook too.
+	Close(rpcErr error) error
 }
 
 // ProcReceiveRegistry is the registry which provides the proc-receive handlers

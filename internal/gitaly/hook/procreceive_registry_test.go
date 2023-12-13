@@ -31,7 +31,7 @@ func TestProcReceiveRegistry(t *testing.T) {
 		SkipCreationViaService: true,
 	})
 
-	newHandler := func(id storage.TransactionID) (ProcReceiveHandler, <-chan struct{}) {
+	newHandler := func(id storage.TransactionID) (ProcReceiveHandler, <-chan error) {
 		payload, err := git.NewHooksPayload(
 			cfg,
 			repo,

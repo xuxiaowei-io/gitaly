@@ -46,14 +46,15 @@ func TestProcReceiveHandler(t *testing.T) {
 	require.NoError(t, err)
 
 	type setupData struct {
-		env             []string
-		ctx             context.Context
-		stdin           string
-		expectedErr     error
-		expectedStdout  string
-		expectedUpdates []ReferenceUpdate
-		expectedAtomic  bool
-		handlerSteps    func(handler ProcReceiveHandler) error
+		env              []string
+		ctx              context.Context
+		stdin            string
+		expectedErr      error
+		expectedCloseErr error
+		expectedStdout   string
+		expectedUpdates  []ReferenceUpdate
+		expectedAtomic   bool
+		handlerSteps     func(handler ProcReceiveHandler) error
 	}
 
 	for _, tc := range []struct {
@@ -124,7 +125,7 @@ func TestProcReceiveHandler(t *testing.T) {
 					},
 					handlerSteps: func(handler ProcReceiveHandler) error {
 						require.NoError(t, handler.AcceptUpdate("refs/heads/main"))
-						return handler.Close()
+						return handler.Close(nil)
 					},
 				}
 			},
@@ -167,7 +168,46 @@ func TestProcReceiveHandler(t *testing.T) {
 					},
 					handlerSteps: func(handler ProcReceiveHandler) error {
 						require.NoError(t, handler.AcceptUpdate("refs/heads/main"))
-						return handler.Close()
+						return handler.Close(nil)
+					},
+				}
+			},
+		},
+		{
+			desc: "single reference but close midway with error",
+			setup: func(t *testing.T, ctx context.Context) setupData {
+				var stdin bytes.Buffer
+				_, err := pktline.WriteString(&stdin, "version=1\000push-options")
+				require.NoError(t, err)
+				err = pktline.WriteFlush(&stdin)
+				require.NoError(t, err)
+				_, err = pktline.WriteString(&stdin, fmt.Sprintf("%s %s %s",
+					gittest.DefaultObjectHash.ZeroOID, gittest.DefaultObjectHash.EmptyTreeOID, "refs/heads/main"))
+				require.NoError(t, err)
+				err = pktline.WriteFlush(&stdin)
+				require.NoError(t, err)
+
+				var stdout bytes.Buffer
+				_, err = pktline.WriteString(&stdout, "version=1\000")
+				require.NoError(t, err)
+				err = pktline.WriteFlush(&stdout)
+				require.NoError(t, err)
+
+				return setupData{
+					env:              []string{payload},
+					ctx:              ctx,
+					stdin:            stdin.String(),
+					expectedStdout:   stdout.String(),
+					expectedCloseErr: errors.New("season ticket on a one way ride"),
+					expectedUpdates: []ReferenceUpdate{
+						{
+							Ref:    "refs/heads/main",
+							OldOID: gittest.DefaultObjectHash.ZeroOID,
+							NewOID: gittest.DefaultObjectHash.EmptyTreeOID,
+						},
+					},
+					handlerSteps: func(handler ProcReceiveHandler) error {
+						return handler.Close(errors.New("season ticket on a one way ride"))
 					},
 				}
 			},
@@ -221,7 +261,7 @@ func TestProcReceiveHandler(t *testing.T) {
 					handlerSteps: func(handler ProcReceiveHandler) error {
 						require.NoError(t, handler.AcceptUpdate("refs/heads/main"))
 						require.NoError(t, handler.RejectUpdate("refs/heads/branch", "for fun"))
-						return handler.Close()
+						return handler.Close(nil)
 					},
 				}
 			},
@@ -241,9 +281,6 @@ func TestProcReceiveHandler(t *testing.T) {
 				return
 			}
 
-			updates := handler.ReferenceUpdates()
-			require.Equal(t, setup.expectedUpdates, updates)
-
 			select {
 			case <-doneCh:
 				t.Fatal("done returned before handler called Close()")
@@ -252,7 +289,8 @@ func TestProcReceiveHandler(t *testing.T) {
 
 			require.NoError(t, setup.handlerSteps(handler))
 			// When Close() is called, we must receive a confirmation.
-			<-doneCh
+			err = <-doneCh
+			require.Equal(t, setup.expectedCloseErr, err)
 
 			require.Equal(t, setup.expectedStdout, stdout.String())
 		})

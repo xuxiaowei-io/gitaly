@@ -12,7 +12,7 @@ import (
 
 type procReceiveHandler struct {
 	stdout        io.Writer
-	doneCh        chan<- struct{}
+	doneCh        chan<- error
 	updates       []ReferenceUpdate
 	transactionID storage.TransactionID
 	atomic        bool
@@ -28,7 +28,7 @@ type procReceiveHandler struct {
 //
 // The handler is transmitted to RPCs which executed git-receive-pack(1), so they
 // can accept or reject individual reference updates.
-func NewProcReceiveHandler(env []string, stdin io.Reader, stdout io.Writer) (ProcReceiveHandler, <-chan struct{}, error) {
+func NewProcReceiveHandler(env []string, stdin io.Reader, stdout io.Writer) (ProcReceiveHandler, <-chan error, error) {
 	payload, err := git.HooksPayloadFromEnv(env)
 	if err != nil {
 		return nil, nil, fmt.Errorf("extracting hooks payload: %w", err)
@@ -98,7 +98,7 @@ func NewProcReceiveHandler(env []string, stdin io.Reader, stdout io.Writer) (Pro
 		return nil, nil, fmt.Errorf("parsing stdin: %w", err)
 	}
 
-	ch := make(chan struct{})
+	ch := make(chan error, 1)
 
 	return &procReceiveHandler{
 		transactionID: payload.TransactionID,
@@ -143,9 +143,18 @@ func (h *procReceiveHandler) RejectUpdate(referenceName git.ReferenceName, reaso
 	return nil
 }
 
-// Close must be called to clean up the proc-receive hook.
-func (h *procReceiveHandler) Close() error {
-	defer close(h.doneCh)
+// Close must be called to clean up the proc-receive hook. If the user
+// of the handler encounters an error, it should be transferred to the
+// hook too.
+func (h *procReceiveHandler) Close(rpcErr error) error {
+	defer func() {
+		h.doneCh <- rpcErr
+	}()
+
+	// When we have an error, there is no need to flush.
+	if rpcErr != nil {
+		return nil
+	}
 
 	if err := pktline.WriteFlush(h.stdout); err != nil {
 		return fmt.Errorf("flushing updates: %w", err)
