@@ -331,13 +331,17 @@ func TestPipelineError(t *testing.T) {
 func TestPipelineProcessedRepos(t *testing.T) {
 	strategy := MockStrategy{}
 
-	repos := map[string][]*gitalypb.Repository{
+	repos := map[string]map[*gitalypb.Repository]struct{}{
 		"storage1": {
-			{RelativePath: "a.git", StorageName: "storage1"},
-			{RelativePath: "b.git", StorageName: "storage1"},
+			&gitalypb.Repository{RelativePath: "a.git", StorageName: "storage1"}: struct{}{},
+			&gitalypb.Repository{RelativePath: "b.git", StorageName: "storage1"}: struct{}{},
 		},
-		"storage2": {{RelativePath: "c.git", StorageName: "storage2"}},
-		"storage3": {{RelativePath: "d.git", StorageName: "storage3"}},
+		"storage2": {
+			&gitalypb.Repository{RelativePath: "c.git", StorageName: "storage2"}: struct{}{},
+		},
+		"storage3": {
+			&gitalypb.Repository{RelativePath: "d.git", StorageName: "storage3"}: struct{}{},
+		},
 	}
 
 	p, err := NewPipeline(testhelper.SharedLogger(t))
@@ -345,7 +349,7 @@ func TestPipelineProcessedRepos(t *testing.T) {
 
 	ctx := testhelper.Context(t)
 	for _, v := range repos {
-		for _, repo := range v {
+		for repo := range v {
 			p.Handle(ctx, NewRestoreCommand(strategy, RestoreRequest{Repository: repo}))
 		}
 	}
