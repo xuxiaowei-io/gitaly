@@ -751,7 +751,7 @@ func TestPartitionManager(t *testing.T) {
 									2: 1,
 								},
 							},
-							expectedError: fmt.Errorf("get partition: %w", errRepositoriesAreInDifferentPartitions),
+							expectedError: fmt.Errorf("get partition: %w", ErrRepositoriesAreInDifferentPartitions),
 						},
 					},
 				}

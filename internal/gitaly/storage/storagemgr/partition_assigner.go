@@ -30,9 +30,9 @@ var (
 	// errAlternateHasAlternate is returned when a repository's alternate itself has an
 	// alternate listed.
 	errAlternateHasAlternate = errors.New("repository's alternate has an alternate itself")
-	// errRepositoriesAreInDifferentPartitions is returned when attempting to begin a transaction spanning
+	// ErrRepositoriesAreInDifferentPartitions is returned when attempting to begin a transaction spanning
 	// repositories that are in different partitions.
-	errRepositoriesAreInDifferentPartitions = errors.New("repositories are in different partitions")
+	ErrRepositoriesAreInDifferentPartitions = errors.New("repositories are in different partitions")
 )
 
 const prefixPartitionAssignment = "partition_assignment/"
@@ -186,7 +186,7 @@ func (pa *partitionAssigner) getPartitionID(ctx context.Context, relativePath, p
 	}
 
 	if partitionHint != 0 && ptnID != partitionHint {
-		return 0, errRepositoriesAreInDifferentPartitions
+		return 0, ErrRepositoriesAreInDifferentPartitions
 	}
 
 	return ptnID, nil

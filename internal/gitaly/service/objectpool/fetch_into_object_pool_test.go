@@ -15,6 +15,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/grpc/metadata"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
@@ -76,8 +77,15 @@ func TestFetchIntoObjectPool_Success(t *testing.T) {
 	// So the fetch should be successful, and...
 	_, err = client.FetchIntoObjectPool(ctx, req)
 	require.NoError(t, err)
-	// ... it should have pruned the broken reference.
-	require.NoFileExists(t, brokenRef)
+
+	// The handler executes housekeeping to remove broken references. While this may have been a reasonable
+	// pre-caution, it's not the RPC handlers job to remove broken state. Further, these changes are not voted
+	// on with Praefect. Disable this assertion if transactions are enabled as the transaction manager is
+	// responsible for preventing broken state in the repository.
+	if !testhelper.IsWALEnabled() {
+		// ... it should have pruned the broken reference.
+		require.NoFileExists(t, brokenRef)
+	}
 }
 
 func TestFetchIntoObjectPool_transactional(t *testing.T) {
@@ -262,8 +270,14 @@ func TestFetchIntoObjectPool_Failure(t *testing.T) {
 			request: &gitalypb.FetchIntoObjectPoolRequest{
 				Origin: repo,
 			},
-			code:   codes.InvalidArgument,
-			errMsg: "object pool is empty",
+			code: codes.InvalidArgument,
+			errMsg: func() string {
+				if testhelper.IsWALEnabled() {
+					return storage.ErrRepositoryNotSet.Error()
+				}
+
+				return "object pool is empty"
+			}(),
 		},
 		{
 			description: "origin and pool do not share the same storage",
@@ -271,8 +285,14 @@ func TestFetchIntoObjectPool_Failure(t *testing.T) {
 				Origin:     repo,
 				ObjectPool: poolWithDifferentStorage,
 			},
-			code:   codes.InvalidArgument,
-			errMsg: "origin has different storage than object pool",
+			code: codes.InvalidArgument,
+			errMsg: func() string {
+				if testhelper.IsWALEnabled() {
+					return "storage name not found"
+				}
+
+				return "origin has different storage than object pool"
+			}(),
 		},
 	} {
 		t.Run(tc.description, func(t *testing.T) {

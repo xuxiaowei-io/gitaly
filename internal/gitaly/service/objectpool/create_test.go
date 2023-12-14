@@ -17,6 +17,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/objectpool"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
@@ -32,7 +33,7 @@ func TestCreate(t *testing.T) {
 	ctx := testhelper.Context(t)
 	logger := testhelper.NewLogger(t)
 	cfg, repo, repoPath, _, client := setup(t, ctx)
-	commitID := gittest.WriteCommit(t, cfg, repoPath)
+	commitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("main"))
 
 	txManager := transaction.NewManager(cfg, logger, nil)
 	catfileCache := catfile.NewCache(cfg)
@@ -149,6 +150,7 @@ func TestCreate_unsuccessful(t *testing.T) {
 		desc        string
 		request     *gitalypb.CreateObjectPoolRequest
 		expectedErr error
+		skipWithWAL string
 	}{
 		{
 			desc: "no origin repository",
@@ -167,7 +169,15 @@ func TestCreate_unsuccessful(t *testing.T) {
 			request: &gitalypb.CreateObjectPoolRequest{
 				Origin: repo,
 			},
-			expectedErr: errMissingPool,
+			expectedErr: func() error {
+				if testhelper.IsWALEnabled() {
+					// The transaction middleware is erroring out and returns the generic
+					// repository not set error.
+					return structerr.NewInvalidArgument("%w", storage.ErrRepositoryNotSet)
+				}
+
+				return errMissingPool
+			}(),
 		},
 		{
 			desc: "outside pools directory",
@@ -233,6 +243,7 @@ func TestCreate_unsuccessful(t *testing.T) {
 				},
 			},
 			expectedErr: structerr.NewInternal("creating object pool: locking repository: file already locked"),
+			skipWithWAL: `Transactions are isolated and won't see each other's locks.`,
 		},
 		{
 			desc: "pool exists",
@@ -244,6 +255,10 @@ func TestCreate_unsuccessful(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
+			if tc.skipWithWAL != "" {
+				testhelper.SkipWithWAL(t, tc.skipWithWAL)
+			}
+
 			_, err := client.CreateObjectPool(ctx, tc.request)
 			testhelper.RequireGrpcError(t, tc.expectedErr, err)
 		})

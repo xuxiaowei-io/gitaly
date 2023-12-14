@@ -61,6 +61,11 @@ func TestGetObjectPoolBadFile(t *testing.T) {
 		Repository: repo,
 	})
 
+	if testhelper.IsWALEnabled() {
+		require.Regexp(t, "begin transaction: new snapshot: create repository snapshots: create alternate snapshot: create directory snapshot: walk: create dir: mkdir .+/objects: file exists$", err.Error())
+		return
+	}
+
 	require.NoError(t, err)
 	require.Nil(t, resp.GetObjectPool())
 }

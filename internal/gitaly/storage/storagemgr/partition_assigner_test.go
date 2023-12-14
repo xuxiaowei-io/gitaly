@@ -96,7 +96,7 @@ func TestPartitionAssigner(t *testing.T) {
 
 	// Getting a partition fails if the repositories are in different partitions.
 	ptnID6, err := pa.getPartitionID(ctx, relativePath1, relativePath6)
-	require.Equal(t, errRepositoriesAreInDifferentPartitions, err)
+	require.Equal(t, ErrRepositoriesAreInDifferentPartitions, err)
 	require.EqualValues(t, 0, ptnID6)
 
 	require.Equal(t, partitionAssignments{

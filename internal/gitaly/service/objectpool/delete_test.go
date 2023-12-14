@@ -10,6 +10,8 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func TestDelete(t *testing.T) {
@@ -23,6 +25,17 @@ func TestDelete(t *testing.T) {
 
 	poolProto, _, _ := createObjectPool(t, ctx, cfg, repoProto)
 	validPoolPath := poolProto.GetRepository().GetRelativePath()
+
+	errWithTransactions := func() error {
+		// With WAL enabled, the transaction fails to begin leading to a different error message. However if Praefect
+		// is also enabled, Praefect intercepts the call, and return invalid pool directory error due to not finding
+		// metadata for the pool repository.
+		if testhelper.IsWALEnabled() && !testhelper.IsPraefectEnabled() {
+			return status.Error(codes.Internal, "begin transaction: get partition: get partition ID: validate git directory: invalid git directory")
+		}
+
+		return errInvalidPoolDir
+	}
 
 	for _, tc := range []struct {
 		desc         string
@@ -41,17 +54,12 @@ func TestDelete(t *testing.T) {
 		{
 			desc:         "deleting outside pools directory fails",
 			relativePath: ".",
-			expectedErr:  errInvalidPoolDir,
-		},
-		{
-			desc:         "deleting outside pools directory fails",
-			relativePath: ".",
-			expectedErr:  errInvalidPoolDir,
+			expectedErr:  errWithTransactions(),
 		},
 		{
 			desc:         "deleting pools directory fails",
 			relativePath: "@pools",
-			expectedErr:  errInvalidPoolDir,
+			expectedErr:  errWithTransactions(),
 		},
 		{
 			desc:         "deleting first level subdirectory fails",
@@ -66,7 +74,7 @@ func TestDelete(t *testing.T) {
 		{
 			desc:         "deleting pool subdirectory fails",
 			relativePath: filepath.Join(validPoolPath, "objects"),
-			expectedErr:  errInvalidPoolDir,
+			expectedErr:  errWithTransactions(),
 		},
 		{
 			desc:         "path traversing fails",

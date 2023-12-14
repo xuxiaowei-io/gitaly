@@ -94,21 +94,6 @@ be configured.`)
 This interceptor is for use with Gitaly. Praefect running in front of it may change error
 messages and behavior by erroring out the requests before they even hit this interceptor.`)
 
-	// This is a temporary workaround until transaction support is enabled the below RPCs. We're
-	// using them to test that the additional repository is properly handled by the middleware
-	// so we need the middleware to not short circuit when it encounters the RPC.
-	//
-	// As the RPCs themselves haven't yet been adapted for transactions, their tests will fail if we handled
-	// them transactionally. For now, make these RPCs transactional within this test only. There's no point
-	// switching to dependency injection with the list of non transactional RPCs as we're soon enabling
-	// transactions for the remaining non-transactional RPCs and remove the list entirely.
-	delete(storagemgr.NonTransactionalRPCs, "/gitaly.ObjectPoolService/CreateObjectPool")
-	delete(storagemgr.NonTransactionalRPCs, "/gitaly.ObjectPoolService/LinkRepositoryToObjectPool")
-	defer func() {
-		storagemgr.NonTransactionalRPCs["/gitaly.ObjectPoolService/CreateObjectPool"] = struct{}{}
-		storagemgr.NonTransactionalRPCs["/gitaly.ObjectPoolService/LinkRepositoryToObjectPool"] = struct{}{}
-	}()
-
 	validRepository := func() *gitalypb.Repository {
 		return &gitalypb.Repository{
 			StorageName:   "default",

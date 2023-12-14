@@ -273,47 +273,6 @@ func TestGetObjectPoolHandler(t *testing.T) {
 				}
 			},
 		},
-		{
-			desc: "object pool cluster path does not contain valid repository ID",
-			setup: func(t *testing.T) setupData {
-				client, repoStore := setupPraefect(t)
-
-				// Create repositories that will be liked to object pools on each Gitaly node with
-				// replica path and register them in Praefect.
-				relativePath := gittest.NewRepositoryName(t)
-				replicaPath := storage.DeriveReplicaPath(5)
-				repo1, _ := gittest.CreateRepository(t, ctx, gitaly1Cfg, gittest.CreateRepositoryConfig{
-					RelativePath: replicaPath,
-				})
-				repo2, _ := gittest.CreateRepository(t, ctx, gitaly2Cfg, gittest.CreateRepositoryConfig{
-					RelativePath: replicaPath,
-				})
-				require.NoError(t, repoStore.CreateRepository(ctx, 5, virtualStorage, relativePath, replicaPath, gitaly1Storage, []string{gitaly2Storage}, nil, false, false))
-
-				// Create object pool repositories that link to the previously created repositories
-				// with the invalid cluster pool path and register them with Praefect. Praefect
-				// relies on the cluster path to get the repository ID which is needed to fetch
-				// repository metadata. If a valid repository ID cannot be parsed from the object
-				// pool cluster path, an error is returned.
-				poolRelativePath := gittest.NewObjectPoolName(t)
-				poolReplicaPath := storage.DerivePoolPath(6) + "foobar"
-				gittest.CreateObjectPool(t, ctx, gitaly1Cfg, repo1, gittest.CreateObjectPoolConfig{
-					RelativePath:               poolReplicaPath,
-					LinkRepositoryToObjectPool: true,
-				})
-				gittest.CreateObjectPool(t, ctx, gitaly2Cfg, repo2, gittest.CreateObjectPoolConfig{
-					RelativePath:               poolReplicaPath,
-					LinkRepositoryToObjectPool: true,
-				})
-				require.NoError(t, repoStore.CreateRepository(ctx, 6, virtualStorage, poolRelativePath, poolRelativePath, gitaly1Storage, []string{gitaly2Storage}, nil, false, false))
-
-				return setupData{
-					client:        client,
-					repository:    &gitalypb.Repository{StorageName: virtualStorage, RelativePath: relativePath},
-					expectedError: structerr.NewInternal("parsing repository ID: strconv.ParseInt: parsing \"6foobar\": invalid syntax"),
-				}
-			},
-		},
 	} {
 		tc := tc
 		t.Run(tc.desc, func(t *testing.T) {

@@ -28,6 +28,8 @@ func (nilTransaction) OriginalRepository(*gitalypb.Repository) *gitalypb.Reposit
 	panic("unexpected call")
 }
 
+func (nilTransaction) UpdateAlternate(string) {}
+
 func TestContextWithTransaction(t *testing.T) {
 	t.Run("no transaction in context", func(t *testing.T) {
 		RunWithTransaction(context.Background(), func(tx Transaction) {

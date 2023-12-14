@@ -13,6 +13,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/stats"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/storage/storagectx"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/text"
@@ -248,6 +249,10 @@ func removeAlternatesIfOk(ctx context.Context, repo *localrepo.Repo, altFile, ba
 	if err := transaction.VoteOnContext(ctx, txManager, voting.VoteFromData([]byte("disconnect alternate")), voting.Committed); err != nil {
 		return fmt.Errorf("committing vote for disconnecting alternate: %w", err)
 	}
+
+	storagectx.RunWithTransaction(ctx, func(tx storagectx.Transaction) {
+		tx.UpdateAlternate("")
+	})
 
 	// The repository should only be disconnected from its object pool if validation is successful.
 	// If validation fails or transaction quorum is not achieved, alternates rollback is performed.
