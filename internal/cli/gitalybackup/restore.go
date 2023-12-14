@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"runtime"
+	"strings"
 
 	cli "github.com/urfave/cli/v2"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/backup"
@@ -135,15 +136,18 @@ func (cmd *restoreSubcommand) run(ctx context.Context, logger log.Logger, stdin 
 		manager = backup.NewManager(sink, locator, pool)
 	}
 
+	// Get the set of existing repositories keyed by storage. We'll later use this to determine any
+	// dangling repos that should be removed.
+	existingRepos := make(map[string][]*gitalypb.Repository)
 	for _, storageName := range cmd.removeAllRepositories {
-		err := manager.RemoveAllRepositories(ctx, &backup.RemoveAllRepositoriesRequest{
+		repos, err := manager.ListRepositories(ctx, &backup.ListRepositoriesRequest{
 			StorageName: storageName,
 		})
 		if err != nil {
-			// Treat RemoveAll failures as soft failures until we can determine
-			// how often it fails.
-			logger.WithError(err).WithField("storage_name", storageName).Warn("failed to remove all repositories")
+			logger.WithError(err).WithField("storage_name", storageName).Warn("failed to list repositories")
 		}
+
+		existingRepos[storageName] = repos
 	}
 
 	var opts []backup.PipelineOption
@@ -157,7 +161,6 @@ func (cmd *restoreSubcommand) run(ctx context.Context, logger log.Logger, stdin 
 
 	decoder := json.NewDecoder(stdin)
 	for {
-
 		var req restoreRequest
 		if err := decoder.Decode(&req); errors.Is(err, io.EOF) {
 			break
@@ -179,8 +182,33 @@ func (cmd *restoreSubcommand) run(ctx context.Context, logger log.Logger, stdin 
 		}))
 	}
 
-	if _, err := pipeline.Done(); err != nil {
+	restoredRepos, err := pipeline.Done()
+	if err != nil {
 		return fmt.Errorf("restore: %w", err)
 	}
+
+	var removalErrors []error
+	for storageName, repos := range existingRepos {
+		for _, repo := range repos {
+			if dangling := restoredRepos[storageName][repo]; dangling == struct{}{} {
+				// If we have dangling repos (those which exist in the storage but
+				// weren't part of the restore), they need to be deleted so the
+				// state of repos in Gitaly matches that in the Rails DB.
+				if err := manager.RemoveRepository(ctx, &backup.RemoveRepositoryRequest{Repo: repo}); err != nil {
+					removalErrors = append(removalErrors, fmt.Errorf("storage_name %q relative_path %q: %w", storageName, repo.RelativePath, err))
+				}
+			}
+		}
+	}
+
+	if len(removalErrors) > 0 {
+		var builder strings.Builder
+		_, _ = fmt.Fprintf(&builder, "remove dangling repositories: %d failures encountered:\n", len(removalErrors))
+		for _, err := range removalErrors {
+			_, _ = fmt.Fprintf(&builder, " - %s\n", err.Error())
+		}
+		return errors.New(builder.String())
+	}
+
 	return nil
 }
