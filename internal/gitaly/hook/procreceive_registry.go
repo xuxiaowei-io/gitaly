@@ -1,6 +1,7 @@
 package hook
 
 import (
+	"context"
 	"fmt"
 	"sync"
 
@@ -90,7 +91,7 @@ func (r *ProcReceiveRegistry) RegisterWaiter(id storage.TransactionID) (<-chan P
 }
 
 // Transmit transmits a handler to its waiter.
-func (r *ProcReceiveRegistry) Transmit(handler ProcReceiveHandler) error {
+func (r *ProcReceiveRegistry) Transmit(ctx context.Context, handler ProcReceiveHandler) error {
 	r.m.Lock()
 	defer r.m.Unlock()
 
@@ -99,7 +100,13 @@ func (r *ProcReceiveRegistry) Transmit(handler ProcReceiveHandler) error {
 		return fmt.Errorf("no waiters for id: %d", handler.TransactionID())
 	}
 
-	ch <- handler
+	// It is possible that the RPC (waiter) returned because receive-pack
+	// returned an error. In such scenarios, we don't want to block indefinitely.
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case ch <- handler:
+	}
 
 	return nil
 }

@@ -2,6 +2,7 @@ package hook
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"sync"
 	"testing"
@@ -68,9 +69,44 @@ func TestProcReceiveRegistry(t *testing.T) {
 		registry := NewProcReceiveRegistry()
 
 		handler, _ := newHandler(1)
-		err := registry.Transmit(handler)
+		err := registry.Transmit(ctx, handler)
 
 		require.Equal(t, fmt.Errorf("no waiters for id: 1"), err)
+	})
+
+	t.Run("transmit with context cancelled", func(t *testing.T) {
+		t.Parallel()
+		registry := NewProcReceiveRegistry()
+
+		handler, _ := newHandler(1)
+
+		recvCh, cleanup, err := registry.RegisterWaiter(1)
+		require.NoError(t, err)
+		defer cleanup()
+
+		ctx, cancel := context.WithCancel(ctx)
+		cancel()
+
+		wg := sync.WaitGroup{}
+		wg.Add(2)
+
+		go func() {
+			defer wg.Done()
+			select {
+			case <-ctx.Done():
+				assert.Equal(t, context.Canceled, ctx.Err())
+			case <-recvCh:
+				assert.Fail(t, "handler wasn't expected")
+			}
+		}()
+
+		go func() {
+			defer wg.Done()
+			err := registry.Transmit(ctx, handler)
+			assert.Equal(t, context.Canceled, err)
+		}()
+
+		wg.Wait()
 	})
 
 	t.Run("waiter registered twice", func(t *testing.T) {
@@ -128,17 +164,17 @@ func TestProcReceiveRegistry(t *testing.T) {
 
 		go func() {
 			defer wg.Done()
-			assert.NoError(t, registry.Transmit(handler1))
+			assert.NoError(t, registry.Transmit(ctx, handler1))
 		}()
 
 		go func() {
 			defer wg.Done()
-			assert.NoError(t, registry.Transmit(handler2))
+			assert.NoError(t, registry.Transmit(ctx, handler2))
 		}()
 
 		go func() {
 			defer wg.Done()
-			assert.NoError(t, registry.Transmit(handler3))
+			assert.NoError(t, registry.Transmit(ctx, handler3))
 		}()
 
 		wg.Wait()
