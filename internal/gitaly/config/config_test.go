@@ -20,6 +20,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/gitaly/config/sentry"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/duration"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/helper/perm"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/log"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 )
 
@@ -45,6 +46,7 @@ func TestLoadEmptyConfig(t *testing.T) {
 	require.NoError(t, err)
 
 	expectedCfg := Cfg{
+		Logging:             defaultLoggingConfig(),
 		Prometheus:          prometheus.DefaultConfig(),
 		PackObjectsCache:    defaultPackObjectsCacheConfig(),
 		PackObjectsLimiting: defaultPackObjectsLimiting(),
@@ -139,6 +141,9 @@ sentry_dsn = "abc123"`)
 	require.NoError(t, err)
 
 	require.Equal(t, Logging{
+		Config: log.Config{
+			Level: "info",
+		},
 		Sentry: Sentry(sentry.Config{
 			Environment: "production",
 			DSN:         "abc123",
@@ -186,6 +191,7 @@ func TestLoadConfigCommand(t *testing.T) {
 
 	modifyDefaultConfig := func(modify func(cfg *Cfg)) Cfg {
 		cfg := &Cfg{
+			Logging:             defaultLoggingConfig(),
 			Prometheus:          prometheus.DefaultConfig(),
 			PackObjectsCache:    defaultPackObjectsCacheConfig(),
 			PackObjectsLimiting: defaultPackObjectsLimiting(),
