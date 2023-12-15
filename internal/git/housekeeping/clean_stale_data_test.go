@@ -1069,7 +1069,7 @@ func TestIsStaleTemporaryObject(t *testing.T) {
 			expectIsStale: false,
 		},
 		{
-			name: "recent_time_file",
+			name: "recent time file",
 			dirEntry: mockDirEntry{
 				name: "tmp_DELETEME",
 				fi: mockFileInfo{
@@ -1079,7 +1079,27 @@ func TestIsStaleTemporaryObject(t *testing.T) {
 			expectIsStale: false,
 		},
 		{
-			name: "old temp file",
+			name: "recent time file",
+			dirEntry: mockDirEntry{
+				name: "tmp_DELETEME",
+				fi: mockFileInfo{
+					modTime: time.Now().Add(-23 * time.Hour),
+				},
+			},
+			expectIsStale: false,
+		},
+		{
+			name: "very old temp file",
+			dirEntry: mockDirEntry{
+				name: "tmp_DELETEME",
+				fi: mockFileInfo{
+					modTime: time.Now().Add(-25 * time.Hour),
+				},
+			},
+			expectIsStale: true,
+		},
+		{
+			name: "very old temp file",
 			dirEntry: mockDirEntry{
 				name: "tmp_DELETEME",
 				fi: mockFileInfo{
