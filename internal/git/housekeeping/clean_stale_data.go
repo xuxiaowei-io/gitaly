@@ -22,7 +22,7 @@ import (
 
 const (
 	emptyRefsGracePeriod             = 24 * time.Hour
-	deleteTempFilesOlderThanDuration = 7 * 24 * time.Hour
+	deleteTempFilesOlderThanDuration = 24 * time.Hour
 	brokenRefsGracePeriod            = 24 * time.Hour
 	lockfileGracePeriod              = 15 * time.Minute
 	referenceLockfileGracePeriod     = 1 * time.Hour
