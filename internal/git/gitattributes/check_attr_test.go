@@ -7,9 +7,19 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git/localrepo"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/testhelper/testcfg"
 )
+
+func TestCheckAttr(t *testing.T) {
+	t.Parallel()
+
+	ctx := testhelper.Context(t)
+	_, finish, err := CheckAttr(ctx, nil, "HEAD", nil)
+	require.Equal(t, structerr.NewInvalidArgument("empty list of attribute names"), err)
+	require.Nil(t, finish)
+}
 
 func TestCheckAttrCmd_Check(t *testing.T) {
 	ctx := testhelper.Context(t)

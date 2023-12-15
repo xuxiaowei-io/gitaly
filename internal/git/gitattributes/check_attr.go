@@ -10,6 +10,7 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/v16/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v16/internal/structerr"
 )
 
 // CheckAttrCmd can be used to get the gitattributes(5) for a set of files in a
@@ -26,6 +27,10 @@ type CheckAttrCmd struct {
 
 // CheckAttr creates a CheckAttrCmd that checks the given list of attribute names.
 func CheckAttr(ctx context.Context, repo git.RepositoryExecutor, revision git.Revision, names []string) (*CheckAttrCmd, func(), error) {
+	if len(names) == 0 {
+		return nil, nil, structerr.NewInvalidArgument("empty list of attribute names")
+	}
+
 	cmd, err := repo.Exec(ctx, git.Command{
 		Name: "check-attr",
 		Flags: []git.Option{
