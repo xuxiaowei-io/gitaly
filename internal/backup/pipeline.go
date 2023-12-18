@@ -124,23 +124,31 @@ func (cmd RestoreCommand) Execute(ctx context.Context) error {
 	return cmd.strategy.Restore(ctx, &cmd.request)
 }
 
-// pipelineErrors represents a summary of errors by repository
-type pipelineErrors []error
+// commandErrors represents a summary of errors by repository
+//
+//nolint:errname
+type commandErrors struct {
+	errs []error
+	mu   sync.Mutex
+}
 
 // AddError adds an error associated with a repository to the summary.
-func (e *pipelineErrors) AddError(repo *gitalypb.Repository, err error) {
+func (c *commandErrors) AddError(repo *gitalypb.Repository, err error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	if repo.GetGlProjectPath() != "" {
 		err = fmt.Errorf("%s (%s): %w", repo.GetRelativePath(), repo.GetGlProjectPath(), err)
 	} else {
 		err = fmt.Errorf("%s: %w", repo.GetRelativePath(), err)
 	}
-	*e = append(*e, err)
+	c.errs = append(c.errs, err)
 }
 
-func (e pipelineErrors) Error() string {
+func (c *commandErrors) Error() string {
 	var builder strings.Builder
-	_, _ = fmt.Fprintf(&builder, "%d failures encountered:\n", len(e))
-	for _, err := range e {
+	_, _ = fmt.Fprintf(&builder, "%d failures encountered:\n", len(c.errs))
+	for _, err := range c.errs {
 		_, _ = fmt.Fprintf(&builder, " - %s\n", err.Error())
 	}
 	return builder.String()
@@ -171,9 +179,8 @@ type Pipeline struct {
 	// Handle(), and the pipeline should wait for workers to complete and exit.
 	done chan struct{}
 
-	pipelineError   error
-	commandErrors   pipelineErrors
-	commandErrorsMu sync.Mutex
+	pipelineError error
+	cmdErrors     *commandErrors
 }
 
 // NewPipeline creates a pipeline that executes backup and restore jobs.
@@ -187,6 +194,7 @@ func NewPipeline(log log.Logger, opts ...PipelineOption) (*Pipeline, error) {
 		parallelStorage:  0,
 		done:             make(chan struct{}),
 		workersByStorage: make(map[string]chan *contextCommand),
+		cmdErrors:        &commandErrors{},
 	}
 
 	for _, opt := range opts {
@@ -252,8 +260,8 @@ func (p *Pipeline) Done() error {
 		return fmt.Errorf("pipeline: %w", p.pipelineError)
 	}
 
-	if len(p.commandErrors) > 0 {
-		return fmt.Errorf("pipeline: %w", p.commandErrors)
+	if len(p.cmdErrors.errs) > 0 {
+		return fmt.Errorf("pipeline: %w", p.cmdErrors)
 	}
 
 	return nil
@@ -328,10 +336,7 @@ func (p *Pipeline) setErr(err error) {
 }
 
 func (p *Pipeline) addError(repo *gitalypb.Repository, err error) {
-	p.commandErrorsMu.Lock()
-	defer p.commandErrorsMu.Unlock()
-
-	p.commandErrors.AddError(repo, err)
+	p.cmdErrors.AddError(repo, err)
 }
 
 func (p *Pipeline) cmdLogger(cmd Command) log.Logger {
