@@ -38,6 +38,7 @@ import (
 	"google.golang.org/grpc/health"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/keepalive"
+	"google.golang.org/grpc/reflection"
 )
 
 // NewBackchannelServerFactory returns a ServerFactory that serves the RefTransactionServer on the backchannel
@@ -223,7 +224,7 @@ func registerServices(
 	gitalypb.RegisterPraefectInfoServiceServer(srv, info.NewServer(conf, logger, rs, assignmentStore, conns, primaryGetter))
 	gitalypb.RegisterRefTransactionServer(srv, transaction.NewServer(tm))
 	healthpb.RegisterHealthServer(srv, health.NewServer())
-
+	reflection.Register(srv)
 	grpcprometheus.Register(srv)
 }
 
