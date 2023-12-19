@@ -813,7 +813,7 @@ func TestFetchInternalRemote_successful(t *testing.T) {
 
 			referenceTransactionHookCalled++
 			return nil
-		}),
+		}, nil),
 	))
 
 	ctx, err := storage.InjectGitalyServers(ctx, remoteRepo.GetStorageName(), remoteAddr, remoteCfg.Auth.Token)

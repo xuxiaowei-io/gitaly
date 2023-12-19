@@ -850,6 +850,7 @@ func TestPostReceivePack_notAllowed(t *testing.T) {
 		gitalyhook.NopPostReceive,
 		gitalyhook.NopUpdate,
 		gitalyhook.NopReferenceTransaction,
+		gitalyhook.NewProcReceiveRegistry(),
 	)
 
 	server := startSmartHTTPServerWithOptions(t, cfg, nil, []testserver.GitalyServerOpt{

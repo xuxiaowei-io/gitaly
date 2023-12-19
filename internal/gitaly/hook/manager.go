@@ -47,6 +47,10 @@ type Manager interface {
 	// ReferenceTransactionHook executes the reference-transaction Git hook. stdin must contain
 	// all references to be updated and match the format specified in githooks(5).
 	ReferenceTransactionHook(ctx context.Context, state ReferenceTransactionState, env []string, stdin io.Reader) error
+
+	// ProcReceiveRegistry provides the ProcReceiveRegistry assigned to the Manager. The registry
+	// allows RPCs to hook into the proc-receive handler.
+	ProcReceiveRegistry() *ProcReceiveRegistry
 }
 
 // Transaction is the interface of storagemgr.Transaction. It's used for mocking in the tests.
@@ -86,6 +90,12 @@ type GitLabHookManager struct {
 	gitlabClient        gitlab.Client
 	txRegistry          TransactionRegistry
 	procReceiveRegistry *ProcReceiveRegistry
+}
+
+// ProcReceiveRegistry provides the ProcReceiveRegistry assigned to the Manager. The registry
+// allows RPCs to hook into the proc-receive handler.
+func (m *GitLabHookManager) ProcReceiveRegistry() *ProcReceiveRegistry {
+	return m.procReceiveRegistry
 }
 
 // NewManager returns a new hook manager

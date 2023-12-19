@@ -29,3 +29,13 @@ func (DisabledManager) UpdateHook(context.Context, *gitalypb.Repository, string,
 func (DisabledManager) ReferenceTransactionHook(context.Context, ReferenceTransactionState, []string, io.Reader) error {
 	return nil
 }
+
+// ProcReceiveHook ignores its parameters and returns a nil error.
+func (DisabledManager) ProcReceiveHook(ctx context.Context, repo *gitalypb.Repository, env []string, stdin io.Reader, stdout, stderr io.Writer) error {
+	return nil
+}
+
+// ProcReceiveRegistry returns nil.
+func (DisabledManager) ProcReceiveRegistry() *ProcReceiveRegistry {
+	return nil
+}

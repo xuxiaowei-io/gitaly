@@ -275,7 +275,7 @@ func TestUpdaterWithHooks_UpdateReference(t *testing.T) {
 	for _, tc := range testCases {
 		referenceTransactionCalls = 0
 		t.Run(tc.desc, func(t *testing.T) {
-			hookManager := hook.NewMockManager(t, tc.preReceive, tc.postReceive, tc.update, tc.referenceTransaction)
+			hookManager := hook.NewMockManager(t, tc.preReceive, tc.postReceive, tc.update, tc.referenceTransaction, hook.NewProcReceiveRegistry())
 
 			gitCmdFactory := gittest.NewCommandFactory(t, cfg)
 			updater := updateref.NewUpdaterWithHooks(cfg, testhelper.NewLogger(t), config.NewLocator(cfg), hookManager, gitCmdFactory, nil)
@@ -384,6 +384,7 @@ func TestUpdaterWithHooks_quarantine(t *testing.T) {
 			}
 			return nil
 		},
+		hook.NewProcReceiveRegistry(),
 	)
 
 	require.NoError(t, updateref.NewUpdaterWithHooks(cfg, testhelper.NewLogger(t), locator, hookManager, gitCmdFactory, nil).UpdateReference(

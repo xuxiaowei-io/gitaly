@@ -788,6 +788,142 @@ func (*PackObjectsHookWithSidechannelResponse) Descriptor() ([]byte, []int) {
 	return file_hook_proto_rawDescGZIP(), []int{9}
 }
 
+// ProcReceiveHookRequest is the request for the ProcReceiveHook RPC.
+type ProcReceiveHookRequest struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	// repository is the repository the hook operates on. This field is unused
+	// currently since we gather all information from stdin.
+	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
+	// environment_variables is the set of env variables to be passed to the RPC.
+	EnvironmentVariables []string `protobuf:"bytes,2,rep,name=environment_variables,json=environmentVariables,proto3" json:"environment_variables,omitempty"`
+	// stdin is a chunk of raw data which the hook receives.
+	Stdin []byte `protobuf:"bytes,3,opt,name=stdin,proto3" json:"stdin,omitempty"`
+}
+
+func (x *ProcReceiveHookRequest) Reset() {
+	*x = ProcReceiveHookRequest{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_hook_proto_msgTypes[10]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *ProcReceiveHookRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ProcReceiveHookRequest) ProtoMessage() {}
+
+func (x *ProcReceiveHookRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_hook_proto_msgTypes[10]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ProcReceiveHookRequest.ProtoReflect.Descriptor instead.
+func (*ProcReceiveHookRequest) Descriptor() ([]byte, []int) {
+	return file_hook_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *ProcReceiveHookRequest) GetRepository() *Repository {
+	if x != nil {
+		return x.Repository
+	}
+	return nil
+}
+
+func (x *ProcReceiveHookRequest) GetEnvironmentVariables() []string {
+	if x != nil {
+		return x.EnvironmentVariables
+	}
+	return nil
+}
+
+func (x *ProcReceiveHookRequest) GetStdin() []byte {
+	if x != nil {
+		return x.Stdin
+	}
+	return nil
+}
+
+// ProcReceiveHookResponse is the response for the ProcReceiveHook RPC.
+type ProcReceiveHookResponse struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	// stdout is a chunk of raw data to be output to stdout of the hook.
+	Stdout []byte `protobuf:"bytes,1,opt,name=stdout,proto3" json:"stdout,omitempty"`
+	// stderr is a chunk of raw data to be output to stderr of the hook.
+	Stderr []byte `protobuf:"bytes,2,opt,name=stderr,proto3" json:"stderr,omitempty"`
+	// exit_status is the exit status that the hooks outputs, this dictates the
+	// success/failure of git-receive-pack(1).
+	ExitStatus *ExitStatus `protobuf:"bytes,3,opt,name=exit_status,json=exitStatus,proto3" json:"exit_status,omitempty"`
+}
+
+func (x *ProcReceiveHookResponse) Reset() {
+	*x = ProcReceiveHookResponse{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_hook_proto_msgTypes[11]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *ProcReceiveHookResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ProcReceiveHookResponse) ProtoMessage() {}
+
+func (x *ProcReceiveHookResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_hook_proto_msgTypes[11]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ProcReceiveHookResponse.ProtoReflect.Descriptor instead.
+func (*ProcReceiveHookResponse) Descriptor() ([]byte, []int) {
+	return file_hook_proto_rawDescGZIP(), []int{11}
+}
+
+func (x *ProcReceiveHookResponse) GetStdout() []byte {
+	if x != nil {
+		return x.Stdout
+	}
+	return nil
+}
+
+func (x *ProcReceiveHookResponse) GetStderr() []byte {
+	if x != nil {
+		return x.Stderr
+	}
+	return nil
+}
+
+func (x *ProcReceiveHookResponse) GetExitStatus() *ExitStatus {
+	if x != nil {
+		return x.ExitStatus
+	}
+	return nil
+}
+
 var File_hook_proto protoreflect.FileDescriptor
 
 var file_hook_proto_rawDesc = []byte{
@@ -899,8 +1035,26 @@ var file_hook_proto_rawDesc = []byte{
 	0x74, 0x65, 0x5f, 0x69, 0x70, 0x18, 0x07, 0x20, 0x01, 0x28, 0x09, 0x52, 0x08, 0x72, 0x65, 0x6d,
 	0x6f, 0x74, 0x65, 0x49, 0x70, 0x22, 0x28, 0x0a, 0x26, 0x50, 0x61, 0x63, 0x6b, 0x4f, 0x62, 0x6a,
 	0x65, 0x63, 0x74, 0x73, 0x48, 0x6f, 0x6f, 0x6b, 0x57, 0x69, 0x74, 0x68, 0x53, 0x69, 0x64, 0x65,
-	0x63, 0x68, 0x61, 0x6e, 0x6e, 0x65, 0x6c, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x32,
-	0x9e, 0x04, 0x0a, 0x0b, 0x48, 0x6f, 0x6f, 0x6b, 0x53, 0x65, 0x72, 0x76, 0x69, 0x63, 0x65, 0x12,
+	0x63, 0x68, 0x61, 0x6e, 0x6e, 0x65, 0x6c, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22,
+	0x9d, 0x01, 0x0a, 0x16, 0x50, 0x72, 0x6f, 0x63, 0x52, 0x65, 0x63, 0x65, 0x69, 0x76, 0x65, 0x48,
+	0x6f, 0x6f, 0x6b, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x38, 0x0a, 0x0a, 0x72, 0x65,
+	0x70, 0x6f, 0x73, 0x69, 0x74, 0x6f, 0x72, 0x79, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x12,
+	0x2e, 0x67, 0x69, 0x74, 0x61, 0x6c, 0x79, 0x2e, 0x52, 0x65, 0x70, 0x6f, 0x73, 0x69, 0x74, 0x6f,
+	0x72, 0x79, 0x42, 0x04, 0x98, 0xc6, 0x2c, 0x01, 0x52, 0x0a, 0x72, 0x65, 0x70, 0x6f, 0x73, 0x69,
+	0x74, 0x6f, 0x72, 0x79, 0x12, 0x33, 0x0a, 0x15, 0x65, 0x6e, 0x76, 0x69, 0x72, 0x6f, 0x6e, 0x6d,
+	0x65, 0x6e, 0x74, 0x5f, 0x76, 0x61, 0x72, 0x69, 0x61, 0x62, 0x6c, 0x65, 0x73, 0x18, 0x02, 0x20,
+	0x03, 0x28, 0x09, 0x52, 0x14, 0x65, 0x6e, 0x76, 0x69, 0x72, 0x6f, 0x6e, 0x6d, 0x65, 0x6e, 0x74,
+	0x56, 0x61, 0x72, 0x69, 0x61, 0x62, 0x6c, 0x65, 0x73, 0x12, 0x14, 0x0a, 0x05, 0x73, 0x74, 0x64,
+	0x69, 0x6e, 0x18, 0x03, 0x20, 0x01, 0x28, 0x0c, 0x52, 0x05, 0x73, 0x74, 0x64, 0x69, 0x6e, 0x22,
+	0x7e, 0x0a, 0x17, 0x50, 0x72, 0x6f, 0x63, 0x52, 0x65, 0x63, 0x65, 0x69, 0x76, 0x65, 0x48, 0x6f,
+	0x6f, 0x6b, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x16, 0x0a, 0x06, 0x73, 0x74,
+	0x64, 0x6f, 0x75, 0x74, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0c, 0x52, 0x06, 0x73, 0x74, 0x64, 0x6f,
+	0x75, 0x74, 0x12, 0x16, 0x0a, 0x06, 0x73, 0x74, 0x64, 0x65, 0x72, 0x72, 0x18, 0x02, 0x20, 0x01,
+	0x28, 0x0c, 0x52, 0x06, 0x73, 0x74, 0x64, 0x65, 0x72, 0x72, 0x12, 0x33, 0x0a, 0x0b, 0x65, 0x78,
+	0x69, 0x74, 0x5f, 0x73, 0x74, 0x61, 0x74, 0x75, 0x73, 0x18, 0x03, 0x20, 0x01, 0x28, 0x0b, 0x32,
+	0x12, 0x2e, 0x67, 0x69, 0x74, 0x61, 0x6c, 0x79, 0x2e, 0x45, 0x78, 0x69, 0x74, 0x53, 0x74, 0x61,
+	0x74, 0x75, 0x73, 0x52, 0x0a, 0x65, 0x78, 0x69, 0x74, 0x53, 0x74, 0x61, 0x74, 0x75, 0x73, 0x32,
+	0xfe, 0x04, 0x0a, 0x0b, 0x48, 0x6f, 0x6f, 0x6b, 0x53, 0x65, 0x72, 0x76, 0x69, 0x63, 0x65, 0x12,
 	0x5b, 0x0a, 0x0e, 0x50, 0x72, 0x65, 0x52, 0x65, 0x63, 0x65, 0x69, 0x76, 0x65, 0x48, 0x6f, 0x6f,
 	0x6b, 0x12, 0x1d, 0x2e, 0x67, 0x69, 0x74, 0x61, 0x6c, 0x79, 0x2e, 0x50, 0x72, 0x65, 0x52, 0x65,
 	0x63, 0x65, 0x69, 0x76, 0x65, 0x48, 0x6f, 0x6f, 0x6b, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74,
@@ -934,6 +1088,12 @@ var file_hook_proto_rawDesc = []byte{
 	0x79, 0x2e, 0x50, 0x61, 0x63, 0x6b, 0x4f, 0x62, 0x6a, 0x65, 0x63, 0x74, 0x73, 0x48, 0x6f, 0x6f,
 	0x6b, 0x57, 0x69, 0x74, 0x68, 0x53, 0x69, 0x64, 0x65, 0x63, 0x68, 0x61, 0x6e, 0x6e, 0x65, 0x6c,
 	0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x06, 0xfa, 0x97, 0x28, 0x02, 0x08, 0x02,
+	0x12, 0x5e, 0x0a, 0x0f, 0x50, 0x72, 0x6f, 0x63, 0x52, 0x65, 0x63, 0x65, 0x69, 0x76, 0x65, 0x48,
+	0x6f, 0x6f, 0x6b, 0x12, 0x1e, 0x2e, 0x67, 0x69, 0x74, 0x61, 0x6c, 0x79, 0x2e, 0x50, 0x72, 0x6f,
+	0x63, 0x52, 0x65, 0x63, 0x65, 0x69, 0x76, 0x65, 0x48, 0x6f, 0x6f, 0x6b, 0x52, 0x65, 0x71, 0x75,
+	0x65, 0x73, 0x74, 0x1a, 0x1f, 0x2e, 0x67, 0x69, 0x74, 0x61, 0x6c, 0x79, 0x2e, 0x50, 0x72, 0x6f,
+	0x63, 0x52, 0x65, 0x63, 0x65, 0x69, 0x76, 0x65, 0x48, 0x6f, 0x6f, 0x6b, 0x52, 0x65, 0x73, 0x70,
+	0x6f, 0x6e, 0x73, 0x65, 0x22, 0x06, 0xfa, 0x97, 0x28, 0x02, 0x08, 0x01, 0x28, 0x01, 0x30, 0x01,
 	0x42, 0x34, 0x5a, 0x32, 0x67, 0x69, 0x74, 0x6c, 0x61, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x67,
 	0x69, 0x74, 0x6c, 0x61, 0x62, 0x2d, 0x6f, 0x72, 0x67, 0x2f, 0x67, 0x69, 0x74, 0x61, 0x6c, 0x79,
 	0x2f, 0x76, 0x31, 0x36, 0x2f, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2f, 0x67, 0x6f, 0x2f, 0x67, 0x69,
@@ -953,7 +1113,7 @@ func file_hook_proto_rawDescGZIP() []byte {
 }
 
 var file_hook_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_hook_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
+var file_hook_proto_msgTypes = make([]protoimpl.MessageInfo, 12)
 var file_hook_proto_goTypes = []interface{}{
 	(ReferenceTransactionHookRequest_State)(0),     // 0: gitaly.ReferenceTransactionHookRequest.State
 	(*PreReceiveHookRequest)(nil),                  // 1: gitaly.PreReceiveHookRequest
@@ -966,35 +1126,41 @@ var file_hook_proto_goTypes = []interface{}{
 	(*ReferenceTransactionHookResponse)(nil),       // 8: gitaly.ReferenceTransactionHookResponse
 	(*PackObjectsHookWithSidechannelRequest)(nil),  // 9: gitaly.PackObjectsHookWithSidechannelRequest
 	(*PackObjectsHookWithSidechannelResponse)(nil), // 10: gitaly.PackObjectsHookWithSidechannelResponse
-	(*Repository)(nil),                             // 11: gitaly.Repository
-	(*ExitStatus)(nil),                             // 12: gitaly.ExitStatus
+	(*ProcReceiveHookRequest)(nil),                 // 11: gitaly.ProcReceiveHookRequest
+	(*ProcReceiveHookResponse)(nil),                // 12: gitaly.ProcReceiveHookResponse
+	(*Repository)(nil),                             // 13: gitaly.Repository
+	(*ExitStatus)(nil),                             // 14: gitaly.ExitStatus
 }
 var file_hook_proto_depIdxs = []int32{
-	11, // 0: gitaly.PreReceiveHookRequest.repository:type_name -> gitaly.Repository
-	12, // 1: gitaly.PreReceiveHookResponse.exit_status:type_name -> gitaly.ExitStatus
-	11, // 2: gitaly.PostReceiveHookRequest.repository:type_name -> gitaly.Repository
-	12, // 3: gitaly.PostReceiveHookResponse.exit_status:type_name -> gitaly.ExitStatus
-	11, // 4: gitaly.UpdateHookRequest.repository:type_name -> gitaly.Repository
-	12, // 5: gitaly.UpdateHookResponse.exit_status:type_name -> gitaly.ExitStatus
-	11, // 6: gitaly.ReferenceTransactionHookRequest.repository:type_name -> gitaly.Repository
+	13, // 0: gitaly.PreReceiveHookRequest.repository:type_name -> gitaly.Repository
+	14, // 1: gitaly.PreReceiveHookResponse.exit_status:type_name -> gitaly.ExitStatus
+	13, // 2: gitaly.PostReceiveHookRequest.repository:type_name -> gitaly.Repository
+	14, // 3: gitaly.PostReceiveHookResponse.exit_status:type_name -> gitaly.ExitStatus
+	13, // 4: gitaly.UpdateHookRequest.repository:type_name -> gitaly.Repository
+	14, // 5: gitaly.UpdateHookResponse.exit_status:type_name -> gitaly.ExitStatus
+	13, // 6: gitaly.ReferenceTransactionHookRequest.repository:type_name -> gitaly.Repository
 	0,  // 7: gitaly.ReferenceTransactionHookRequest.state:type_name -> gitaly.ReferenceTransactionHookRequest.State
-	12, // 8: gitaly.ReferenceTransactionHookResponse.exit_status:type_name -> gitaly.ExitStatus
-	11, // 9: gitaly.PackObjectsHookWithSidechannelRequest.repository:type_name -> gitaly.Repository
-	1,  // 10: gitaly.HookService.PreReceiveHook:input_type -> gitaly.PreReceiveHookRequest
-	3,  // 11: gitaly.HookService.PostReceiveHook:input_type -> gitaly.PostReceiveHookRequest
-	5,  // 12: gitaly.HookService.UpdateHook:input_type -> gitaly.UpdateHookRequest
-	7,  // 13: gitaly.HookService.ReferenceTransactionHook:input_type -> gitaly.ReferenceTransactionHookRequest
-	9,  // 14: gitaly.HookService.PackObjectsHookWithSidechannel:input_type -> gitaly.PackObjectsHookWithSidechannelRequest
-	2,  // 15: gitaly.HookService.PreReceiveHook:output_type -> gitaly.PreReceiveHookResponse
-	4,  // 16: gitaly.HookService.PostReceiveHook:output_type -> gitaly.PostReceiveHookResponse
-	6,  // 17: gitaly.HookService.UpdateHook:output_type -> gitaly.UpdateHookResponse
-	8,  // 18: gitaly.HookService.ReferenceTransactionHook:output_type -> gitaly.ReferenceTransactionHookResponse
-	10, // 19: gitaly.HookService.PackObjectsHookWithSidechannel:output_type -> gitaly.PackObjectsHookWithSidechannelResponse
-	15, // [15:20] is the sub-list for method output_type
-	10, // [10:15] is the sub-list for method input_type
-	10, // [10:10] is the sub-list for extension type_name
-	10, // [10:10] is the sub-list for extension extendee
-	0,  // [0:10] is the sub-list for field type_name
+	14, // 8: gitaly.ReferenceTransactionHookResponse.exit_status:type_name -> gitaly.ExitStatus
+	13, // 9: gitaly.PackObjectsHookWithSidechannelRequest.repository:type_name -> gitaly.Repository
+	13, // 10: gitaly.ProcReceiveHookRequest.repository:type_name -> gitaly.Repository
+	14, // 11: gitaly.ProcReceiveHookResponse.exit_status:type_name -> gitaly.ExitStatus
+	1,  // 12: gitaly.HookService.PreReceiveHook:input_type -> gitaly.PreReceiveHookRequest
+	3,  // 13: gitaly.HookService.PostReceiveHook:input_type -> gitaly.PostReceiveHookRequest
+	5,  // 14: gitaly.HookService.UpdateHook:input_type -> gitaly.UpdateHookRequest
+	7,  // 15: gitaly.HookService.ReferenceTransactionHook:input_type -> gitaly.ReferenceTransactionHookRequest
+	9,  // 16: gitaly.HookService.PackObjectsHookWithSidechannel:input_type -> gitaly.PackObjectsHookWithSidechannelRequest
+	11, // 17: gitaly.HookService.ProcReceiveHook:input_type -> gitaly.ProcReceiveHookRequest
+	2,  // 18: gitaly.HookService.PreReceiveHook:output_type -> gitaly.PreReceiveHookResponse
+	4,  // 19: gitaly.HookService.PostReceiveHook:output_type -> gitaly.PostReceiveHookResponse
+	6,  // 20: gitaly.HookService.UpdateHook:output_type -> gitaly.UpdateHookResponse
+	8,  // 21: gitaly.HookService.ReferenceTransactionHook:output_type -> gitaly.ReferenceTransactionHookResponse
+	10, // 22: gitaly.HookService.PackObjectsHookWithSidechannel:output_type -> gitaly.PackObjectsHookWithSidechannelResponse
+	12, // 23: gitaly.HookService.ProcReceiveHook:output_type -> gitaly.ProcReceiveHookResponse
+	18, // [18:24] is the sub-list for method output_type
+	12, // [12:18] is the sub-list for method input_type
+	12, // [12:12] is the sub-list for extension type_name
+	12, // [12:12] is the sub-list for extension extendee
+	0,  // [0:12] is the sub-list for field type_name
 }
 
 func init() { file_hook_proto_init() }
@@ -1125,6 +1291,30 @@ func file_hook_proto_init() {
 				return nil
 			}
 		}
+		file_hook_proto_msgTypes[10].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*ProcReceiveHookRequest); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_hook_proto_msgTypes[11].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*ProcReceiveHookResponse); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
@@ -1132,7 +1322,7 @@ func file_hook_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_hook_proto_rawDesc,
 			NumEnums:      1,
-			NumMessages:   10,
+			NumMessages:   12,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

@@ -33,6 +33,11 @@ type HookServiceClient interface {
 	// PackObjectsHookWithSidechannel is an optimized version of PackObjectsHook that uses
 	// a unix socket side channel.
 	PackObjectsHookWithSidechannel(ctx context.Context, in *PackObjectsHookWithSidechannelRequest, opts ...grpc.CallOption) (*PackObjectsHookWithSidechannelResponse, error)
+	// ProcReceiveHook is a hook invoked by git-receive-pack(1) [1]. This hook is responsible
+	// for updating the relevant references and reporting the results back to receive-pack.
+	//
+	// [1]: https://git-scm.com/docs/githooks#proc-receive
+	ProcReceiveHook(ctx context.Context, opts ...grpc.CallOption) (HookService_ProcReceiveHookClient, error)
 }
 
 type hookServiceClient struct {
@@ -177,6 +182,37 @@ func (c *hookServiceClient) PackObjectsHookWithSidechannel(ctx context.Context, 
 	return out, nil
 }
 
+func (c *hookServiceClient) ProcReceiveHook(ctx context.Context, opts ...grpc.CallOption) (HookService_ProcReceiveHookClient, error) {
+	stream, err := c.cc.NewStream(ctx, &HookService_ServiceDesc.Streams[4], "/gitaly.HookService/ProcReceiveHook", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &hookServiceProcReceiveHookClient{stream}
+	return x, nil
+}
+
+type HookService_ProcReceiveHookClient interface {
+	Send(*ProcReceiveHookRequest) error
+	Recv() (*ProcReceiveHookResponse, error)
+	grpc.ClientStream
+}
+
+type hookServiceProcReceiveHookClient struct {
+	grpc.ClientStream
+}
+
+func (x *hookServiceProcReceiveHookClient) Send(m *ProcReceiveHookRequest) error {
+	return x.ClientStream.SendMsg(m)
+}
+
+func (x *hookServiceProcReceiveHookClient) Recv() (*ProcReceiveHookResponse, error) {
+	m := new(ProcReceiveHookResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 // HookServiceServer is the server API for HookService service.
 // All implementations must embed UnimplementedHookServiceServer
 // for forward compatibility
@@ -192,6 +228,11 @@ type HookServiceServer interface {
 	// PackObjectsHookWithSidechannel is an optimized version of PackObjectsHook that uses
 	// a unix socket side channel.
 	PackObjectsHookWithSidechannel(context.Context, *PackObjectsHookWithSidechannelRequest) (*PackObjectsHookWithSidechannelResponse, error)
+	// ProcReceiveHook is a hook invoked by git-receive-pack(1) [1]. This hook is responsible
+	// for updating the relevant references and reporting the results back to receive-pack.
+	//
+	// [1]: https://git-scm.com/docs/githooks#proc-receive
+	ProcReceiveHook(HookService_ProcReceiveHookServer) error
 	mustEmbedUnimplementedHookServiceServer()
 }
 
@@ -213,6 +254,9 @@ func (UnimplementedHookServiceServer) ReferenceTransactionHook(HookService_Refer
 }
 func (UnimplementedHookServiceServer) PackObjectsHookWithSidechannel(context.Context, *PackObjectsHookWithSidechannelRequest) (*PackObjectsHookWithSidechannelResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method PackObjectsHookWithSidechannel not implemented")
+}
+func (UnimplementedHookServiceServer) ProcReceiveHook(HookService_ProcReceiveHookServer) error {
+	return status.Errorf(codes.Unimplemented, "method ProcReceiveHook not implemented")
 }
 func (UnimplementedHookServiceServer) mustEmbedUnimplementedHookServiceServer() {}
 
@@ -344,6 +388,32 @@ func _HookService_PackObjectsHookWithSidechannel_Handler(srv interface{}, ctx co
 	return interceptor(ctx, in, info, handler)
 }
 
+func _HookService_ProcReceiveHook_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(HookServiceServer).ProcReceiveHook(&hookServiceProcReceiveHookServer{stream})
+}
+
+type HookService_ProcReceiveHookServer interface {
+	Send(*ProcReceiveHookResponse) error
+	Recv() (*ProcReceiveHookRequest, error)
+	grpc.ServerStream
+}
+
+type hookServiceProcReceiveHookServer struct {
+	grpc.ServerStream
+}
+
+func (x *hookServiceProcReceiveHookServer) Send(m *ProcReceiveHookResponse) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func (x *hookServiceProcReceiveHookServer) Recv() (*ProcReceiveHookRequest, error) {
+	m := new(ProcReceiveHookRequest)
+	if err := x.ServerStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 // HookService_ServiceDesc is the grpc.ServiceDesc for HookService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -377,6 +447,12 @@ var HookService_ServiceDesc = grpc.ServiceDesc{
 		{
 			StreamName:    "ReferenceTransactionHook",
 			Handler:       _HookService_ReferenceTransactionHook_Handler,
+			ServerStreams: true,
+			ClientStreams: true,
+		},
+		{
+			StreamName:    "ProcReceiveHook",
+			Handler:       _HookService_ProcReceiveHook_Handler,
 			ServerStreams: true,
 			ClientStreams: true,
 		},

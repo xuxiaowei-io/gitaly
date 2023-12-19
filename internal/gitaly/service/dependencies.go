@@ -45,6 +45,7 @@ type Dependencies struct {
 	PartitionManager    *storagemgr.PartitionManager
 	BackupSink          backup.Sink
 	BackupLocator       backup.Locator
+	ProcReceiveRegistry *gitalyhook.ProcReceiveRegistry
 }
 
 // GetLogger returns the logger.
@@ -150,4 +151,9 @@ func (dc *Dependencies) GetBackupSink() backup.Sink {
 // GetBackupLocator returns the backup.Locator.
 func (dc *Dependencies) GetBackupLocator() backup.Locator {
 	return dc.BackupLocator
+}
+
+// GetProcReceiveRegistry returns the ProcReceiveRegistry.
+func (dc *Dependencies) GetProcReceiveRegistry() *gitalyhook.ProcReceiveRegistry {
+	return dc.ProcReceiveRegistry
 }

@@ -286,6 +286,7 @@ type gitalyServerDeps struct {
 	backupLocator       backup.Locator
 	signingKey          string
 	transactionRegistry *storagemgr.TransactionRegistry
+	procReceiveRegistry *hook.ProcReceiveRegistry
 }
 
 func (gsd *gitalyServerDeps) createDependencies(tb testing.TB, cfg config.Cfg) *service.Dependencies {
@@ -323,6 +324,10 @@ func (gsd *gitalyServerDeps) createDependencies(tb testing.TB, cfg config.Cfg) *
 		gsd.transactionRegistry = storagemgr.NewTransactionRegistry()
 	}
 
+	if gsd.procReceiveRegistry == nil {
+		gsd.procReceiveRegistry = hook.NewProcReceiveRegistry()
+	}
+
 	if gsd.hookMgr == nil {
 		gsd.hookMgr = hook.NewManager(
 			cfg, gsd.locator,
@@ -331,7 +336,7 @@ func (gsd *gitalyServerDeps) createDependencies(tb testing.TB, cfg config.Cfg) *
 			gsd.txMgr,
 			gsd.gitlabClient,
 			hook.NewTransactionRegistry(gsd.transactionRegistry),
-			hook.NewProcReceiveRegistry(),
+			gsd.procReceiveRegistry,
 		)
 	}
 
@@ -418,6 +423,7 @@ func (gsd *gitalyServerDeps) createDependencies(tb testing.TB, cfg config.Cfg) *
 		PartitionManager:    partitionManager,
 		BackupSink:          gsd.backupSink,
 		BackupLocator:       gsd.backupLocator,
+		ProcReceiveRegistry: gsd.procReceiveRegistry,
 	}
 }
 
@@ -552,6 +558,14 @@ func WithSigningKey(signingKey string) GitalyServerOpt {
 func WithTransactionRegistry(registry *storagemgr.TransactionRegistry) GitalyServerOpt {
 	return func(deps gitalyServerDeps) gitalyServerDeps {
 		deps.transactionRegistry = registry
+		return deps
+	}
+}
+
+// WithProcReceiveRegistry sets the proc receive registry that will be used for Gitaly services.
+func WithProcReceiveRegistry(registry *hook.ProcReceiveRegistry) GitalyServerOpt {
+	return func(deps gitalyServerDeps) gitalyServerDeps {
+		deps.procReceiveRegistry = registry
 		return deps
 	}
 }
