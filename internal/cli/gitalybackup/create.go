@@ -143,10 +143,13 @@ func (cmd *createSubcommand) run(ctx context.Context, logger log.Logger, stdin i
 		manager = backup.NewManager(sink, locator, pool)
 	}
 
-	var pipeline backup.Pipeline
-	pipeline = backup.NewLoggingPipeline(logger)
+	var opts []backup.PipelineOption
 	if cmd.parallel > 0 || cmd.parallelStorage > 0 {
-		pipeline = backup.NewParallelPipeline(pipeline, cmd.parallel, cmd.parallelStorage)
+		opts = append(opts, backup.WithConcurrency(cmd.parallel, cmd.parallelStorage))
+	}
+	pipeline, err := backup.NewPipeline(logger, opts...)
+	if err != nil {
+		return fmt.Errorf("create pipeline: %w", err)
 	}
 
 	decoder := json.NewDecoder(stdin)

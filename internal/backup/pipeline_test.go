@@ -3,7 +3,7 @@ package backup
 import (
 	"context"
 	"fmt"
-	"sync/atomic"
+	"sync"
 	"testing"
 	"time"
 
@@ -15,59 +15,83 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v16/proto/go/gitalypb"
 )
 
-func TestLoggingPipeline(t *testing.T) {
+func TestPipeline(t *testing.T) {
 	t.Parallel()
 
-	testPipeline(t, func() Pipeline {
-		return NewLoggingPipeline(testhelper.SharedLogger(t))
-	})
-}
-
-func TestParallelPipeline(t *testing.T) {
-	t.Parallel()
-
-	testPipeline(t, func() Pipeline {
-		return NewParallelPipeline(NewLoggingPipeline(testhelper.SharedLogger(t)), 2, 0)
+	// Sequential
+	testPipeline(t, func() *Pipeline {
+		p, err := NewPipeline(testhelper.SharedLogger(t))
+		require.NoError(t, err)
+		return p
 	})
 
+	// Concurrent
 	t.Run("parallelism", func(t *testing.T) {
 		for _, tc := range []struct {
-			parallel            int
-			parallelStorage     int
-			expectedMaxParallel int64
+			parallel                   int
+			parallelStorage            int
+			expectedMaxParallel        int
+			expectedMaxStorageParallel int
 		}{
 			{
-				parallel:            2,
-				parallelStorage:     0,
-				expectedMaxParallel: 2,
+				parallel:                   2,
+				parallelStorage:            0,
+				expectedMaxParallel:        2,
+				expectedMaxStorageParallel: 2,
 			},
 			{
-				parallel:            2,
-				parallelStorage:     3,
-				expectedMaxParallel: 2,
+				parallel:                   2,
+				parallelStorage:            3,
+				expectedMaxParallel:        2,
+				expectedMaxStorageParallel: 2,
 			},
 			{
-				parallel:            0,
-				parallelStorage:     3,
-				expectedMaxParallel: 6, // 2 storages * 3 workers per storage
+				parallel:                   0,
+				parallelStorage:            3,
+				expectedMaxParallel:        6, // 2 storages * 3 workers per storage
+				expectedMaxStorageParallel: 3,
+			},
+			{
+				parallel:                   3,
+				parallelStorage:            2,
+				expectedMaxParallel:        3,
+				expectedMaxStorageParallel: 2,
 			},
 		} {
 			t.Run(fmt.Sprintf("parallel:%d,parallelStorage:%d", tc.parallel, tc.parallelStorage), func(t *testing.T) {
-				var calls int64
+				var mu sync.Mutex
+				// callsPerStorage tracks the number of concurrent jobs running for each storage.
+				callsPerStorage := map[string]int{
+					"storage1": 0,
+					"storage2": 0,
+				}
+
 				strategy := MockStrategy{
 					CreateFunc: func(ctx context.Context, req *CreateRequest) error {
-						currentCalls := atomic.AddInt64(&calls, 1)
-						defer atomic.AddInt64(&calls, -1)
-
-						assert.LessOrEqual(t, currentCalls, tc.expectedMaxParallel)
+						mu.Lock()
+						callsPerStorage[req.Repository.StorageName]++
+						allCalls := 0
+						for _, v := range callsPerStorage {
+							allCalls += v
+						}
+						// We ensure that the concurrency for each storage is not above the
+						// parallelStorage threshold, and also that the total number of concurrent
+						// jobs is not above the parallel threshold.
+						require.LessOrEqual(t, callsPerStorage[req.Repository.StorageName], tc.expectedMaxStorageParallel)
+						require.LessOrEqual(t, allCalls, tc.expectedMaxParallel)
+						mu.Unlock()
+						defer func() {
+							mu.Lock()
+							callsPerStorage[req.Repository.StorageName]--
+							mu.Unlock()
+						}()
 
 						time.Sleep(time.Millisecond)
 						return nil
 					},
 				}
-				var p Pipeline
-				p = NewLoggingPipeline(testhelper.SharedLogger(t))
-				p = NewParallelPipeline(p, tc.parallel, tc.parallelStorage)
+				p, err := NewPipeline(testhelper.SharedLogger(t), WithConcurrency(tc.parallel, tc.parallelStorage))
+				require.NoError(t, err)
 				ctx := testhelper.Context(t)
 
 				for i := 0; i < 10; i++ {
@@ -81,9 +105,8 @@ func TestParallelPipeline(t *testing.T) {
 
 	t.Run("context done", func(t *testing.T) {
 		var strategy MockStrategy
-		var p Pipeline
-		p = NewLoggingPipeline(testhelper.SharedLogger(t))
-		p = NewParallelPipeline(p, 0, 0) // make sure worker channels always block
+		p, err := NewPipeline(testhelper.SharedLogger(t))
+		require.NoError(t, err)
 
 		ctx, cancel := context.WithCancel(testhelper.Context(t))
 
@@ -92,8 +115,7 @@ func TestParallelPipeline(t *testing.T) {
 
 		p.Handle(ctx, NewCreateCommand(strategy, CreateRequest{Repository: &gitalypb.Repository{StorageName: "default"}}))
 
-		err := p.Done()
-		require.EqualError(t, err, "pipeline: context canceled")
+		require.EqualError(t, p.Done(), "pipeline: context canceled")
 	})
 }
 
@@ -124,7 +146,7 @@ func (s MockStrategy) RemoveAllRepositories(ctx context.Context, req *RemoveAllR
 	return nil
 }
 
-func testPipeline(t *testing.T, init func() Pipeline) {
+func testPipeline(t *testing.T, init func() *Pipeline) {
 	strategy := MockStrategy{
 		CreateFunc: func(_ context.Context, req *CreateRequest) error {
 			switch req.Repository.StorageName {
@@ -277,7 +299,7 @@ func TestPipelineError(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			err := PipelineErrors{}
+			err := &commandErrors{}
 
 			for _, repo := range tc.repos {
 				err.AddError(repo, assert.AnError)
