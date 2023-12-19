@@ -260,6 +260,8 @@ func ContextWithoutCancel(opts ...ContextOpt) context.Context {
 	ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.UseResizableSemaphoreInConcurrencyLimiter, rand.Int()%2 == 0)
 	// Randomly enable ExecCommandDirectlyInCgroup.
 	ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.ExecCommandDirectlyInCgroup, rand.Int()%2 == 0)
+	// Randomly enable newer Git version.
+	ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.GitV243, rand.Int()%2 == 0)
 
 	for _, opt := range opts {
 		ctx = opt(ctx)
