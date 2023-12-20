@@ -47,6 +47,8 @@ type DiffServiceClient interface {
 	// whether diffs make the same change. Please refer to git-patch-id(1) for further information.
 	// If the difference between old and new change is empty then this RPC returns an error.
 	GetPatchID(ctx context.Context, in *GetPatchIDRequest, opts ...grpc.CallOption) (*GetPatchIDResponse, error)
+	// DiffBlob computes a diff between a set of blobs.
+	DiffBlob(ctx context.Context, in *DiffBlobRequest, opts ...grpc.CallOption) (DiffService_DiffBlobClient, error)
 }
 
 type diffServiceClient struct {
@@ -258,6 +260,38 @@ func (c *diffServiceClient) GetPatchID(ctx context.Context, in *GetPatchIDReques
 	return out, nil
 }
 
+func (c *diffServiceClient) DiffBlob(ctx context.Context, in *DiffBlobRequest, opts ...grpc.CallOption) (DiffService_DiffBlobClient, error) {
+	stream, err := c.cc.NewStream(ctx, &DiffService_ServiceDesc.Streams[6], "/gitaly.DiffService/DiffBlob", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &diffServiceDiffBlobClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type DiffService_DiffBlobClient interface {
+	Recv() (*DiffBlobResponse, error)
+	grpc.ClientStream
+}
+
+type diffServiceDiffBlobClient struct {
+	grpc.ClientStream
+}
+
+func (x *diffServiceDiffBlobClient) Recv() (*DiffBlobResponse, error) {
+	m := new(DiffBlobResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 // DiffServiceServer is the server API for DiffService service.
 // All implementations must embed UnimplementedDiffServiceServer
 // for forward compatibility
@@ -287,6 +321,8 @@ type DiffServiceServer interface {
 	// whether diffs make the same change. Please refer to git-patch-id(1) for further information.
 	// If the difference between old and new change is empty then this RPC returns an error.
 	GetPatchID(context.Context, *GetPatchIDRequest) (*GetPatchIDResponse, error)
+	// DiffBlob computes a diff between a set of blobs.
+	DiffBlob(*DiffBlobRequest, DiffService_DiffBlobServer) error
 	mustEmbedUnimplementedDiffServiceServer()
 }
 
@@ -314,6 +350,9 @@ func (UnimplementedDiffServiceServer) FindChangedPaths(*FindChangedPathsRequest,
 }
 func (UnimplementedDiffServiceServer) GetPatchID(context.Context, *GetPatchIDRequest) (*GetPatchIDResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetPatchID not implemented")
+}
+func (UnimplementedDiffServiceServer) DiffBlob(*DiffBlobRequest, DiffService_DiffBlobServer) error {
+	return status.Errorf(codes.Unimplemented, "method DiffBlob not implemented")
 }
 func (UnimplementedDiffServiceServer) mustEmbedUnimplementedDiffServiceServer() {}
 
@@ -472,6 +511,27 @@ func _DiffService_GetPatchID_Handler(srv interface{}, ctx context.Context, dec f
 	return interceptor(ctx, in, info, handler)
 }
 
+func _DiffService_DiffBlob_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(DiffBlobRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(DiffServiceServer).DiffBlob(m, &diffServiceDiffBlobServer{stream})
+}
+
+type DiffService_DiffBlobServer interface {
+	Send(*DiffBlobResponse) error
+	grpc.ServerStream
+}
+
+type diffServiceDiffBlobServer struct {
+	grpc.ServerStream
+}
+
+func (x *diffServiceDiffBlobServer) Send(m *DiffBlobResponse) error {
+	return x.ServerStream.SendMsg(m)
+}
+
 // DiffService_ServiceDesc is the grpc.ServiceDesc for DiffService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -513,6 +573,11 @@ var DiffService_ServiceDesc = grpc.ServiceDesc{
 		{
 			StreamName:    "FindChangedPaths",
 			Handler:       _DiffService_FindChangedPaths_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "DiffBlob",
+			Handler:       _DiffService_DiffBlob_Handler,
 			ServerStreams: true,
 		},
 	},
