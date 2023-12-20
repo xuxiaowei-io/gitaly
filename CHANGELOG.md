@@ -1,5 +1,24 @@
 # Gitaly changelog
 
+## 16.7.0 (2023-12-20)
+
+### Fixed (3 changes)
+
+- [cleanup: Check parents of internal refs](gitlab-org/gitaly@ef536e76a1ed0cc7afa91531a8ebabd88b7bb9b3) ([merge request](gitlab-org/gitaly!6557))
+- [commit: Wait for the git-log(1) process to exit in FindCommits](gitlab-org/gitaly@9ae8aeb857f9c31d2fbc2ea5bb5b5011401e8cff) ([merge request](gitlab-org/gitaly!6507))
+- [requestinfohandler: Restore missing log fields in SSHReceivePack](gitlab-org/gitaly@d06cb5f4209eeb10102483e85fd604befaa9b99f) ([merge request](gitlab-org/gitaly!6534))
+
+### Deprecated (3 changes)
+
+- [proto: Remove SearchFilesByContent unused fields](gitlab-org/gitaly@7662d15bb84bd45aa6faee1f54d4ee0a31c03ab7) ([merge request](gitlab-org/gitaly!6553))
+- [proto: Remove unused raw_operation field](gitlab-org/gitaly@2b4be0e17a3e6e5072c1b22b9b2b0b2fe11df546) ([merge request](gitlab-org/gitaly!6553))
+- [proto: Remove unused `force` field](gitlab-org/gitaly@5d396c61c0f5b15bf4afc7f1811de9416d957a64) ([merge request](gitlab-org/gitaly!6553))
+
+### Performance (2 changes)
+
+- [gitaly: Move asynchronous tasks to end of startup](gitlab-org/gitaly@dd4ea4388b4b8e7c49ea423126f8be5e067729cd) ([merge request](gitlab-org/gitaly!6532))
+- [cgroups: Create repository cgroups on-demand](gitlab-org/gitaly@105f6dd81689b7819b844b8be1be844bca6f2a67) ([merge request](gitlab-org/gitaly!6499))
+
 ## 16.6.2 (2023-12-13)
 
 No changes.
