@@ -559,9 +559,6 @@ func testServerPostUploadPackWithBundleURI(t *testing.T, ctx context.Context) {
 				}
 			}
 			require.NotNil(t, logEntry)
-			if logEntry.Message == "finished unary call with code FailedPrecondition" {
-				t.Skip("Test identified as flaky in https://gitlab.com/gitlab-org/gitaly/-/issues/5725")
-			}
 			require.Equal(t, "finished unary call with code OK", logEntry.Message)
 
 			bundleURI, ok := logEntry.Data["bundle_uri"]
