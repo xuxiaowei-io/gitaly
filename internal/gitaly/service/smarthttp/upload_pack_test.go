@@ -8,12 +8,14 @@ import (
 	"fmt"
 	"io"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	promtest "github.com/prometheus/client_golang/prometheus/testutil"
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	gitalyauth "gitlab.com/gitlab-org/gitaly/v16/auth"
 	"gitlab.com/gitlab-org/gitaly/v16/internal/backup"
@@ -395,6 +397,9 @@ func (l *mockBackupLocator) Commit(ctx context.Context, backup *backup.Backup) e
 }
 
 func (l *mockBackupLocator) FindLatest(ctx context.Context, repo storage.Repository) (*backup.Backup, error) {
+	if l.backup == nil {
+		return nil, fmt.Errorf("no backup")
+	}
 	return l.backup, nil
 }
 
@@ -415,6 +420,9 @@ func (s *mockBackupSink) GetReader(ctx context.Context, relativePath string) (io
 }
 
 func (s *mockBackupSink) SignedURL(ctx context.Context, relativePath string, expiry time.Duration) (string, error) {
+	if s.signedURL == "" {
+		return "", fmt.Errorf("broken")
+	}
 	return s.signedURL, nil
 }
 
@@ -425,80 +433,149 @@ func (s *mockBackupSink) Close() error {
 func TestServer_PostUploadPackWithBundleURI(t *testing.T) {
 	t.Parallel()
 
-	testhelper.SkipQuarantinedTest(t, "https://gitlab.com/gitlab-org/gitaly/-/issues/5725")
-
 	testhelper.NewFeatureSets(
 		featureflag.UploadPackBoundaryBitmapTraversal,
 	).Run(t, testServerPostUploadPackWithBundleURI)
 }
 
 func testServerPostUploadPackWithBundleURI(t *testing.T, ctx context.Context) {
-	cfg := testcfg.Build(t)
 	ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.BundleURI, true)
 
-	signedURL := "http://signedurl.com/my-bundle-here"
 	testCases := []struct {
 		desc              string
+		locator           backup.Locator
+		sink              backup.Sink
 		backup            *backup.Backup
 		expectedBundleURI string
 	}{
 		{
-			desc: "with backup",
-			backup: &backup.Backup{
-				Steps: []backup.Step{
-					{
-						BundlePath: "path/to/bundle",
+			desc:              "no backup locator",
+			expectedBundleURI: "",
+		},
+		{
+			desc:              "no backup sink",
+			locator:           &mockBackupLocator{},
+			expectedBundleURI: "",
+		},
+		{
+			desc:              "no backup",
+			locator:           &mockBackupLocator{},
+			sink:              &mockBackupSink{},
+			expectedBundleURI: "",
+		},
+		{
+			desc: "backup without steps",
+			locator: &mockBackupLocator{
+				backup: &backup.Backup{},
+			},
+			sink:              &mockBackupSink{},
+			expectedBundleURI: "",
+		},
+		{
+			desc: "backup without bundle path",
+			locator: &mockBackupLocator{
+				backup: &backup.Backup{Steps: []backup.Step{}},
+			},
+			sink:              &mockBackupSink{},
+			expectedBundleURI: "",
+		},
+		{
+			desc: "incremental backup only",
+			locator: &mockBackupLocator{
+				backup: &backup.Backup{
+					Steps: []backup.Step{
+						{
+							BundlePath:      "bud.bundle",
+							PreviousRefPath: "al.bundle",
+						},
 					},
 				},
 			},
-			expectedBundleURI: signedURL,
-		},
-		{
-			desc:              "without backup",
-			backup:            nil,
+			sink:              &mockBackupSink{},
 			expectedBundleURI: "",
 		},
+		{
+			desc: "broken URL signing",
+			locator: &mockBackupLocator{
+				backup: &backup.Backup{
+					Steps: []backup.Step{
+						{
+							BundlePath: "al.bundle",
+						},
+					},
+				},
+			},
+			sink:              &mockBackupSink{},
+			expectedBundleURI: "",
+		},
+		{
+			desc: "valid backup",
+			locator: &mockBackupLocator{
+				backup: &backup.Backup{
+					Steps: []backup.Step{
+						{
+							BundlePath: "al.bundle",
+						},
+					},
+				},
+			},
+			sink:              &mockBackupSink{signedURL: "https://example.com/al.bundle?signed=true"},
+			expectedBundleURI: "https://example.com/al.bundle?signed=true",
+		},
 	}
-
-	var l mockBackupLocator
-	s := mockBackupSink{
-		signedURL: signedURL,
-	}
-
-	logger := testhelper.NewLogger(t)
-	hook := testhelper.AddLoggerHook(logger)
-
-	server := startSmartHTTPServerWithOptions(t, cfg, nil, []testserver.GitalyServerOpt{
-		testserver.WithBackupLocator(&l),
-		testserver.WithBackupSink(&s),
-		testserver.WithLogger(logger),
-	})
-	cfg.SocketPath = server.Address()
-
-	repo, _ := gittest.CreateRepository(t, ctx, cfg)
 
 	for _, tc := range testCases {
-		l.backup = tc.backup
-		requestBody := &bytes.Buffer{}
-		gittest.WritePktlineString(t, requestBody, "command=bundle-uri\n")
-		gittest.WritePktlineString(t, requestBody, fmt.Sprintf("object-format=%s\n", gittest.DefaultObjectHash.Format))
-		gittest.WritePktlineFlush(t, requestBody)
+		tc := tc
 
-		req := &gitalypb.PostUploadPackWithSidechannelRequest{Repository: repo, GitProtocol: git.ProtocolV2}
-		responseBuffer, err := makePostUploadPackWithSidechannelRequest(t, ctx, cfg.SocketPath, cfg.Auth.Token, req, bytes.NewReader(requestBody.Bytes()))
+		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
 
-		entry := hook.LastEntry()
-		bundleURI, ok := entry.Data["bundle_uri"]
+			cfg := testcfg.Build(t)
+			logger := testhelper.NewLogger(t)
+			hook := testhelper.AddLoggerHook(logger)
+			server := startSmartHTTPServerWithOptions(t, cfg, nil, []testserver.GitalyServerOpt{
+				testserver.WithBackupLocator(tc.locator),
+				testserver.WithBackupSink(tc.sink),
+				testserver.WithLogger(logger),
+			})
+			cfg.SocketPath = server.Address()
+			repo, _ := gittest.CreateRepository(t, ctx, cfg)
 
-		if tc.expectedBundleURI != "" {
-			require.NoError(t, err)
-			require.Contains(t, responseBuffer.String(), "bundle.some.uri=http://signedurl.com/my-bundle-here")
-			require.True(t, ok)
-			require.True(t, bundleURI.(bool))
-		} else {
-			require.False(t, ok)
-			require.NotContains(t, responseBuffer.String(), "bundle.some.uri")
-		}
+			requestBody := &bytes.Buffer{}
+			gittest.WritePktlineString(t, requestBody, "command=bundle-uri\n")
+			gittest.WritePktlineString(t, requestBody, fmt.Sprintf("object-format=%s\n", gittest.DefaultObjectHash.Format))
+			gittest.WritePktlineFlush(t, requestBody)
+
+			hook.Reset()
+			req := &gitalypb.PostUploadPackWithSidechannelRequest{Repository: repo, GitProtocol: git.ProtocolV2}
+			responseBuffer, err := makePostUploadPackWithSidechannelRequest(t, ctx, cfg.SocketPath, cfg.Auth.Token, req, requestBody)
+			server.Shutdown()
+
+			var logEntry *logrus.Entry
+			for _, e := range hook.AllEntries() {
+				if strings.HasPrefix(e.Message, "finished unary call") {
+					logEntry = e
+					break
+				}
+			}
+			require.NotNil(t, logEntry)
+			if logEntry.Message == "finished unary call with code FailedPrecondition" {
+				t.Skip("Test identified as flaky in https://gitlab.com/gitlab-org/gitaly/-/issues/5725")
+			}
+			require.Equal(t, "finished unary call with code OK", logEntry.Message)
+
+			bundleURI, ok := logEntry.Data["bundle_uri"]
+
+			if tc.expectedBundleURI != "" {
+				require.NoError(t, err)
+				require.Contains(t, responseBuffer.String(), fmt.Sprintf("bundle.some.uri=%v", tc.expectedBundleURI))
+				require.True(t, ok)
+				require.True(t, bundleURI.(bool))
+			} else {
+				require.False(t, ok)
+				require.NotContains(t, responseBuffer.String(), "bundle.some.uri")
+			}
+		})
 	}
 }
 
