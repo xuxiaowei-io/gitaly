@@ -57,8 +57,8 @@ type RepositoryState struct {
 // PackedRefsState describes the asserted state of packed-refs and loose references. It's mostly used for verifying
 // pack-refs housekeeping task.
 type PackedRefsState struct {
-	// PackedRefsContent is the content of pack-refs file, line by line
-	PackedRefsContent []string
+	// PackedReferences is the content of pack-refs file, line by line
+	PackedReferences map[git.ReferenceName]git.ObjectID
 	// LooseReferences is the exact list of loose references outside packed-refs.
 	LooseReferences map[git.ReferenceName]git.ObjectID
 }
@@ -149,6 +149,31 @@ func collectPackedRefsState(tb testing.TB, expected RepositoryState, repoPath st
 	} else {
 		require.NoError(tb, err)
 	}
+
+	// Parse packed-refs file
+	packedReferences := map[git.ReferenceName]git.ObjectID{}
+	if len(packRefsFile) != 0 {
+		lines := strings.Split(string(packRefsFile), "\n")
+		require.Equalf(tb, strings.TrimSpace(lines[0]), "# pack-refs with: peeled fully-peeled sorted", "invalid packed-refs header")
+		lines = lines[1:]
+		for _, line := range lines {
+			line = strings.TrimSpace(line)
+
+			if len(line) == 0 {
+				continue
+			}
+
+			// We don't care about the peeled object ID.
+			if strings.HasPrefix(line, "^") {
+				continue
+			}
+
+			parts := strings.Split(line, " ")
+			require.Equalf(tb, 2, len(parts), "invalid packed-refs format: %q", line)
+			packedReferences[git.ReferenceName(parts[1])] = git.ObjectID(parts[0])
+		}
+	}
+
 	// Walk and collect loose refs.
 	looseReferences := map[git.ReferenceName]git.ObjectID{}
 	refsPath := filepath.Join(repoPath, "refs")
@@ -170,8 +195,8 @@ func collectPackedRefsState(tb testing.TB, expected RepositoryState, repoPath st
 	}))
 
 	return &PackedRefsState{
-		PackedRefsContent: strings.Split(strings.TrimSpace(string(packRefsFile)), "\n"),
-		LooseReferences:   looseReferences,
+		PackedReferences: packedReferences,
+		LooseReferences:  looseReferences,
 	}, nil
 }
 
