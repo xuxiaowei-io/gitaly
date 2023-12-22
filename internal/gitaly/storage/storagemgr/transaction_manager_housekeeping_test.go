@@ -38,7 +38,7 @@ func generateHousekeepingTests(t *testing.T, ctx context.Context, testPartitionI
 	lightweightTag := setup.Commits.Diverging.OID
 	annotatedTag := setup.AnnotatedTags[0]
 
-	directoryStateWithPackedRefs := func(lsn LSN) testhelper.DirectoryState {
+	directoryStateWithReferences := func(lsn LSN) testhelper.DirectoryState {
 		return testhelper.DirectoryState{
 			"/":    {Mode: fs.ModeDir | perm.PrivateDir},
 			"/wal": {Mode: fs.ModeDir | perm.PrivateDir},
@@ -48,12 +48,12 @@ func generateHousekeepingTests(t *testing.T, ctx context.Context, testPartitionI
 		}
 	}
 
-	defaultRefs := []git.Reference{
-		{Name: "refs/heads/branch-1", Target: setup.Commits.Second.OID.String()},
-		{Name: "refs/heads/branch-2", Target: setup.Commits.Third.OID.String()},
-		{Name: "refs/heads/main", Target: setup.Commits.First.OID.String()},
-		{Name: "refs/tags/v1.0.0", Target: lightweightTag.String()},
-		{Name: "refs/tags/v2.0.0", Target: annotatedTag.OID.String()},
+	defaultReferences := map[git.ReferenceName]git.ObjectID{
+		"refs/heads/branch-1": setup.Commits.Second.OID,
+		"refs/heads/branch-2": setup.Commits.Third.OID,
+		"refs/heads/main":     setup.Commits.First.OID,
+		"refs/tags/v1.0.0":    lightweightTag,
+		"refs/tags/v2.0.0":    annotatedTag.OID,
 	}
 
 	return []transactionTestCase{
@@ -88,19 +88,11 @@ func generateHousekeepingTests(t *testing.T, ctx context.Context, testPartitionI
 				Database: DatabaseState{
 					string(keyAppliedLSN(setup.PartitionID)): LSN(2).toProto(),
 				},
-				Directory: directoryStateWithPackedRefs(1),
+				Directory: directoryStateWithReferences(1),
 				Repositories: RepositoryStates{
 					setup.RelativePath: {
 						DefaultBranch: "refs/heads/main",
-						References: []git.Reference{
-							{Name: "refs/heads/branch-1", Target: setup.Commits.Second.OID.String()},
-							{Name: "refs/heads/branch-2", Target: setup.Commits.Third.OID.String()},
-							// `main` points to the second commit now
-							{Name: "refs/heads/main", Target: setup.Commits.Second.OID.String()},
-							{Name: "refs/tags/v1.0.0", Target: lightweightTag.String()},
-							{Name: "refs/tags/v2.0.0", Target: annotatedTag.OID.String()},
-						},
-						PackedRefs: &PackedRefsState{
+						References: &ReferencesState{
 							PackedReferences: map[git.ReferenceName]git.ObjectID{
 								"refs/heads/branch-1": setup.Commits.Second.OID,
 								"refs/heads/branch-2": setup.Commits.Third.OID,
@@ -170,19 +162,11 @@ func generateHousekeepingTests(t *testing.T, ctx context.Context, testPartitionI
 				Database: DatabaseState{
 					string(keyAppliedLSN(setup.PartitionID)): LSN(2).toProto(),
 				},
-				Directory: directoryStateWithPackedRefs(2),
+				Directory: directoryStateWithReferences(2),
 				Repositories: RepositoryStates{
 					setup.RelativePath: {
 						DefaultBranch: "refs/heads/main",
-						References: []git.Reference{
-							{Name: "refs/heads/branch-1", Target: setup.Commits.Second.OID.String()},
-							{Name: "refs/heads/branch-2", Target: setup.Commits.Third.OID.String()},
-							{Name: "refs/heads/branch-3", Target: setup.Commits.Diverging.OID.String()},
-							{Name: "refs/heads/main", Target: setup.Commits.Second.OID.String()},
-							{Name: "refs/tags/v1.0.0", Target: lightweightTag.String()},
-							{Name: "refs/tags/v2.0.0", Target: annotatedTag.OID.String()},
-						},
-						PackedRefs: &PackedRefsState{
+						References: &ReferencesState{
 							PackedReferences: map[git.ReferenceName]git.ObjectID{
 								"refs/heads/branch-1": setup.Commits.Second.OID,
 								"refs/heads/branch-2": setup.Commits.Third.OID,
@@ -230,21 +214,11 @@ func generateHousekeepingTests(t *testing.T, ctx context.Context, testPartitionI
 				Database: DatabaseState{
 					string(keyAppliedLSN(setup.PartitionID)): LSN(2).toProto(),
 				},
-				Directory: directoryStateWithPackedRefs(2),
+				Directory: directoryStateWithReferences(2),
 				Repositories: RepositoryStates{
 					setup.RelativePath: {
 						DefaultBranch: "refs/heads/main",
-						References: []git.Reference{
-							{Name: "refs/heads/branch-1", Target: setup.Commits.Second.OID.String()},
-							{Name: "refs/heads/branch-2", Target: setup.Commits.Third.OID.String()},
-							{Name: "refs/heads/main", Target: setup.Commits.First.OID.String()},
-							{Name: "refs/keep-around/1", Target: setup.Commits.First.OID.String()},
-							{Name: "refs/merge-requests/1", Target: setup.Commits.Second.OID.String()},
-							{Name: "refs/tags/v1.0.0", Target: lightweightTag.String()},
-							{Name: "refs/tags/v2.0.0", Target: annotatedTag.OID.String()},
-							{Name: "refs/very/deep/nested/ref", Target: setup.Commits.Third.OID.String()},
-						},
-						PackedRefs: &PackedRefsState{
+						References: &ReferencesState{
 							PackedReferences: map[git.ReferenceName]git.ObjectID{
 								"refs/heads/branch-1":       setup.Commits.Second.OID,
 								"refs/heads/branch-2":       setup.Commits.Third.OID,
@@ -292,20 +266,11 @@ func generateHousekeepingTests(t *testing.T, ctx context.Context, testPartitionI
 				Database: DatabaseState{
 					string(keyAppliedLSN(setup.PartitionID)): LSN(2).toProto(),
 				},
-				Directory: directoryStateWithPackedRefs(2),
+				Directory: directoryStateWithReferences(2),
 				Repositories: RepositoryStates{
 					setup.RelativePath: {
 						DefaultBranch: "refs/heads/main",
-						References: []git.Reference{
-							{Name: "refs/heads/branch-1", Target: setup.Commits.Second.OID.String()},
-							{Name: "refs/heads/branch-2", Target: setup.Commits.Third.OID.String()},
-							{Name: "refs/heads/branch-3", Target: setup.Commits.Diverging.OID.String()},
-							{Name: "refs/heads/main", Target: setup.Commits.First.OID.String()},
-							{Name: "refs/keep-around/1", Target: setup.Commits.First.OID.String()},
-							{Name: "refs/tags/v1.0.0", Target: lightweightTag.String()},
-							{Name: "refs/tags/v2.0.0", Target: annotatedTag.OID.String()},
-						},
-						PackedRefs: &PackedRefsState{
+						References: &ReferencesState{
 							PackedReferences: map[git.ReferenceName]git.ObjectID{
 								"refs/heads/branch-1": setup.Commits.Second.OID,
 								"refs/heads/branch-2": setup.Commits.Third.OID,
@@ -356,20 +321,11 @@ func generateHousekeepingTests(t *testing.T, ctx context.Context, testPartitionI
 				Database: DatabaseState{
 					string(keyAppliedLSN(setup.PartitionID)): LSN(2).toProto(),
 				},
-				Directory: directoryStateWithPackedRefs(1),
+				Directory: directoryStateWithReferences(1),
 				Repositories: RepositoryStates{
 					setup.RelativePath: {
 						DefaultBranch: "refs/heads/main",
-						References: []git.Reference{
-							{Name: "refs/heads/branch-1", Target: setup.Commits.Second.OID.String()},
-							{Name: "refs/heads/branch-2", Target: setup.Commits.Third.OID.String()},
-							{Name: "refs/heads/branch-3", Target: setup.Commits.Diverging.OID.String()},
-							{Name: "refs/heads/main", Target: setup.Commits.First.OID.String()},
-							{Name: "refs/keep-around/1", Target: setup.Commits.First.OID.String()},
-							{Name: "refs/tags/v1.0.0", Target: lightweightTag.String()},
-							{Name: "refs/tags/v2.0.0", Target: annotatedTag.OID.String()},
-						},
-						PackedRefs: &PackedRefsState{
+						References: &ReferencesState{
 							PackedReferences: map[git.ReferenceName]git.ObjectID{
 								"refs/heads/branch-1": setup.Commits.Second.OID,
 								"refs/heads/branch-2": setup.Commits.Third.OID,
@@ -421,18 +377,11 @@ func generateHousekeepingTests(t *testing.T, ctx context.Context, testPartitionI
 				Database: DatabaseState{
 					string(keyAppliedLSN(setup.PartitionID)): LSN(2).toProto(),
 				},
-				Directory: directoryStateWithPackedRefs(2),
+				Directory: directoryStateWithReferences(2),
 				Repositories: RepositoryStates{
 					setup.RelativePath: {
 						DefaultBranch: "refs/heads/main",
-						References: []git.Reference{
-							{Name: "refs/heads/branch-1", Target: setup.Commits.Third.OID.String()},
-							{Name: "refs/heads/branch-2", Target: setup.Commits.Diverging.OID.String()},
-							{Name: "refs/heads/main", Target: setup.Commits.Second.OID.String()},
-							{Name: "refs/tags/v1.0.0", Target: setup.Commits.First.OID.String()},
-							{Name: "refs/tags/v2.0.0", Target: annotatedTag.OID.String()},
-						},
-						PackedRefs: &PackedRefsState{
+						References: &ReferencesState{
 							PackedReferences: map[git.ReferenceName]git.ObjectID{
 								"refs/heads/branch-1": setup.Commits.Second.OID, // Outdated
 								"refs/heads/branch-2": setup.Commits.Third.OID,  // Outdated
@@ -485,18 +434,11 @@ func generateHousekeepingTests(t *testing.T, ctx context.Context, testPartitionI
 				Database: DatabaseState{
 					string(keyAppliedLSN(setup.PartitionID)): LSN(2).toProto(),
 				},
-				Directory: directoryStateWithPackedRefs(1),
+				Directory: directoryStateWithReferences(1),
 				Repositories: RepositoryStates{
 					setup.RelativePath: {
 						DefaultBranch: "refs/heads/main",
-						References: []git.Reference{
-							{Name: "refs/heads/branch-1", Target: setup.Commits.Third.OID.String()},
-							{Name: "refs/heads/branch-2", Target: setup.Commits.Diverging.OID.String()},
-							{Name: "refs/heads/main", Target: setup.Commits.Second.OID.String()},
-							{Name: "refs/tags/v1.0.0", Target: setup.Commits.First.OID.String()},
-							{Name: "refs/tags/v2.0.0", Target: annotatedTag.OID.String()},
-						},
-						PackedRefs: &PackedRefsState{
+						References: &ReferencesState{
 							PackedReferences: map[git.ReferenceName]git.ObjectID{
 								"refs/heads/branch-1": setup.Commits.Second.OID, // Outdated
 								"refs/heads/branch-2": setup.Commits.Third.OID,  // Outdated
@@ -550,15 +492,10 @@ func generateHousekeepingTests(t *testing.T, ctx context.Context, testPartitionI
 				Repositories: RepositoryStates{
 					setup.RelativePath: {
 						DefaultBranch: "refs/heads/main",
-						References: []git.Reference{
-							{Name: "refs/heads/branch-2", Target: setup.Commits.Third.OID.String()},
-							{Name: "refs/heads/main", Target: setup.Commits.First.OID.String()},
-							{Name: "refs/tags/v2.0.0", Target: annotatedTag.OID.String()},
-						},
-						PackedRefs: &PackedRefsState{
+						References: &ReferencesState{
 							// Empty packed-refs. It means the pack-refs task is not
 							// executed.
-							PackedReferences: map[git.ReferenceName]git.ObjectID{},
+							PackedReferences: nil,
 							// Deleted refs went away.
 							LooseReferences: map[git.ReferenceName]git.ObjectID{
 								"refs/heads/branch-2": setup.Commits.Third.OID,
@@ -612,14 +549,7 @@ func generateHousekeepingTests(t *testing.T, ctx context.Context, testPartitionI
 				Repositories: RepositoryStates{
 					relativePath: {
 						DefaultBranch: "refs/heads/main",
-						References: []git.Reference{
-							{Name: "refs/heads/branch-1", Target: setup.Commits.Second.OID.String()},
-							{Name: "refs/heads/branch-2", Target: setup.Commits.Third.OID.String()},
-							{Name: "refs/tags/v1.0.0", Target: lightweightTag.String()},
-							{Name: "refs/tags/v2.0.0", Target: annotatedTag.OID.String()},
-						},
-						PackedRefs: &PackedRefsState{
-							PackedReferences: map[git.ReferenceName]git.ObjectID{},
+						References: &ReferencesState{
 							LooseReferences: map[git.ReferenceName]git.ObjectID{
 								"refs/heads/branch-1": setup.Commits.Second.OID,
 								"refs/heads/branch-2": setup.Commits.Third.OID,
@@ -707,10 +637,7 @@ func generateHousekeepingTests(t *testing.T, ctx context.Context, testPartitionI
 							setup.Commits.First.OID,
 						},
 						DefaultBranch: "refs/heads/main",
-						References: []git.Reference{
-							{Name: "refs/heads/main", Target: setup.Commits.First.OID.String()},
-						},
-						PackedRefs: &PackedRefsState{
+						References: &ReferencesState{
 							PackedReferences: map[git.ReferenceName]git.ObjectID{
 								"refs/heads/main": setup.Commits.First.OID,
 							},
@@ -774,16 +701,11 @@ func generateHousekeepingTests(t *testing.T, ctx context.Context, testPartitionI
 				Database: DatabaseState{
 					string(keyAppliedLSN(setup.PartitionID)): LSN(2).toProto(),
 				},
-				Directory: directoryStateWithPackedRefs(1),
+				Directory: directoryStateWithReferences(1),
 				Repositories: RepositoryStates{
 					setup.RelativePath: {
 						DefaultBranch: "refs/heads/main",
-						References: []git.Reference{
-							{Name: "refs/heads/branch-2", Target: setup.Commits.Third.OID.String()},
-							{Name: "refs/heads/main", Target: setup.Commits.First.OID.String()},
-							{Name: "refs/tags/v2.0.0", Target: annotatedTag.OID.String()},
-						},
-						PackedRefs: &PackedRefsState{
+						References: &ReferencesState{
 							PackedReferences: map[git.ReferenceName]git.ObjectID{
 								"refs/heads/branch-2": setup.Commits.Third.OID,
 								"refs/heads/main":     setup.Commits.First.OID,
@@ -813,7 +735,9 @@ func generateHousekeepingTests(t *testing.T, ctx context.Context, testPartitionI
 				Repositories: RepositoryStates{
 					relativePath: {
 						DefaultBranch: "refs/heads/main",
-						References:    defaultRefs,
+						References: &ReferencesState{
+							LooseReferences: defaultReferences,
+						},
 					},
 				},
 			},
@@ -838,7 +762,9 @@ func generateHousekeepingTests(t *testing.T, ctx context.Context, testPartitionI
 				Repositories: RepositoryStates{
 					relativePath: {
 						DefaultBranch: "refs/heads/main",
-						References:    defaultRefs,
+						References: &ReferencesState{
+							LooseReferences: defaultReferences,
+						},
 					},
 				},
 			},
@@ -874,20 +800,13 @@ func generateHousekeepingTests(t *testing.T, ctx context.Context, testPartitionI
 				Database: DatabaseState{
 					string(keyAppliedLSN(setup.PartitionID)): LSN(1).toProto(),
 				},
-				Directory: directoryStateWithPackedRefs(1),
+				Directory: directoryStateWithReferences(1),
 				Repositories: RepositoryStates{
 					relativePath: {
 						DefaultBranch: "refs/heads/main",
-						References:    defaultRefs,
-						PackedRefs: &PackedRefsState{
-							PackedReferences: map[git.ReferenceName]git.ObjectID{
-								"refs/heads/branch-1": setup.Commits.Second.OID,
-								"refs/heads/branch-2": setup.Commits.Third.OID,
-								"refs/heads/main":     setup.Commits.First.OID,
-								"refs/tags/v1.0.0":    lightweightTag,
-								"refs/tags/v2.0.0":    annotatedTag.OID,
-							},
-							LooseReferences: map[git.ReferenceName]git.ObjectID{},
+						References: &ReferencesState{
+							PackedReferences: defaultReferences,
+							LooseReferences:  map[git.ReferenceName]git.ObjectID{},
 						},
 					},
 				},
@@ -958,10 +877,7 @@ func generateHousekeepingTests(t *testing.T, ctx context.Context, testPartitionI
 							setup.Commits.First.OID,
 						},
 						DefaultBranch: "refs/heads/main",
-						References: []git.Reference{
-							{Name: "refs/heads/main", Target: setup.Commits.First.OID.String()},
-						},
-						PackedRefs: &PackedRefsState{
+						References: &ReferencesState{
 							PackedReferences: map[git.ReferenceName]git.ObjectID{
 								"refs/heads/main": setup.Commits.First.OID,
 							},
@@ -1038,16 +954,9 @@ func generateHousekeepingTests(t *testing.T, ctx context.Context, testPartitionI
 				Repositories: RepositoryStates{
 					relativePath: {
 						DefaultBranch: "refs/heads/main",
-						References:    defaultRefs,
-						PackedRefs: &PackedRefsState{
-							PackedReferences: map[git.ReferenceName]git.ObjectID{
-								"refs/heads/branch-1": setup.Commits.Second.OID,
-								"refs/heads/branch-2": setup.Commits.Third.OID,
-								"refs/heads/main":     setup.Commits.First.OID,
-								"refs/tags/v1.0.0":    lightweightTag,
-								"refs/tags/v2.0.0":    annotatedTag.OID,
-							},
-							LooseReferences: map[git.ReferenceName]git.ObjectID{},
+						References: &ReferencesState{
+							PackedReferences: defaultReferences,
+							LooseReferences:  map[git.ReferenceName]git.ObjectID{},
 						},
 					},
 				},
@@ -1100,10 +1009,8 @@ func generateHousekeepingTests(t *testing.T, ctx context.Context, testPartitionI
 				Repositories: RepositoryStates{
 					relativePath: {
 						DefaultBranch: "refs/heads/main",
-						References:    nil,
-						PackedRefs: &PackedRefsState{
-							PackedReferences: map[git.ReferenceName]git.ObjectID{},
-							LooseReferences:  map[git.ReferenceName]git.ObjectID{},
+						References: &ReferencesState{
+							LooseReferences: map[git.ReferenceName]git.ObjectID{},
 						},
 						Objects: []git.ObjectID{},
 					},
