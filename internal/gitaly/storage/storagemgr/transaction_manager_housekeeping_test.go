@@ -101,16 +101,14 @@ func generateHousekeepingTests(t *testing.T, ctx context.Context, testPartitionI
 							{Name: "refs/tags/v2.0.0", Target: annotatedTag.OID.String()},
 						},
 						PackedRefs: &PackedRefsState{
-							PackedRefsContent: []string{
-								"# pack-refs with: peeled fully-peeled sorted ",
-								fmt.Sprintf("%s refs/heads/branch-1", setup.Commits.Second.OID.String()),
-								fmt.Sprintf("%s refs/heads/branch-2", setup.Commits.Third.OID.String()),
+							PackedReferences: map[git.ReferenceName]git.ObjectID{
+								"refs/heads/branch-1": setup.Commits.Second.OID,
+								"refs/heads/branch-2": setup.Commits.Third.OID,
 								// But `main` in packed-refs file points to the first
 								// commit.
-								fmt.Sprintf("%s refs/heads/main", setup.Commits.First.OID.String()),
-								fmt.Sprintf("%s refs/tags/v1.0.0", lightweightTag.String()),
-								fmt.Sprintf("%s refs/tags/v2.0.0", annotatedTag.OID.String()),
-								fmt.Sprintf("^%s", setup.Commits.Diverging.OID.String()),
+								"refs/heads/main":  setup.Commits.First.OID,
+								"refs/tags/v1.0.0": lightweightTag,
+								"refs/tags/v2.0.0": annotatedTag.OID,
 							},
 							LooseReferences: map[git.ReferenceName]git.ObjectID{
 								// It's shadowed by the loose reference.
@@ -185,16 +183,13 @@ func generateHousekeepingTests(t *testing.T, ctx context.Context, testPartitionI
 							{Name: "refs/tags/v2.0.0", Target: annotatedTag.OID.String()},
 						},
 						PackedRefs: &PackedRefsState{
-							PackedRefsContent: []string{
-								// All refs are packed to the packed-refs file.
-								"# pack-refs with: peeled fully-peeled sorted ",
-								fmt.Sprintf("%s refs/heads/branch-1", setup.Commits.Second.OID.String()),
-								fmt.Sprintf("%s refs/heads/branch-2", setup.Commits.Third.OID.String()),
-								fmt.Sprintf("%s refs/heads/branch-3", setup.Commits.Diverging.OID.String()),
-								fmt.Sprintf("%s refs/heads/main", setup.Commits.Second.OID.String()),
-								fmt.Sprintf("%s refs/tags/v1.0.0", lightweightTag.String()),
-								fmt.Sprintf("%s refs/tags/v2.0.0", annotatedTag.OID.String()),
-								fmt.Sprintf("^%s", setup.Commits.Diverging.OID.String()),
+							PackedReferences: map[git.ReferenceName]git.ObjectID{
+								"refs/heads/branch-1": setup.Commits.Second.OID,
+								"refs/heads/branch-2": setup.Commits.Third.OID,
+								"refs/heads/branch-3": setup.Commits.Diverging.OID,
+								"refs/heads/main":     setup.Commits.Second.OID,
+								"refs/tags/v1.0.0":    lightweightTag,
+								"refs/tags/v2.0.0":    annotatedTag.OID,
 							},
 							LooseReferences: map[git.ReferenceName]git.ObjectID{},
 						},
@@ -250,17 +245,15 @@ func generateHousekeepingTests(t *testing.T, ctx context.Context, testPartitionI
 							{Name: "refs/very/deep/nested/ref", Target: setup.Commits.Third.OID.String()},
 						},
 						PackedRefs: &PackedRefsState{
-							PackedRefsContent: []string{
-								"# pack-refs with: peeled fully-peeled sorted ",
-								fmt.Sprintf("%s refs/heads/branch-1", setup.Commits.Second.OID.String()),
-								fmt.Sprintf("%s refs/heads/branch-2", setup.Commits.Third.OID.String()),
-								fmt.Sprintf("%s refs/heads/main", setup.Commits.First.OID.String()),
-								fmt.Sprintf("%s refs/keep-around/1", setup.Commits.First.OID.String()),
-								fmt.Sprintf("%s refs/merge-requests/1", setup.Commits.Second.OID.String()),
-								fmt.Sprintf("%s refs/tags/v1.0.0", lightweightTag.String()),
-								fmt.Sprintf("%s refs/tags/v2.0.0", annotatedTag.OID.String()),
-								fmt.Sprintf("^%s", setup.Commits.Diverging.OID.String()),
-								fmt.Sprintf("%s refs/very/deep/nested/ref", setup.Commits.Third.OID.String()),
+							PackedReferences: map[git.ReferenceName]git.ObjectID{
+								"refs/heads/branch-1":       setup.Commits.Second.OID,
+								"refs/heads/branch-2":       setup.Commits.Third.OID,
+								"refs/heads/main":           setup.Commits.First.OID,
+								"refs/keep-around/1":        setup.Commits.First.OID,
+								"refs/merge-requests/1":     setup.Commits.Second.OID,
+								"refs/tags/v1.0.0":          lightweightTag,
+								"refs/tags/v2.0.0":          annotatedTag.OID,
+								"refs/very/deep/nested/ref": setup.Commits.Third.OID,
 							},
 							LooseReferences: map[git.ReferenceName]git.ObjectID{},
 						},
@@ -313,14 +306,12 @@ func generateHousekeepingTests(t *testing.T, ctx context.Context, testPartitionI
 							{Name: "refs/tags/v2.0.0", Target: annotatedTag.OID.String()},
 						},
 						PackedRefs: &PackedRefsState{
-							PackedRefsContent: []string{
-								"# pack-refs with: peeled fully-peeled sorted ",
-								fmt.Sprintf("%s refs/heads/branch-1", setup.Commits.Second.OID.String()),
-								fmt.Sprintf("%s refs/heads/branch-2", setup.Commits.Third.OID.String()),
-								fmt.Sprintf("%s refs/heads/main", setup.Commits.First.OID.String()),
-								fmt.Sprintf("%s refs/tags/v1.0.0", lightweightTag.String()),
-								fmt.Sprintf("%s refs/tags/v2.0.0", annotatedTag.OID.String()),
-								fmt.Sprintf("^%s", setup.Commits.Diverging.OID.String()),
+							PackedReferences: map[git.ReferenceName]git.ObjectID{
+								"refs/heads/branch-1": setup.Commits.Second.OID,
+								"refs/heads/branch-2": setup.Commits.Third.OID,
+								"refs/heads/main":     setup.Commits.First.OID,
+								"refs/tags/v1.0.0":    lightweightTag,
+								"refs/tags/v2.0.0":    annotatedTag.OID,
 							},
 							LooseReferences: map[git.ReferenceName]git.ObjectID{
 								// Although ref creation commits beforehand, pack-refs
@@ -379,14 +370,12 @@ func generateHousekeepingTests(t *testing.T, ctx context.Context, testPartitionI
 							{Name: "refs/tags/v2.0.0", Target: annotatedTag.OID.String()},
 						},
 						PackedRefs: &PackedRefsState{
-							PackedRefsContent: []string{
-								"# pack-refs with: peeled fully-peeled sorted ",
-								fmt.Sprintf("%s refs/heads/branch-1", setup.Commits.Second.OID.String()),
-								fmt.Sprintf("%s refs/heads/branch-2", setup.Commits.Third.OID.String()),
-								fmt.Sprintf("%s refs/heads/main", setup.Commits.First.OID.String()),
-								fmt.Sprintf("%s refs/tags/v1.0.0", lightweightTag.String()),
-								fmt.Sprintf("%s refs/tags/v2.0.0", annotatedTag.OID.String()),
-								fmt.Sprintf("^%s", setup.Commits.Diverging.OID.String()),
+							PackedReferences: map[git.ReferenceName]git.ObjectID{
+								"refs/heads/branch-1": setup.Commits.Second.OID,
+								"refs/heads/branch-2": setup.Commits.Third.OID,
+								"refs/heads/main":     setup.Commits.First.OID,
+								"refs/tags/v1.0.0":    lightweightTag,
+								"refs/tags/v2.0.0":    annotatedTag.OID,
 							},
 							LooseReferences: map[git.ReferenceName]git.ObjectID{
 								// pack-refs task is unaware of these new refs. It keeps
@@ -444,14 +433,12 @@ func generateHousekeepingTests(t *testing.T, ctx context.Context, testPartitionI
 							{Name: "refs/tags/v2.0.0", Target: annotatedTag.OID.String()},
 						},
 						PackedRefs: &PackedRefsState{
-							PackedRefsContent: []string{
-								"# pack-refs with: peeled fully-peeled sorted ",
-								fmt.Sprintf("%s refs/heads/branch-1", setup.Commits.Second.OID.String()), // Outdated
-								fmt.Sprintf("%s refs/heads/branch-2", setup.Commits.Third.OID.String()),  // Outdated
-								fmt.Sprintf("%s refs/heads/main", setup.Commits.First.OID.String()),      // Outdated
-								fmt.Sprintf("%s refs/tags/v1.0.0", lightweightTag.String()),              // Outdated
-								fmt.Sprintf("%s refs/tags/v2.0.0", annotatedTag.OID.String()),            // Still up-to-date
-								fmt.Sprintf("^%s", setup.Commits.Diverging.OID.String()),
+							PackedReferences: map[git.ReferenceName]git.ObjectID{
+								"refs/heads/branch-1": setup.Commits.Second.OID, // Outdated
+								"refs/heads/branch-2": setup.Commits.Third.OID,  // Outdated
+								"refs/heads/main":     setup.Commits.First.OID,  // Outdated
+								"refs/tags/v1.0.0":    lightweightTag,           // Outdated
+								"refs/tags/v2.0.0":    annotatedTag.OID,         // Still up-to-date
 							},
 							LooseReferences: map[git.ReferenceName]git.ObjectID{
 								// Updated refs shadow the ones in the packed-refs file.
@@ -510,14 +497,12 @@ func generateHousekeepingTests(t *testing.T, ctx context.Context, testPartitionI
 							{Name: "refs/tags/v2.0.0", Target: annotatedTag.OID.String()},
 						},
 						PackedRefs: &PackedRefsState{
-							PackedRefsContent: []string{
-								"# pack-refs with: peeled fully-peeled sorted ",
-								fmt.Sprintf("%s refs/heads/branch-1", setup.Commits.Second.OID.String()), // Outdated
-								fmt.Sprintf("%s refs/heads/branch-2", setup.Commits.Third.OID.String()),  // Outdated
-								fmt.Sprintf("%s refs/heads/main", setup.Commits.First.OID.String()),      // Outdated
-								fmt.Sprintf("%s refs/tags/v1.0.0", lightweightTag.String()),              // Outdated
-								fmt.Sprintf("%s refs/tags/v2.0.0", annotatedTag.OID.String()),
-								fmt.Sprintf("^%s", setup.Commits.Diverging.OID.String()),
+							PackedReferences: map[git.ReferenceName]git.ObjectID{
+								"refs/heads/branch-1": setup.Commits.Second.OID, // Outdated
+								"refs/heads/branch-2": setup.Commits.Third.OID,  // Outdated
+								"refs/heads/main":     setup.Commits.First.OID,  // Outdated
+								"refs/tags/v1.0.0":    lightweightTag,           // Outdated
+								"refs/tags/v2.0.0":    annotatedTag.OID,
 							},
 							LooseReferences: map[git.ReferenceName]git.ObjectID{
 								"refs/heads/main":     setup.Commits.Second.OID,
@@ -573,7 +558,7 @@ func generateHousekeepingTests(t *testing.T, ctx context.Context, testPartitionI
 						PackedRefs: &PackedRefsState{
 							// Empty packed-refs. It means the pack-refs task is not
 							// executed.
-							PackedRefsContent: []string{""},
+							PackedReferences: map[git.ReferenceName]git.ObjectID{},
 							// Deleted refs went away.
 							LooseReferences: map[git.ReferenceName]git.ObjectID{
 								"refs/heads/branch-2": setup.Commits.Third.OID,
@@ -634,7 +619,7 @@ func generateHousekeepingTests(t *testing.T, ctx context.Context, testPartitionI
 							{Name: "refs/tags/v2.0.0", Target: annotatedTag.OID.String()},
 						},
 						PackedRefs: &PackedRefsState{
-							PackedRefsContent: []string{""},
+							PackedReferences: map[git.ReferenceName]git.ObjectID{},
 							LooseReferences: map[git.ReferenceName]git.ObjectID{
 								"refs/heads/branch-1": setup.Commits.Second.OID,
 								"refs/heads/branch-2": setup.Commits.Third.OID,
@@ -726,9 +711,8 @@ func generateHousekeepingTests(t *testing.T, ctx context.Context, testPartitionI
 							{Name: "refs/heads/main", Target: setup.Commits.First.OID.String()},
 						},
 						PackedRefs: &PackedRefsState{
-							PackedRefsContent: []string{
-								"# pack-refs with: peeled fully-peeled sorted ",
-								fmt.Sprintf("%s refs/heads/main", setup.Commits.First.OID.String()),
+							PackedReferences: map[git.ReferenceName]git.ObjectID{
+								"refs/heads/main": setup.Commits.First.OID,
 							},
 							LooseReferences: map[git.ReferenceName]git.ObjectID{},
 						},
@@ -800,12 +784,10 @@ func generateHousekeepingTests(t *testing.T, ctx context.Context, testPartitionI
 							{Name: "refs/tags/v2.0.0", Target: annotatedTag.OID.String()},
 						},
 						PackedRefs: &PackedRefsState{
-							PackedRefsContent: []string{
-								"# pack-refs with: peeled fully-peeled sorted ",
-								fmt.Sprintf("%s refs/heads/branch-2", setup.Commits.Third.OID.String()),
-								fmt.Sprintf("%s refs/heads/main", setup.Commits.First.OID.String()),
-								fmt.Sprintf("%s refs/tags/v2.0.0", annotatedTag.OID.String()),
-								fmt.Sprintf("^%s", setup.Commits.Diverging.OID.String()),
+							PackedReferences: map[git.ReferenceName]git.ObjectID{
+								"refs/heads/branch-2": setup.Commits.Third.OID,
+								"refs/heads/main":     setup.Commits.First.OID,
+								"refs/tags/v2.0.0":    annotatedTag.OID,
 							},
 							LooseReferences: map[git.ReferenceName]git.ObjectID{},
 						},
@@ -898,14 +880,12 @@ func generateHousekeepingTests(t *testing.T, ctx context.Context, testPartitionI
 						DefaultBranch: "refs/heads/main",
 						References:    defaultRefs,
 						PackedRefs: &PackedRefsState{
-							PackedRefsContent: []string{
-								"# pack-refs with: peeled fully-peeled sorted ",
-								fmt.Sprintf("%s refs/heads/branch-1", setup.Commits.Second.OID.String()),
-								fmt.Sprintf("%s refs/heads/branch-2", setup.Commits.Third.OID.String()),
-								fmt.Sprintf("%s refs/heads/main", setup.Commits.First.OID.String()),
-								fmt.Sprintf("%s refs/tags/v1.0.0", lightweightTag.String()),
-								fmt.Sprintf("%s refs/tags/v2.0.0", annotatedTag.OID.String()),
-								fmt.Sprintf("^%s", setup.Commits.Diverging.OID.String()),
+							PackedReferences: map[git.ReferenceName]git.ObjectID{
+								"refs/heads/branch-1": setup.Commits.Second.OID,
+								"refs/heads/branch-2": setup.Commits.Third.OID,
+								"refs/heads/main":     setup.Commits.First.OID,
+								"refs/tags/v1.0.0":    lightweightTag,
+								"refs/tags/v2.0.0":    annotatedTag.OID,
 							},
 							LooseReferences: map[git.ReferenceName]git.ObjectID{},
 						},
@@ -982,9 +962,8 @@ func generateHousekeepingTests(t *testing.T, ctx context.Context, testPartitionI
 							{Name: "refs/heads/main", Target: setup.Commits.First.OID.String()},
 						},
 						PackedRefs: &PackedRefsState{
-							PackedRefsContent: []string{
-								"# pack-refs with: peeled fully-peeled sorted ",
-								fmt.Sprintf("%s refs/heads/main", setup.Commits.First.OID.String()),
+							PackedReferences: map[git.ReferenceName]git.ObjectID{
+								"refs/heads/main": setup.Commits.First.OID,
 							},
 							LooseReferences: map[git.ReferenceName]git.ObjectID{},
 						},
@@ -1061,14 +1040,12 @@ func generateHousekeepingTests(t *testing.T, ctx context.Context, testPartitionI
 						DefaultBranch: "refs/heads/main",
 						References:    defaultRefs,
 						PackedRefs: &PackedRefsState{
-							PackedRefsContent: []string{
-								"# pack-refs with: peeled fully-peeled sorted ",
-								fmt.Sprintf("%s refs/heads/branch-1", setup.Commits.Second.OID.String()),
-								fmt.Sprintf("%s refs/heads/branch-2", setup.Commits.Third.OID.String()),
-								fmt.Sprintf("%s refs/heads/main", setup.Commits.First.OID.String()),
-								fmt.Sprintf("%s refs/tags/v1.0.0", lightweightTag.String()),
-								fmt.Sprintf("%s refs/tags/v2.0.0", annotatedTag.OID.String()),
-								fmt.Sprintf("^%s", setup.Commits.Diverging.OID.String()),
+							PackedReferences: map[git.ReferenceName]git.ObjectID{
+								"refs/heads/branch-1": setup.Commits.Second.OID,
+								"refs/heads/branch-2": setup.Commits.Third.OID,
+								"refs/heads/main":     setup.Commits.First.OID,
+								"refs/tags/v1.0.0":    lightweightTag,
+								"refs/tags/v2.0.0":    annotatedTag.OID,
 							},
 							LooseReferences: map[git.ReferenceName]git.ObjectID{},
 						},
@@ -1125,8 +1102,8 @@ func generateHousekeepingTests(t *testing.T, ctx context.Context, testPartitionI
 						DefaultBranch: "refs/heads/main",
 						References:    nil,
 						PackedRefs: &PackedRefsState{
-							PackedRefsContent: []string{""},
-							LooseReferences:   map[git.ReferenceName]git.ObjectID{},
+							PackedReferences: map[git.ReferenceName]git.ObjectID{},
+							LooseReferences:  map[git.ReferenceName]git.ObjectID{},
 						},
 						Objects: []git.ObjectID{},
 					},
