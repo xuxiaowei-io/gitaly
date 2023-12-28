@@ -150,6 +150,7 @@ type repositoryCreation struct {
 // such as the cleanup of unneeded files and optimizations for the repository's data structures.
 type runHousekeeping struct {
 	packRefs *runPackRefs
+	repack   *runRepack
 }
 
 // runPackRefs models refs packing housekeeping task. It packs heads and tags for efficient repository access.
@@ -157,6 +158,14 @@ type runPackRefs struct {
 	// PrunedRefs contain a list of references pruned by the `git-pack-refs` command. They are used
 	// for comparing to the ref list of the destination repository
 	PrunedRefs map[git.ReferenceName]struct{}
+}
+
+type runRepack struct {
+	config        housekeeping.RepackObjectsConfig
+	isFullRepack  bool
+	newFiles      []string
+	deletingFiles []string
+	prunedObjects map[git.ObjectID]struct{}
 }
 
 // ReferenceUpdates contains references to update. Reference name is used as the key and the value
@@ -621,6 +630,15 @@ func (txn *Transaction) PackRefs() {
 	}
 	txn.runHousekeeping.packRefs = &runPackRefs{
 		PrunedRefs: map[git.ReferenceName]struct{}{},
+	}
+}
+
+func (txn *Transaction) Repack(config housekeeping.RepackObjectsConfig) {
+	if txn.runHousekeeping == nil {
+		txn.runHousekeeping = &runHousekeeping{}
+	}
+	txn.runHousekeeping.repack = &runRepack{
+		config: config,
 	}
 }
 
@@ -1148,6 +1166,9 @@ func (mgr *TransactionManager) prepareHousekeeping(ctx context.Context, transact
 	if err := mgr.preparePackRefs(ctx, transaction); err != nil {
 		return err
 	}
+	if err := mgr.prepareRepack(ctx, transaction); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -1222,6 +1243,132 @@ func (mgr *TransactionManager) preparePackRefs(ctx context.Context, transaction 
 	}
 
 	return nil
+}
+
+func (mgr *TransactionManager) prepareRepack(ctx context.Context, transaction *Transaction) error {
+	if transaction.runHousekeeping.repack == nil {
+		return nil
+	}
+
+	var err error
+	repack := transaction.runHousekeeping.repack
+
+	if repack.isFullRepack, err = housekeeping.ValidateRepacking(repack.config); err != nil {
+		return fmt.Errorf("validating repacking: %w", err)
+	}
+
+	if repack.config.Strategy == housekeeping.RepackObjectsStrategyIncrementalWithUnreachable {
+		// Once the transaction manager has been applied and at least one complete repack has occurred, there
+		// should be no loose unreachable objects remaining in the repository. When the transaction manager
+		// processes a change, it consolidates all unreachable objects and objects about to become reachable
+		// into a new packfile, which is then placed in the repository. As a result, unreachable objects may
+		// still exist but are confined to packfiles. These will eventually be cleaned up during a full cruft
+		// repack. In the interim, geometric repacking is utilized to optimize the structure of packfiles for
+		// faster access. Therefore, this operation is effectively a no-op. However, we maintain it for the sake
+		// of backward compatibility with the existing housekeeping scheduler.
+		return nil
+	}
+
+	// Capture the list of packfiles and their baggages before repacking.
+	beforeFiles, err := mgr.collectPackfiles(ctx, transaction)
+	if err != nil {
+		return fmt.Errorf("collecting existing packfiles: %w", err)
+	}
+
+	switch repack.config.Strategy {
+	case housekeeping.RepackObjectsStrategyGeometric:
+		// Geometric repacking rearranges the list of packfiles according to a geometric progression. This process
+		// does not consider object reachability. Since all unreachable objects remain within small packfiles,
+		// they become included in the newly created packfiles. Geometric repacking does not prune any objects.
+		if err := housekeeping.PerformGeometricRepacking(ctx, transaction.snapshotRepository, repack.config); err != nil {
+			return err
+		}
+	case housekeeping.RepackObjectsStrategyFullWithUnreachable:
+		// This strategy merges all packfiles into a single packfile, simultaneously removing any loose objects
+		// if present. Unreachable objects are then appended to the end of this unified packfile. Although the
+		// `git-repack(1)` command does not offer an option to specifically pack loose unreachable objects, this
+		// is not an issue because the transaction manager already ensures that unreachable objects are
+		// contained within packfiles. Therefore, this strategy effectively consolidates all packfiles into a
+		// single one. Adopting this strategy is crucial for alternates, as it ensures that we can manage
+		// objects within an object pool without the capability to prune them.
+		if err := housekeeping.PerformFullRepackingWithUnreachable(ctx, transaction.snapshotRepository, repack.config); err != nil {
+			return err
+		}
+	case housekeeping.RepackObjectsStrategyFullWithCruft:
+		// Both of above strategies don't prune unreachable objects. This strategy performs a full repack but
+		// unreachable objects are pushed out into two files: cruft packfile and expire packfile. With cruft
+		// packs, we can only evict old objects after a full repack and on the next full repack afterwards
+		// again. Thus, it's safe to have a grace period to keep "young" unreachable objects around. The current
+		// grade period is 10 days. They locate in the cruft packfile. Unreachable objects exceeding this period
+		// stay in the expire packfile.
+		// Both the resulting packfile and the cruft packfile will replace the existing set of packfiles. The
+		// expire packfile, while not included in this replacement, serves to inform the manager about pruned
+		// unreachable objects. These objects are then utilized for conflict verification during the execution
+		// of repacking tasks.
+		return nil
+	}
+
+	// Re-capture the list of packfiles and their baggages after repacking.
+	afterFiles, err := mgr.collectPackfiles(ctx, transaction)
+	if err != nil {
+		return fmt.Errorf("collecting new packfiles: %w", err)
+	}
+
+	for file := range beforeFiles {
+		// We delete the files only if it's missing from the before set, just to save some times.
+		if _, exist := afterFiles[file]; !exist {
+			repack.deletingFiles = append(repack.deletingFiles, file)
+		}
+	}
+	for file := range afterFiles {
+		repack.newFiles = append(repack.newFiles, file)
+	}
+
+	// Collect multi-pack-index and bitmap files. Before ones are likely irrelevant anymore.
+	if repack.config.WriteBitmap {
+		repack.newFiles = append(repack.newFiles, "multi-pack-index")
+		repack.deletingFiles = append(repack.newFiles, "multi-pack-index")
+	}
+	if repack.config.WriteMultiPackIndex {
+	}
+
+	return nil
+}
+
+var packfileExtensions = map[string]struct{}{
+	".pack":   {},
+	".idx":    {},
+	".rev":    {},
+	".mtimes": {},
+}
+
+func (mgr *TransactionManager) collectPackfiles(ctx context.Context, transaction *Transaction) (map[string]struct{}, error) {
+	repoPath := mgr.getAbsolutePath(transaction.snapshotRepository.GetRelativePath())
+
+	files, err := os.ReadDir(filepath.Join(repoPath, "objects", "pack"))
+	if err != nil {
+		// The repository has not been packed before. Nothing to collect.
+		if errors.Is(err, os.ErrNotExist) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("reading objects/pack dir: %w", err)
+	}
+
+	// Filter packfiles and relevant files.
+	collectedFiles := make(map[string]struct{})
+	for _, file := range files {
+		// objects/pack directory should not include any sub-directory. We can simply ignore them.
+		if file.IsDir() {
+			continue
+		}
+		for extension := range packfileExtensions {
+			if strings.HasSuffix(file.Name(), extension) {
+				collectedFiles[file.Name()] = struct{}{}
+			}
+		}
+	}
+
+	return collectedFiles, nil
 }
 
 // unwrapExpectedError unwraps expected errors that may occur and returns them directly to the caller.
@@ -2308,11 +2455,7 @@ func (mgr *TransactionManager) applyRepositoryDeletion(ctx context.Context, logE
 // log into the repository's object directory.
 func (mgr *TransactionManager) applyPackFile(ctx context.Context, lsn LSN, logEntry *gitalypb.LogEntry) error {
 	packDirectory := filepath.Join(mgr.getAbsolutePath(logEntry.RelativePath), "objects", "pack")
-	for _, fileExtension := range []string{
-		".pack",
-		".idx",
-		".rev",
-	} {
+	for fileExtension := range packfileExtensions {
 		if err := os.Link(
 			filepath.Join(walFilesPathForLSN(mgr.stateDirectory, lsn), "objects"+fileExtension),
 			filepath.Join(packDirectory, logEntry.PackPrefix+fileExtension),
@@ -2374,82 +2517,103 @@ func (mgr *TransactionManager) applyHousekeeping(ctx context.Context, lsn LSN, l
 	if logEntry.Housekeeping == nil {
 		return nil
 	}
+
+	if err := mgr.applyPackRefs(ctx, lsn, logEntry); err != nil {
+		return err
+	}
+
+	if err := mgr.applyRepacking(ctx, lsn, logEntry); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (mgr *TransactionManager) applyPackRefs(ctx context.Context, lsn LSN, logEntry *gitalypb.LogEntry) error {
+	if logEntry.Housekeeping.PackRefs == nil {
+		return nil
+	}
+
 	repositoryPath := mgr.getAbsolutePath(logEntry.RelativePath)
-	if logEntry.Housekeeping.PackRefs != nil {
-		// Remove packed-refs lock. While we shouldn't be producing any new stale locks, it makes sense to have
-		// this for historic state until we're certain none of the repositories contain stale locks anymore.
-		// This clean up is not needed afterward.
-		if err := mgr.removePackedRefsLocks(ctx, repositoryPath); err != nil {
-			return fmt.Errorf("applying pack-refs: %w", err)
-		}
+	// Remove packed-refs lock. While we shouldn't be producing any new stale locks, it makes sense to have
+	// this for historic state until we're certain none of the repositories contain stale locks anymore.
+	// This clean up is not needed afterward.
+	if err := mgr.removePackedRefsLocks(ctx, repositoryPath); err != nil {
+		return fmt.Errorf("applying pack-refs: %w", err)
+	}
 
-		packedRefsPath := filepath.Join(repositoryPath, "packed-refs")
-		// Replace the packed-refs file.
-		if err := os.Remove(packedRefsPath); err != nil {
-			if !errors.Is(err, os.ErrNotExist) {
-				return fmt.Errorf("removing existing pack-refs: %w", err)
-			}
-		}
-		if err := os.Link(
-			filepath.Join(walFilesPathForLSN(mgr.stateDirectory, lsn), "packed-refs"),
-			packedRefsPath,
-		); err != nil {
-			return fmt.Errorf("linking new packed-refs: %w", err)
-		}
-
-		modifiedDirs := map[string]struct{}{}
-		// Prune loose references. The log entry carries the list of fully qualified references to prune.
-		for _, ref := range logEntry.Housekeeping.PackRefs.PrunedRefs {
-			path := filepath.Join(repositoryPath, string(ref))
-			if err := os.Remove(path); err != nil {
-				if !errors.Is(err, os.ErrNotExist) {
-					return structerr.New("pruning loose reference: %w", err).WithMetadata("ref", path)
-				}
-			}
-			modifiedDirs[filepath.Dir(path)] = struct{}{}
-		}
-
-		syncer := safe.NewSyncer()
-		// Traverse all modified dirs back to the root "refs" dir of the repository. Remove any empty directory
-		// along the way. It prevents leaving empty dirs around after a loose ref is pruned. `git-pack-refs`
-		// command does dir removal for us, but in staginge repository during preparation stage. In the actual
-		// repository,  we need to do it ourselves.
-		rootRefDir := filepath.Join(repositoryPath, "refs")
-		for dir := range modifiedDirs {
-			for dir != rootRefDir {
-				if isEmpty, err := isDirEmpty(dir); err != nil {
-					// If a dir does not exist, it properly means a directory may already be deleted by a
-					// previous interrupted attempt on applying the log entry. We simply ignore the error
-					// and move up the directory hierarchy.
-					if errors.Is(err, fs.ErrNotExist) {
-						dir = filepath.Dir(dir)
-						continue
-					} else {
-						return fmt.Errorf("checking empty ref dir: %w", err)
-					}
-				} else if !isEmpty {
-					break
-				}
-
-				if err := os.Remove(dir); err != nil {
-					return fmt.Errorf("removing empty ref dir: %w", err)
-				}
-				dir = filepath.Dir(dir)
-			}
-			// If there is any empty dir along the way, it's removed and dir pointer moves up until the dir
-			// is not empty or reaching the root dir. That one should be fsynced to flush the dir removal.
-			// If there is no empty dir, it stays at the dir of pruned refs, which also needs a flush.
-			if err := syncer.Sync(dir); err != nil {
-				return fmt.Errorf("sync dir: %w", err)
-			}
-		}
-
-		// Sync the root of the repository to flush packed-refs replacement.
-		if err := syncer.SyncParent(packedRefsPath); err != nil {
-			return fmt.Errorf("sync parent: %w", err)
+	packedRefsPath := filepath.Join(repositoryPath, "packed-refs")
+	// Replace the packed-refs file.
+	if err := os.Remove(packedRefsPath); err != nil {
+		if !errors.Is(err, os.ErrNotExist) {
+			return fmt.Errorf("removing existing pack-refs: %w", err)
 		}
 	}
+	if err := os.Link(
+		filepath.Join(walFilesPathForLSN(mgr.stateDirectory, lsn), "packed-refs"),
+		packedRefsPath,
+	); err != nil {
+		return fmt.Errorf("linking new packed-refs: %w", err)
+	}
+
+	modifiedDirs := map[string]struct{}{}
+	// Prune loose references. The log entry carries the list of fully qualified references to prune.
+	for _, ref := range logEntry.Housekeeping.PackRefs.PrunedRefs {
+		path := filepath.Join(repositoryPath, string(ref))
+		if err := os.Remove(path); err != nil {
+			if !errors.Is(err, os.ErrNotExist) {
+				return structerr.New("pruning loose reference: %w", err).WithMetadata("ref", path)
+			}
+		}
+		modifiedDirs[filepath.Dir(path)] = struct{}{}
+	}
+
+	syncer := safe.NewSyncer()
+	// Traverse all modified dirs back to the root "refs" dir of the repository. Remove any empty directory
+	// along the way. It prevents leaving empty dirs around after a loose ref is pruned. `git-pack-refs`
+	// command does dir removal for us, but in staginge repository during preparation stage. In the actual
+	// repository,  we need to do it ourselves.
+	rootRefDir := filepath.Join(repositoryPath, "refs")
+	for dir := range modifiedDirs {
+		for dir != rootRefDir {
+			if isEmpty, err := isDirEmpty(dir); err != nil {
+				// If a dir does not exist, it properly means a directory may already be deleted by a
+				// previous interrupted attempt on applying the log entry. We simply ignore the error
+				// and move up the directory hierarchy.
+				if errors.Is(err, fs.ErrNotExist) {
+					dir = filepath.Dir(dir)
+					continue
+				} else {
+					return fmt.Errorf("checking empty ref dir: %w", err)
+				}
+			} else if !isEmpty {
+				break
+			}
+
+			if err := os.Remove(dir); err != nil {
+				return fmt.Errorf("removing empty ref dir: %w", err)
+			}
+			dir = filepath.Dir(dir)
+		}
+		// If there is any empty dir along the way, it's removed and dir pointer moves up until the dir
+		// is not empty or reaching the root dir. That one should be fsynced to flush the dir removal.
+		// If there is no empty dir, it stays at the dir of pruned refs, which also needs a flush.
+		if err := syncer.Sync(dir); err != nil {
+			return fmt.Errorf("sync dir: %w", err)
+		}
+	}
+
+	// Sync the root of the repository to flush packed-refs replacement.
+	if err := syncer.SyncParent(packedRefsPath); err != nil {
+		return fmt.Errorf("sync parent: %w", err)
+	}
 	return nil
+}
+
+func (mgr *TransactionManager) applyRepacking(ctx context.Context, lsn LSN, logEntry *gitalypb.LogEntry) error {
+	if logEntry.Housekeeping.Repack == nil {
+		return nil
+	}
 }
 
 // isDirEmpty checks if a directory is empty.
