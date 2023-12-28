@@ -72,8 +72,17 @@ message LogEntry {
       repeated bytes pruned_refs = 1;
     }
 
+    // Repack models a repacking housekeeping task. The task re-organizes the packfiles for fater access...
+    message Repack {
+      repeated bytes newFiles = 1;
+      repeated bytes deletedFiles = 2;
+      repeated bytes prunedObjects = 3;
+    }
+
     // pack_refs signifies if the housekeeping run includes a pack-refs task.
     PackRefs pack_refs = 1;
+    // repack signifies if the housekeeping run includes a repacking task.
+    Repack repack = 2;
   }
 
   // relative_path is the relative path of the repository the changes in the
