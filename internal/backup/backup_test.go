@@ -54,7 +54,7 @@ func TestManager_RemoveRepository(t *testing.T) {
 	locator, err := backup.ResolveLocator("pointer", sink)
 	require.NoError(t, err)
 
-	fsBackup := backup.NewManager(sink, locator, pool)
+	fsBackup := backup.NewManager(sink, testhelper.SharedLogger(t), locator, pool)
 	err = fsBackup.RemoveRepository(ctx, &backup.RemoveRepositoryRequest{
 		Server: storage.ServerInfo{Address: cfg.SocketPath, Token: cfg.Auth.Token},
 		Repo:   repo,
@@ -145,7 +145,7 @@ func TestManager_ListRepositories(t *testing.T) {
 			locator, err := backup.ResolveLocator("pointer", sink)
 			require.NoError(t, err)
 
-			fsBackup := backup.NewManager(sink, locator, pool)
+			fsBackup := backup.NewManager(sink, testhelper.SharedLogger(t), locator, pool)
 
 			for storageName, repos := range tc.repos {
 				actualRepos, err := fsBackup.ListRepositories(ctx, &backup.ListRepositoriesRequest{
@@ -184,7 +184,7 @@ func TestManager_Create(t *testing.T) {
 					testhelper.MustClose(tb, pool)
 				})
 
-				return backup.NewManager(sink, locator, pool)
+				return backup.NewManager(sink, testhelper.SharedLogger(t), locator, pool)
 			},
 		},
 		{
@@ -431,7 +431,7 @@ func TestManager_Create_incremental(t *testing.T) {
 					testhelper.MustClose(tb, pool)
 				})
 
-				return backup.NewManager(sink, locator, pool)
+				return backup.NewManager(sink, testhelper.SharedLogger(t), locator, pool)
 			},
 		},
 		{
@@ -577,7 +577,7 @@ func TestManager_Restore_latest(t *testing.T) {
 					testhelper.MustClose(tb, pool)
 				})
 
-				return backup.NewManager(sink, locator, pool)
+				return backup.NewManager(sink, testhelper.SharedLogger(t), locator, pool)
 			},
 		},
 		{
@@ -918,7 +918,7 @@ func TestManager_Restore_specific(t *testing.T) {
 					testhelper.MustClose(tb, pool)
 				})
 
-				return backup.NewManager(sink, locator, pool)
+				return backup.NewManager(sink, testhelper.SharedLogger(t), locator, pool)
 			},
 		},
 		{
@@ -1198,7 +1198,7 @@ func TestManager_CreateRestore_contextServerInfo(t *testing.T) {
 	locator, err := backup.ResolveLocator("pointer", sink)
 	require.NoError(t, err)
 
-	fsBackup := backup.NewManager(sink, locator, pool)
+	fsBackup := backup.NewManager(sink, testhelper.SharedLogger(t), locator, pool)
 
 	ctx = testhelper.MergeIncomingMetadata(ctx, testcfg.GitalyServersMetadataFromCfg(t, cfg))
 
