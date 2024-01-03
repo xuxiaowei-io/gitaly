@@ -19,7 +19,7 @@ import (
 
 func TestGetInfoAttributesExisting(t *testing.T) {
 	t.Parallel()
-
+	t.Skip("skipping test: GetInfoAttributes is deprecated in git 2.43.0+")
 	ctx := testhelper.Context(t)
 	cfg, client := setupRepositoryService(t)
 	repo, repoPath := gittest.CreateRepository(t, ctx, cfg)
@@ -50,7 +50,7 @@ func TestGetInfoAttributesExisting(t *testing.T) {
 
 func TestGetInfoAttributesNonExisting(t *testing.T) {
 	t.Parallel()
-
+	t.Skip("skipping test: GetInfoAttributes is deprecated in git 2.43.0+")
 	ctx := testhelper.Context(t)
 	cfg, client := setupRepositoryService(t)
 	repo, _ := gittest.CreateRepository(t, ctx, cfg)
@@ -69,6 +69,7 @@ func TestGetInfoAttributesNonExisting(t *testing.T) {
 
 func TestGetInfoAttributes_validate(t *testing.T) {
 	t.Parallel()
+	t.Skip("skipping test: GetInfoAttributes is deprecated in git 2.43.0+")
 	ctx := testhelper.Context(t)
 	_, client := setupRepositoryService(t)
 
