@@ -22,6 +22,7 @@ build:golang:1.21-alpine3.18:
   script:
     - apk --no-cache add make
     - apk --no-cache add git
+    - apk --no-cache add bash
     - make
     - ls -lh _build/bin
   artifacts:
